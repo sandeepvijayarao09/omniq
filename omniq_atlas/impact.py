@@ -126,7 +126,7 @@ def first_time_right(user_id: str | None = None, days: int = 7) -> dict[str, Any
         per[k][0] += 1
         per[k][1] += e["_id"] not in bad
     names = {a["id"]: a["name"] for a in db().agents.find({}, {"id": 1, "name": 1})}
-    rows = sorted(({"agent": names.get(k, "General assistant"), "answers": n, "first_time_right": round(ok / n, 3)}
+    rows = sorted(({"agent": names.get(k) or ("General assistant" if k == "assistant" else f"{k} (retired agent)"), "answers": n, "first_time_right": round(ok / n, 3)}
                    for k, (n, ok) in per.items() if n), key=lambda r: -r["answers"])
     total = len(eps)
     return {"answers": total, "rate": round((total - len(bad & set(ids))) / total, 3) if total else None, "per_agent": rows[:10]}

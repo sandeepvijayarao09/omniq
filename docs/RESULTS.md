@@ -24,11 +24,11 @@ _Generated 2026-10-11 22:52 UTC by `scripts/results.py`. Every number below is a
 | Debug Agent | 7 | 43% |
 | Verifier Agent | 6 | 67% |
 | Build Agent | 6 | 100% |
-| General assistant | 5 | 20% |
-| General assistant | 5 | 60% |
+| renewal_risk (retired agent) | 5 | 20% |
+| deal_coach (retired agent) | 5 | 60% |
 | Board Brief Agent | 2 | 100% |
-| General assistant | 2 | 100% |
-| General assistant | 2 | 100% |
+| board_tech_brief (retired agent) | 2 | 100% |
+| deploy_guide (retired agent) | 2 | 100% |
 
 ## Scores over time (practice-question pass rate)
 
