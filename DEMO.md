@@ -19,7 +19,7 @@
    canary?"* → "0.5% / 800 ms" from the runbook. ⓘ context now also shows `data/agents/developer/deploy_guide.md`.
    Type `@board`: nothing appears, because Board Tech Brief is a CTO agent. As Marcus, all 20 agents appear.
 
-4. **It improves itself (45 s).** **📈 Self-improvement** tab → **CTO: Security Agent** → **Improve itself ▶**:
+4. **It improves itself (45 s).** **📈 Learning** tab → **CTO: Security Agent** → **Improve from last 7 days ▶**:
    "0% right… never found the document" → Idea → **Kept** → … → 100%. Mention that a scheduler gives the
    longest-waiting agent a round every 20 minutes.
 
@@ -31,7 +31,7 @@
    gives **Allow, by director.ImproveAndApproveTeamPlaybooks**. Ask "What should I focus on this week?" as Maya, then as Ben:
    each gets their own projects.
 
-6. **Guardrails and data (20 s).** **Try to break it** is refused. **🕸 Ontology** and **🗄 Data layer** show the Atlas
+6. **Guardrails and data (20 s).** **More → Try to break it** is refused. **⋯ Under the hood → Company graph and Data layer** show the Atlas
    collections, the vector indexes and the person's own ACL filter.
 
 **Likely questions**

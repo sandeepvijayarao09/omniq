@@ -22,6 +22,9 @@ header h1{font-size:16px;margin:0;white-space:nowrap}header h1 span{color:var(--
 nav{display:flex;gap:4px}nav button{background:transparent;border-color:transparent;color:var(--mute)}
 nav button.on{background:var(--btn);border-color:var(--line);color:var(--text)}
 .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.pill{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:3px 10px;cursor:default;white-space:nowrap}.pill i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c3ccd5;margin-right:6px;vertical-align:1px}.pill i.on{background:var(--accent)}
+.hood{position:relative}.hoodmenu{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(16,24,40,.12);padding:6px;z-index:9;min-width:210px}
+.hood.open .hoodmenu{display:block}.hoodmenu button{display:block;width:100%;text-align:left;margin:2px 0}
 .dots{display:flex;gap:10px;font-size:12px;color:var(--mute)}.dots i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c3ccd5;margin-right:5px;vertical-align:1px}.dots i.on{background:var(--accent)}
 .me{font-size:13px;color:var(--mute)}.me b{color:var(--text)}
 .view{display:none;height:calc(100% - 55px)}.view.on{display:grid}
@@ -46,6 +49,10 @@ details summary{cursor:pointer;color:var(--mute);font-size:12px}details{margin-t
 .drawer{display:none;border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:10px 12px;margin:10px 16px 0}.drawer.on{display:block}
 .mem{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}.mem .kind{font-size:11px;color:var(--mute);min-width:84px}.mem button{margin-left:auto;padding:1px 8px;font-size:11px}
 textarea{width:100%;min-height:56px}
+.steps3{display:flex;align-items:stretch;gap:8px;padding:14px 16px 4px;flex-wrap:wrap}.steps3>div{flex:1;min-width:170px;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px}
+.steps3>div.arr{flex:0;min-width:0;border:0;background:transparent;padding:10px 0;color:var(--mute);align-self:center}.steps3 b{display:block;font-size:14px}.steps3 span{font-size:12px;color:var(--mute)}
+button.big{padding:9px 16px;font-size:14px}.more{position:relative}.more summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:9px;padding:7px 12px;background:var(--btn);color:var(--text);font-size:13px}
+.more summary::-webkit-details-marker{display:none}.moremenu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(16,24,40,.12);padding:6px;z-index:6;min-width:200px}.moremenu button{display:block;width:100%;text-align:left;margin:2px 0}
 .how{border:1px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--panel);font-size:13px;margin-bottom:12px}
 .how ol{margin:8px 0 2px 18px;padding:0}.how li{margin:4px 0;color:var(--text)}
 .state{font-size:13px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.state>div.small{flex-basis:100%}
@@ -141,8 +148,10 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 <body>
 <header>
   <h1>Omniq <span>Atlas</span></h1>
-  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vImpact">📊 Impact</button><button data-v="vAccess">🔐 Access</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
-  <div class="right"><div class="dots" id="dots"></div><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
+  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Learning</button><button data-v="vImpact">📊 Impact</button>
+    <span class="hood"><button class="hoodbtn" id="hoodBtn">⋯ Under the hood</button><span class="hoodmenu" id="hoodMenu">
+      <button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button></span></span></nav>
+  <div class="right"><span class="pill" id="dots">…</span><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
 
 <div class="view on" id="vChat">
@@ -165,14 +174,17 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 
 <div class="view" id="vImprove">
   <section style="max-width:980px;margin:0 auto">
-    <div class="bar"><h2>How it improves</h2><select id="role"></select>
-      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-        <button id="redteam" title="Try to sneak in a dangerous change">Try to break it</button>
-        <button id="improve" style="display:none" title="Learn from users' 👎 suggestions">Learn from feedback</button>
-        <button class="primary" id="cycleBtn" style="display:none" title="Improve this agent from everything people did with it in the last 7 days">Improve from last 7 days ▶</button>
-        <button id="evolve" title="Test, find mistakes, fix, keep only what's better">Improve itself ▶</button></span></div>
+    <div class="steps3"><div><b>① People use agents</b><span>questions, 👍 👎, ↻, suggestions</span></div><div class="arr">→</div>
+      <div><b>② The data is measured</b><span>graded tests · real ratings · Raindrop signals</span></div><div class="arr">→</div>
+      <div><b>③ Kept only if proven better</b><span>unseen tests · blind replay · zero leaks</span></div></div>
+    <div class="bar" style="border:0;padding-top:4px"><select id="role" title="Which playbook to look at"></select>
+      <button class="primary big" id="cycleBtn" style="display:none" title="Improve this agent from everything people did with it in the last 7 days">Improve from last 7 days ▶</button>
+      <details class="more"><summary>More</summary><div class="moremenu">
+        <button id="evolve" title="Test, find mistakes, fix, keep only what's better">Improve from tests</button>
+        <button id="improve" style="display:none" title="Learn from users' suggestions now">Learn from suggestions</button>
+        <button id="redteam" title="Try to sneak in a dangerous change">Try to break it 🛑</button></div></details></div>
     <div class="scroll">
-      <div class="card" id="cycleCard"><h3>Your 7-day cycle</h3><span class="mute small">Pick a person to see their cycle.</span></div>
+      <details class="card" id="cycleWrap"><summary><b>Your personal 7-day cycle</b> <span class="mute small">what it learned about you this week</span></summary><div id="cycleCard" style="margin-top:8px"><span class="mute small">Pick a person to see their cycle.</span></div></details>
       <details class="how"><summary><b>How it works</b> (30 seconds)</summary><ol>
         <li><b>Every team and agent has a playbook</b>: how much to read, which rules to follow, when to say "I don't know". Every version is saved in MongoDB Atlas.</li>
         <li><b>It tests itself</b> on practice questions with known answers.</li>
@@ -213,11 +225,12 @@ const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearT
 const pct=x=>x==null?'–':Math.round(x*100)+'%';const newConvo=()=>convo=Math.random().toString(36).slice(2,12);
 const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+$('#hoodBtn').onclick=e=>{e.stopPropagation();$('.hood').classList.toggle('open')};document.addEventListener('click',()=>$('.hood').classList.remove('open'));
+document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>{$('.hood').classList.remove('open');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b||(x.id==='hoodBtn'&&!!b.closest('.hoodmenu'))));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact()});
 
-async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['Atlas',true]];
-  $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
+async function status(){const s=await api('/api/status');const d=[['MongoDB Atlas',true],['Voyage AI',s.voyage],['Raindrop',s.raindrop],[s.model+' (local)',s.llm!=='offline']];
+  const all=d.every(x=>x[1]);$('#dots').innerHTML=`<i class="${all?'on':''}"></i>${all?'All connected':'Partly connected'}`;$('#dots').title=d.map(([n,on])=>`${on?'●':'○'} ${n}`).join('\n')}
 
 async function pickPersona(){const ps=await api('/api/personas');token=null;me=null;myAgents=[];convo=null;$('#who').textContent='not signed in';
   $('#mecard').innerHTML='<span class="mute">Pick a person on the right.</span>';$('#convos').innerHTML='';
@@ -310,7 +323,7 @@ function plain(p){if(!p||!Object.keys(p).length)return 'starting playbook';const
   return out.join(' · ')||'change'}
 const scoreOf=v=>v.scores?.train?v.scores.train.pass_rate:v.scores?.evals?v.scores.evals.pass_rate:null;
 async function loadScopes(sel){const s=await api('/api/scopes');const cur=sel||$('#role').value||'pro';
-  $('#role').innerHTML=`<optgroup label="Access-level playbooks">${s.roles.map(r=>`<option value="${r}">${r[0].toUpperCase()+r.slice(1)} employees</option>`).join('')}</optgroup><optgroup label="Agent playbooks">${s.agents.map(a=>`<option value="${a.scope}">${esc(a.name)}${a.pending?` (${a.pending} new suggestion${a.pending>1?'s':''})`:''}</option>`).join('')}</optgroup>`;
+  $('#role').innerHTML=`<optgroup label="Team playbooks">${s.roles.map(r=>`<option value="${r}">${r[0].toUpperCase()+r.slice(1)} employees</option>`).join('')}</optgroup><optgroup label="Agent playbooks">${s.agents.map(a=>`<option value="${a.scope}">${esc(a.name)}${a.pending?` (${a.pending} new suggestion${a.pending>1?'s':''})`:''}</option>`).join('')}</optgroup>`;
   $('#role').value=cur;if(!$('#role').value)$('#role').value='pro'}
 let showAll=false;
 async function loadLineage(){const role=$('#role').value;if(!role)return;const r=await api('/api/harness/'+encodeURIComponent(role));const isAgent=role.startsWith('agent:');$('#improve').style.display=isAgent?'':'none';
@@ -318,7 +331,7 @@ async function loadLineage(){const role=$('#role').value;if(!role)return;const r
   try{const g0=await api('/api/governance/'+encodeURIComponent(role));window._canApprove=!!(g0.can||{})['harness:approve']}catch(e){window._canApprove=false}
   if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));const RS={pending:'waiting',adopted:'adopted',rejected:'tried, not better',personal:'kept personal',quarantined:'set aside',awaiting_approval:'needs approval',blocked:'refused',superseded:'replaced'};
     $('#recs').innerHTML=rs.length?`<div class="card" style="padding:10px 14px"><h3>Users' suggestions</h3>`+rs.slice(0,5).map(x=>`<div class="rec"><span class="chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':'rolled_back'}">${RS[x.status]||x.status}</span> ${esc(x.text)}</div>`).join('')+'</div>':''}else $('#recs').innerHTML='';
-  $('#lineage').innerHTML=`<div class="mute small" style="margin:0 0 6px">Playbook versions (newest first). Click one for details.</div>`+shown.map(v=>{const sc=scoreOf(v);return `<div class="ver" data-v="${v.version}">
+  $('#lineage').innerHTML=`<div class="mute small" style="margin:0 0 6px">Versions of this agent's playbook (newest first). Click one to see why.</div>`+shown.map(v=>{const sc=scoreOf(v);return `<div class="ver" data-v="${v.version}">
       <b>v${v.version}</b><span><span class="chip ${v.status}">${STATUS[v.status]||v.status}</span></span>
       <span class="pct">${sc!=null?`<span class="meter"><i style="width:${Math.round(sc*100)}%"></i></span>${pct(sc)}`:v.scores?.replay_win_rate!=null?`won ${pct(v.scores.replay_win_rate)}`:''}</span>
       <div class="what">${esc(plain(v.patch))}</div>
@@ -455,10 +468,10 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
   const pg=$('#pGo');if(pg)pg.onclick=async()=>{pg.disabled=true;pg.textContent='Checking safety gate…';try{const r=await api('/api/agents/'+id+'/publish',{method:'POST',body:JSON.stringify({markdown:$('#pMd').value,reason:$('#pWhy').value})});toast(`Published: context v${r.context_version}, playbook v${r.harness_version} (passed ${r.safety_gate} leak checks)`);agentTab='timeline';openAgent(id)}catch(e){toast('⛔ '+e.message);pg.disabled=false;pg.textContent='Publish new version'}}}
 
 /* ---------- 7-day cycle ---------- */
-async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<h3>Your 7-day cycle</h3><span class="mute small">Pick a person to see their cycle.</span>';return}
+async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<span class="mute small">Pick a person to see their cycle.</span>';return}
   const [cs,hist]=await Promise.all([api('/api/cycles'),api(`/api/context/history?kind=person&key=${me.id}`)]);const c=cs[0];
   const t=c?.totals||{};const pa=c?.per_agent||{};
-  $('#cycleCard').innerHTML=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><h3 style="margin:0">Your 7-day cycle</h3>
+  $('#cycleCard').innerHTML=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
       <span class="mute small">${c?`last run ${new Date(c.created).toLocaleString()} · covers ${new Date(c.since).toLocaleDateString()} → ${new Date(c.until).toLocaleDateString()}`:'never run'}</span>
       <button class="primary small" id="runCycle" style="margin-left:auto">Run my cycle now</button></div>
     ${c?`<div class="small" style="margin:8px 0">${esc(c.summary||'')}</div>
