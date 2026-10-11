@@ -5,9 +5,9 @@
 
 **Say first (5 s):** "All code was written today. The demo company dataset is from my earlier prototype."
 
-1. **The idea (15 s).** "A 10-person team: 1 CTO, 2 directors, 3 PMs, 4 developers. Everyone gets a chatbot that
-   knows their role, their own persona and their access. Type @ to bring in one of the 5 agents for your role. Each agent
-   improves itself from scores and from what people do, on MongoDB Atlas. It can never unlock itself."
+1. **The idea (15 s).** "Every person gets a team of agents that makes them 10×, and the team gets better every week by
+   watching how they work. A developer has Build, Verifier, Debug, Release and Code Review agents; the CTO has all 20.
+   Every agent improves itself from behaviour, on MongoDB Atlas, and can never unlock itself."
 
 2. **Same question, different people (45 s).** Sign in as **Maya (Developer)** and click the last suggestion,
    *"What happened in the August 14 outage and what should we do next?"* She gets the engineering detail and her own action item.

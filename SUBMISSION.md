@@ -5,21 +5,26 @@
 **Problem statements:** Recursive Harnessing (primary), Long Horizon Engineering (7-day cycles, versioned memory)
 
 ## One-liner
-Agents that get better at your job by watching how you work, and can never unlock themselves.
+Every person gets a team of agents that makes them 10×, and the team gets better every week by watching how they work.
 
 ## Description (paste into the form)
 
-Omniq Atlas is a company assistant for a 10-person engineering org (CTO, 2 directors, 3 PMs, 4 developers). Each person
-chats in their own context (role file + persona + projects) and can @-mention 20 role-specific agents: Build, Verifier,
-Debug, Release and Code Review for developers; Spec, Prioritization, Research, Launch and Metrics for PMs; Status, Risk,
-People, Capacity and Incident Review for directors; Strategy, Board Brief, Architecture Review, Vendor and Security for
-the CTO.
+**One person + a team of self-improving agents = 10×.** Omniq Atlas gives every employee their own team of specialist
+agents, and makes that team better every week.
 
-**The harness improves itself from behaviour, not from asking.** Users are never asked for feedback. The system notices
-when someone rephrases a question, corrects an answer, extends it ("now also write the rollback plan"), regenerates it or
-copies it, and classifies each follow-up's intent in the background. Raindrop reads back where each agent is failing, by
-failure type and playbook version. Each person and each agent runs a 7-day cycle over all of that evidence, and a Raindrop
-failure spike triggers an agent's cycle immediately.
+A developer works with **Build** (task → implementation plan with owners, ADRs, flags, tests), **Verifier** (plan or PR →
+PASS/FAIL against our runbooks and ADRs), **Debug** (symptoms → next actions and who to page), **Release** (canary,
+rollback limits, freezes) and **Code Review**. A PM has Spec, Prioritization, Research, Launch and Metrics. Directors get
+their five (Status, Risk, People, Capacity, Incident Review) plus every developer and PM agent. The CTO gets all 20,
+including Strategy, Board Brief, Architecture Review, Vendor and Security. You hand off a job with @, and the agent does it
+in your context: your role, persona, projects and exactly the documents you're allowed to see. The demo is a 10-person org
+(CTO, 2 directors, 3 PMs, 4 developers).
+
+**Every agent improves itself over time, from behaviour, not from asking.** Nobody fills in feedback forms. The system
+notices when someone rephrases a question, corrects an answer, builds on it ("now also write the rollback plan"),
+regenerates it or copies it, and classifies each follow-up's intent in the background. Raindrop tells each agent where it
+is failing, by failure type and playbook version. Every person and every agent runs a 7-day improvement cycle, and a
+Raindrop failure spike triggers one immediately. Each week the home screen shows what your agents learned.
 
 **A change is kept only if the data proves it.** Every proposed change to an agent's playbook (rules, retrieval,
 workflow, output template) must win on unseen tests or a blind side-by-side replay, pass an absolute leak safety gate,

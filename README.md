@@ -1,11 +1,13 @@
 # Omniq Atlas
 
-**Agents that get better at your job by watching how you work, and can never unlock themselves.**
+**Every person gets a team of agents that makes them 10×, and the team gets better every week by watching how they work.**
 
-A company assistant for a 10-person engineering org (CTO, directors, PMs, developers) with 20 role-specific agents.
-Every agent's playbook lives in MongoDB Atlas and improves itself from behaviour (rephrasing, corrections, follow-ups,
-Raindrop's failure signals), keeping a change only when the data proves it better, on unseen tests and blind replays,
-with zero leaks. Access is IAM policy compiled into `$vectorSearch`, so the database itself enforces who sees what.
+A developer works with Build, Verifier, Debug, Release and Code Review agents. A PM has Spec, Prioritization, Research,
+Launch and Metrics. A director gets their own five plus every agent below them (15), and the CTO gets all 20. You @-hand off
+a job, they do it in *your* context (role, persona, projects, access), and every agent improves itself over time from how
+people actually use it: rephrasing, corrections, follow-ups, Raindrop's failure signals. A change is kept only when the data
+proves it better, on unseen tests and blind replays, with zero leaks. The agents can tune themselves, but they can never
+unlock themselves: IAM policy compiled into `$vectorSearch` means MongoDB itself enforces who sees what.
 
 **Live:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app · **Results:** [docs/RESULTS.md](docs/RESULTS.md) (generated from Atlas) ·
 **Demo script:** [DEMO.md](DEMO.md) · **End-to-end:** `scripts/e2e_live.py` (29/29)
