@@ -261,30 +261,39 @@ def evolve_state(run_id: str) -> dict[str, Any]:
 
 @app.get("/api/evolve/{run_id}/stream")
 async def evolve_stream(run_id: str) -> StreamingResponse:
-    """Server-sent events fed by a MongoDB change stream on the run document."""
+    """Server-sent events fed by a MongoDB change stream on the run document (polling fallback).
+    Sends heartbeats so proxies (Modelence edge, Cloudflare) keep the connection open, and ends
+    immediately for runs that are already finished."""
 
     async def gen():
-        sent = 0
-        doc = db().evolve_runs.find_one({"_id": run_id}) or {"events": []}
+        doc = db().evolve_runs.find_one({"_id": run_id}) or {"events": [], "status": "done"}
         for ev in doc["events"]:
             yield f"data: {json.dumps(ev, default=str)}\n\n"
         sent = len(doc["events"])
+        if doc.get("status") == "done":
+            yield "event: end\ndata: {}\n\n"
+            return
         loop = asyncio.get_running_loop()
         try:
-            stream = db().evolve_runs.watch([{"$match": {"documentKey._id": run_id}}], full_document="updateLookup")
+            stream = db().evolve_runs.watch([{"$match": {"documentKey._id": run_id}}], full_document="updateLookup",
+                                            max_await_time_ms=1000)
         except Exception:
             stream = None
+        last_beat = time.time()
         while True:
+            doc = None
             if stream is not None:
                 change = await loop.run_in_executor(None, stream.try_next)
-                doc = (change or {}).get("fullDocument") if change else None
-                if change is None:
-                    await asyncio.sleep(0.3)
-                    continue
-            else:  # change streams unavailable: poll
+                doc = change.get("fullDocument") if change else None
+            else:
                 await asyncio.sleep(1)
                 doc = db().evolve_runs.find_one({"_id": run_id})
+            if time.time() - last_beat > 10:
+                yield ": heartbeat\n\n"
+                last_beat = time.time()
             if not doc:
+                if stream is not None:
+                    await asyncio.sleep(0.2)
                 continue
             for ev in doc["events"][sent:]:
                 yield f"data: {json.dumps(ev, default=str)}\n\n"
@@ -293,7 +302,8 @@ async def evolve_stream(run_id: str) -> StreamingResponse:
                 yield "event: end\ndata: {}\n\n"
                 break
 
-    return StreamingResponse(gen(), media_type="text/event-stream")
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/api/runs")

@@ -120,6 +120,9 @@ uv venv --python 3.12 .venv && uv pip install --python .venv -e '.[dev]'
 
 Without keys everything still runs. Embeddings fall back to hashing and answers to extraction.
 
+**Live demo:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app (Modelence edge → Cloudflare tunnel → API and local Gemma).
+`scripts/run_live.sh` restarts the API and tunnel.
+
 Deploy the edge to Modelence:
 
 ```bash
