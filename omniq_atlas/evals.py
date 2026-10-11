@@ -74,6 +74,13 @@ def grade(case: dict[str, Any], answer: str) -> dict[str, Any]:
 def run_case(case: dict[str, Any], cfg: dict[str, Any], version: int) -> dict[str, Any]:
     res = assistant.ask(case["persona"], case["question"], cfg_override=cfg, harness_version=version, source="eval")
     g = grade(case, res["answer"])
+    if not g["passed"] and case["kind"] == "answer":
+        ctx = res.get("_context", "").lower()
+        absent = [f for f in case.get("must_include", []) if f.lower() not in res["answer"].lower() and f.lower() not in ctx]
+        g["attribution"] = "retrieval_miss" if absent else "reasoning_miss"
+        g["why"] += f" [{g['attribution']}: {'not in retrieved context: ' + str(absent) if absent else 'fact was in context but not used'}]"
+    elif not g["passed"]:
+        g["attribution"] = "policy"
     return {"id": case["id"], "kind": case["kind"], "persona": case["persona"], "question": case["question"],
             "expected": case.get("must_include", []), "answer": res["answer"][:700], "sources": res["sources"],
             "tokens": res["tokens"], "latency": res["latency"], **g}

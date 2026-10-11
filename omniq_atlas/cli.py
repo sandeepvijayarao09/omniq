@@ -35,6 +35,8 @@ def main() -> None:
     v.add_argument("--resume", default=None, help="run id to resume")
     r = sub.add_parser("redteam")
     r.add_argument("--role", default="pro")
+    rs = sub.add_parser("reset-harness", help="put a role back on the default harness (keeps lessons)")
+    rs.add_argument("--role", default="pro")
     lg = sub.add_parser("lineage")
     lg.add_argument("--role", default="pro")
     au = sub.add_parser("audit")
@@ -59,6 +61,7 @@ def main() -> None:
         ensure_indexes()
     elif args.cmd == "ask":
         res = assistant.ask(args.user, args.question)
+        res.pop("_context", None)
         if not args.show_model_view:
             res.pop("model_view")
         _print(res)
@@ -83,6 +86,10 @@ def main() -> None:
         audit.record("harness_proposed", "redteam", role=args.role, version=doc["version"], status=doc["status"],
                      problems=doc["problems"])
         _print({"status": doc["status"], "problems": doc["problems"]})
+    elif args.cmd == "reset-harness":
+        harness.reset_role(args.role)
+        db().evolve_runs.delete_many({"role": args.role})
+        print(f"{args.role} reset to v1")
     elif args.cmd == "lineage":
         for h in harness.lineage(args.role):
             sc = h.get("scores", {})

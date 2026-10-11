@@ -69,6 +69,11 @@ def reset_all() -> None:
         bootstrap(r)
 
 
+def reset_role(role: str) -> None:
+    db().harness.delete_many({"role": role})
+    bootstrap(role)
+
+
 def lineage(role: str) -> list[dict[str, Any]]:
     return list(db().harness.find({"role": role}, {"_id": 0}).sort("version", 1))
 

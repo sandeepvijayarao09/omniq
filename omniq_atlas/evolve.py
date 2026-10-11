@@ -37,6 +37,9 @@ META_SYSTEM = (
     "You are the harness engineer for an enterprise AI assistant. You improve the harness (prompt rules, "
     "retrieval and context policy, tools, guardrails) based on hard eval evidence. Diagnose the root cause of "
     "the failures (retrieval miss? context truncated? answered when it should abstain? leaked data?) and "
+    "Each failure is labelled: retrieval_miss means the needed fact never reached the model (fix retrieval or "
+    "context: top_k, num_candidates, rerank, max_chunk_chars, query_rewrite, graph_context — prompt rules cannot "
+    "fix this); reasoning_miss means the fact was in context but unused (fix rules or guardrails). "
     "propose ONE focused patch most likely to raise the score without causing leaks or large cost increases. "
     "Never weaken access control or privacy; leak cases must keep refusing. Avoid repeating rejected patches."
 )
@@ -76,7 +79,8 @@ def _evidence(role: str, fails: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _propose(role: str, cfg: dict[str, Any], result: dict[str, Any], fails: list[dict[str, Any]],
              ev: dict[str, Any]) -> dict[str, Any]:
-    brief = [{k: f[k] for k in ("id", "kind", "question", "expected", "why", "sources", "answer")} for f in fails[:10]]
+    brief = [{k: f.get(k) for k in ("id", "kind", "attribution", "question", "expected", "why", "sources", "answer")}
+             for f in fails[:10]]
     prompt = (f"Role: {role}\nCurrent harness config:\n{json.dumps({k: v for k, v in cfg.items() if k != 'invariants'}, indent=1)}\n\n"
               f"{KNOBS}\n\nTrain score {result['score']} (pass rate {result['pass_rate']}, leaks {result['leaks']}, "
               f"avg tokens {result['avg_tokens']}).\nFailing cases:\n{json.dumps(brief, indent=1, default=str)}\n\n"
@@ -88,17 +92,23 @@ def _propose(role: str, cfg: dict[str, Any], result: dict[str, Any], fails: list
     return llm.complete_json(META_SYSTEM, prompt, model=settings.meta_model)
 
 
-def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], gen: int) -> dict[str, Any]:
-    """Offline fallback so the loop still runs without a model key."""
-    ladder = [
-        ({"retrieval": {"top_k": 5, "num_candidates": 80}}, "retrieval misses: widen top_k"),
-        ({"retrieval": {"rerank": True}}, "irrelevant passages: add Voyage rerank"),
-        ({"context": {"max_chunk_chars": 1600}}, "facts truncated: keep more of each passage"),
-        ({"guardrails": {"abstain_when_unsupported": True}}, "invented answers: require abstention"),
+def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], tried: list[Any]) -> dict[str, Any]:
+    """Fallback when there is no model or its proposal is unusable: walk a ladder keyed on failure attribution."""
+    r, c = cfg["retrieval"], cfg["context"]
+    retrieval = [
+        ({"context": {"max_chunk_chars": min(2500, int(c["max_chunk_chars"]) * 2)}}, "facts cut off: keep more of each passage"),
+        ({"retrieval": {"top_k": min(12, int(r["top_k"]) + 3), "num_candidates": 100}}, "facts never retrieved: widen top_k"),
+        ({"retrieval": {"rerank": True}}, "irrelevant passages crowd out the answer: add Voyage rerank"),
         ({"retrieval": {"graph_context": True}}, "entity questions: add ontology context"),
     ]
-    patch, why = ladder[min(gen, len(ladder) - 1)]
-    return {"diagnosis": why, "patch": patch, "rationale": why, "lesson": why}
+    policy = [({"guardrails": {"abstain_when_unsupported": True}}, "invented answers: require abstention"),
+              ({"guardrails": {"cite_sources": True}}, "unsupported claims: require citations")]
+    kinds = {f.get("attribution") for f in fails}
+    ladder = (retrieval + policy) if "retrieval_miss" in kinds or "reasoning_miss" in kinds else (policy + retrieval)
+    for patch, why in ladder:
+        if patch not in tried and harness.apply_patch(cfg, patch) != cfg:
+            return {"diagnosis": why, "patch": patch, "rationale": why, "lesson": why}
+    return {"diagnosis": "nothing left to try", "patch": {}, "rationale": "exhausted", "lesson": ""}
 
 
 def run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str, Any]:
@@ -139,11 +149,18 @@ def run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str,
             break
 
         ev = _evidence(role, fails)
+        tried = [h["patch"] for h in ev["rejected_patches"] if h.get("patch")]
         try:
-            prop = _propose(role, cfg, base_train, fails, ev) if llm.available() else _heuristic(cfg, fails, gen)
+            prop = _propose(role, cfg, base_train, fails, ev) if llm.available() else _heuristic(cfg, fails, tried)
         except Exception as e:  # malformed meta-agent output: fall back rather than stall the run
             _log(run_id, "meta_error", error=str(e)[:200])
-            prop = _heuristic(cfg, fails, gen)
+            prop = _heuristic(cfg, fails, tried)
+        patch = prop.get("patch") or {}
+        only_rules = set(patch) <= {"rules"}
+        if patch in tried or not patch or (only_rules and all(f.get("attribution") == "retrieval_miss" for f in fails)):
+            _log(run_id, "meta_overruled", patch=patch,
+                 reason="repeat of a rejected patch" if patch in tried else "prompt rules cannot fix retrieval misses")
+            prop = _heuristic(cfg, fails, tried)
         _log(run_id, "proposed", diagnosis=prop.get("diagnosis"), patch=prop.get("patch"), rationale=prop.get("rationale"))
 
         cand = harness.propose(role, prop.get("patch") or {}, prop.get("rationale", ""),

@@ -41,7 +41,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0a0e13;border:1px sol
 .score{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mute);font-size:12px}
 .log{font:12px/1.5 ui-monospace,Menlo,monospace;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:300px;overflow:auto;margin-bottom:12px}
 .log div{padding:2px 0;border-bottom:1px dashed #1a222c}.k{font-weight:700}
-.k.promoted{color:var(--accent)}.k.rolled_back{color:var(--warn)}.k.blocked{color:var(--bad)}.k.proposed{color:var(--blue)}
+.k.promoted{color:var(--accent)}.k.meta_overruled{color:#c58af9}.log div{white-space:pre-wrap}.k.rolled_back{color:var(--warn)}.k.blocked{color:var(--bad)}.k.proposed{color:var(--blue)}
 .spark{display:flex;align-items:flex-end;gap:4px;height:46px;margin:6px 0 14px}.spark i{flex:1;background:#24313f;border-radius:3px 3px 0 0;min-height:2px;position:relative}
 .spark i.on{background:var(--accent)}.spark i span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--mute);font-style:normal}
 .empty{color:var(--mute);padding:20px 0}
@@ -119,7 +119,9 @@ async function loadLineage(){const role=$('#role').value;const r=await api('/api
     <details><summary>config</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div>`).join('')}
 
 function fmt(ev){const k=ev.kind;const rest={...ev};delete rest.kind;delete rest.ts;
-  if(k==='scored')return `v${ev.version} train=${ev.train.score} (pass ${ev.train.pass_rate}, leaks ${ev.train.leaks}) holdout=${ev.holdout.score} · failing: ${ev.failures.map(f=>f.id).join(', ')||'none'}`;
+  if(k==='scored')return `v${ev.version} train=${ev.train.score} (pass ${ev.train.pass_rate}, leaks ${ev.train.leaks}) holdout=${ev.holdout.score}`+(ev.failures.length?`\n   failing: ${ev.failures.map(f=>f.id+' — '+f.why).join('\n            ')}`:' · all passing');
+  if(k==='meta_overruled')return `${ev.reason}: ${JSON.stringify(ev.patch).slice(0,140)}…`;
+  if(k==='rolled_back')return `v${ev.version} ${ev.reason}`;
   if(k==='proposed')return `${ev.diagnosis||''}  →  ${JSON.stringify(ev.patch)}`;
   if(k==='promoted')return `v${ev.version} train=${ev.train.score} holdout=${ev.holdout.score} (Δ ${ev.delta>0?'+':''}${ev.delta})`;
   return JSON.stringify(rest)}

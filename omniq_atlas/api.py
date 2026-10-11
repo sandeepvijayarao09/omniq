@@ -105,7 +105,9 @@ def login(body: Login) -> dict[str, Any]:
 
 @app.post("/api/ask")
 def ask(body: Ask, uid: str = Depends(current_user)) -> dict[str, Any]:
-    return _jsonable(assistant.ask(uid, body.question, convo_id=body.convo_id))
+    res = assistant.ask(uid, body.question, convo_id=body.convo_id)
+    res.pop("_context", None)
+    return _jsonable(res)
 
 
 @app.post("/api/feedback")

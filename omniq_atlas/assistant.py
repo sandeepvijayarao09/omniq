@@ -112,7 +112,8 @@ def ask(user_id: str, question: str, *, cfg_override: dict[str, Any] | None = No
     return {"answer": answer, "event_id": event_id, "harness_version": version, "role": user.role,
             "sources": [s["title"] for s in sources], "model": meta.get("model"), "latency": latency,
             "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
-            "model_view": {"system": t_system, "user": t_user, "answer": answer_t}}
+            "model_view": {"system": t_system, "user": t_user, "answer": answer_t},
+            "_context": src_xml}
 
 
 def feedback(event_id: str, user_id: str, good: bool, comment: str = "") -> None:
