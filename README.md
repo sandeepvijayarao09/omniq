@@ -1,14 +1,32 @@
 # Omniq Atlas
 
-**A governed AI assistant for every employee, whose harness improves itself on MongoDB Atlas.**
+**Agents that get better at your job by watching how you work, and can never unlock themselves.**
 
-Built at the Harness Engineering & Model Wrangling #SFTechWeek Hackathon (Oct 11, 2026) for
-**Statement 1: Recursive Harnessing**, with a long-horizon memory loop from **Statement 2**.
+A company assistant for a 10-person engineering org (CTO, directors, PMs, developers) with 20 role-specific agents.
+Every agent's playbook lives in MongoDB Atlas and improves itself from behaviour (rephrasing, corrections, follow-ups,
+Raindrop's failure signals), keeping a change only when the data proves it better, on unseen tests and blind replays,
+with zero leaks. Access is IAM policy compiled into `$vectorSearch`, so the database itself enforces who sees what.
 
-> **What's new today:** all code in this repository was written during the hackathon.
-> The *concept* comes from the author's earlier prototype, Omniq (SQLite and Chroma, not included).
-> The fictional demo company dataset in `data/seed/` (Halcyon Labs) is reused from that prototype.
-> `data/evals.yaml`, the evolution loop, the Atlas data layer and every partner integration are new.
+**Live:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app · **Results:** [docs/RESULTS.md](docs/RESULTS.md) (generated from Atlas) ·
+**Demo script:** [DEMO.md](DEMO.md) · **End-to-end:** `scripts/e2e_live.py` (29/29)
+
+```mermaid
+flowchart LR
+  U[Employee<br/>CTO · Director · PM · Dev] -->|chat, @agent| A[Assistant]
+  A -->|role + persona + agent context<br/>from Atlas context_layers| P[Prompt]
+  A -->|IAM → $vectorSearch filter<br/>+ $rankFusion hybrid| K[(Atlas: chunks<br/>Voyage embeddings)]
+  A -->|$graphLookup| G[(Atlas: ontology)]
+  P -->|names masked, private-only data stays local| M{{Model gateway<br/>Gemma · Llama · Claude · OpenAI…}}
+  M --> A
+  A -->|events + signals| R[Raindrop]
+  U -. rephrase · correct · extend · copy · 👍👎 .-> S[(Atlas: implicit signals,<br/>intents, episodes)]
+  R -->|Query API: where each agent fails| C[7-day cycles<br/>per person + per agent]
+  S --> C
+  C -->|propose| H[(Atlas: versioned playbooks)]
+  H -->|safety gate · quorum · blind replay · eval guard| D{Keep / undo / refuse / ask a manager}
+  D --> H
+  H --> A
+```
 
 ## In plain English
 
