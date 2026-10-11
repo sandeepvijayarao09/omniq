@@ -61,7 +61,13 @@ textarea{width:100%;min-height:56px}
 .log div{padding:5px 0;border-bottom:1px dashed var(--line);white-space:pre-wrap}.log b{font-weight:650}
 .k-promoted,.k-converged{color:var(--accent)}.k-rolled_back,.k-paused,.k-quarantined{color:var(--warn)}.k-blocked{color:var(--bad)}.k-proposed,.k-triaged{color:var(--blue)}.k-meta_overruled,.k-awaiting_approval,.k-below_quorum{color:var(--violet)}
 .rec{font-size:12px;padding:4px 0}
-#vOntology{grid-template-columns:300px minmax(0,1fr)}
+#vOntology,#vAgents{grid-template-columns:300px minmax(0,1fr)}
+#vAgents aside{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:12px}.tl div.ev{position:relative;padding:6px 0}
+.tl div.ev:before{content:"";position:absolute;left:-18px;top:11px;width:9px;height:9px;border-radius:50%;background:var(--line)}
+.tl .k{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--violet)}.tl .k.playbook{color:var(--accent)}.tl .k.context{color:var(--blue)}
+.tabs2{display:flex;gap:4px;margin:6px 0 10px}.tabs2 button{font-size:12px}.tabs2 button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.editor textarea{width:100%;min-height:90px;font:12px/1.5 ui-monospace,Menlo,monospace}
 #vOntology aside{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .types{display:flex;flex-wrap:wrap;gap:5px;padding:12px 14px;border-bottom:1px solid var(--line)}
 .types button{font-size:12px;padding:3px 10px;border-radius:99px}.types button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -129,7 +135,7 @@ textarea{width:100%;min-height:56px}
 <body>
 <header>
   <h1>Omniq <span>Atlas</span></h1>
-  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vAccess">🔐 Access</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
+  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vAccess">🔐 Access</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
   <div class="right"><div class="dots" id="dots"></div><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
 
@@ -160,6 +166,7 @@ textarea{width:100%;min-height:56px}
         <button id="improve" style="display:none" title="Learn from users' 👎 suggestions">Learn from feedback</button>
         <button class="primary" id="evolve" title="Test, find mistakes, fix, keep only what's better">Improve itself ▶</button></span></div>
     <div class="scroll">
+      <div class="card" id="cycleCard"><h3>Your 7-day cycle</h3><span class="mute small">Pick a person to see their cycle.</span></div>
       <details class="how"><summary><b>How it works</b> (30 seconds)</summary><ol>
         <li><b>Every team and agent has a playbook</b>: how much to read, which rules to follow, when to say "I don't know". Every version is saved in MongoDB Atlas.</li>
         <li><b>It tests itself</b> on practice questions with known answers.</li>
@@ -180,6 +187,11 @@ textarea{width:100%;min-height:56px}
   <div class="odetail" id="odetail"><p class="empty">Pick a person first, then anything on the left. You only see the parts of the company graph your role allows.</p></div>
 </div>
 
+<div class="view" id="vAgents">
+  <aside><div class="olist" id="alist" style="padding-top:10px"></div></aside>
+  <div class="odetail" id="adetail"><p class="empty">Pick a person first, then one of your agents.</p></div>
+</div>
+
 <div class="view" id="vAccess"><div class="wrap" id="awrap"><p class="empty">Pick a person first.</p></div></div>
 
 <div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
@@ -194,7 +206,7 @@ const pct=x=>x==null?'–':Math.round(x*100)+'%';const newConvo=()=>convo=Math.r
 const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess()});
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents()});
 
 async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['ElevenLabs',s.elevenlabs],['Atlas',true]];
   $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
@@ -212,7 +224,7 @@ async function login(id){const r=await api('/api/login',{method:'POST',body:JSON
   $('#mecard').innerHTML=`<b>${esc(me.name)}</b><span class="mute">${esc(me.title)}</span><br><span class="role">${esc(me.org_title||me.role)}</span> <span class="mute small">${myAgents.length} agents</span><div style="margin-top:6px"><a id="myCtx">My context files</a><a id="myMem">My memory</a></div>`;
   $('#myCtx').onclick=showMyContext;$('#myMem').onclick=showMemory;
   newChat();loadConvos();loadScopes(me.org_role?myAgents.find(a=>a.org_role===me.org_role)?'agent:'+myAgents.find(a=>a.org_role===me.org_role).id:me.role:me.role).then(loadLineage);
-  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData();if($('#vAccess').classList.contains('on'))loadAccess()}
+  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData();if($('#vAccess').classList.contains('on'))loadAccess();if($('#vImprove').classList.contains('on'))loadCycle();if($('#vAgents').classList.contains('on'))loadAgents()}
 function newChat(){convo=Math.random().toString(36).slice(2,12);$('#ctxDrawer').classList.remove('on');document.querySelectorAll('#convos button').forEach(b=>b.classList.remove('on'));
   const mine=myAgents.filter(a=>a.org_role===me.org_role).slice(0,4);const first=me.name.split(' ')[0];
   $('#thread').innerHTML=`<div class="inner welcome"><h2>Hi ${esc(first)} 👋</h2><p>Ask anything, or bring in one of your agents with <b>@</b>.</p>
@@ -368,6 +380,57 @@ function graphSVG(o){const W=760,H=340,cx=W/2,cy=H/2,ls=o.links.slice(0,18),R=Ma
     ${nodes.map(n=>`<g onclick="openObject('${n.id}')"><circle cx="${n.x}" cy="${n.y}" r="17" fill="var(--btn)" stroke="#b8c2cc"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle">${TYPE_ICON[n.otype]||'•'}</text><text x="${n.x}" y="${n.y+32}" text-anchor="middle">${esc(n.name.length>22?n.name.slice(0,21)+'…':n.name)}</text></g>`).join('')}
     <circle cx="${cx}" cy="${cy}" r="26" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="${cx}" y="${cy+5}" text-anchor="middle" style="font-size:16px">${TYPE_ICON[o.type]||'•'}</text><text x="${cx}" y="${cy+44}" text-anchor="middle" style="font-weight:650">${esc(o.name)}</text></svg>`}
 
+
+
+
+/* ---------- my agents ---------- */
+let curAgent=null,agentTab='context';
+async function loadAgents(){if(!token){$('#alist').innerHTML='';$('#adetail').innerHTML='<p class="empty">Pick a person first.</p>';return}
+  const groups=[...new Set(myAgents.map(a=>a.org_title))];
+  $('#alist').innerHTML=groups.map(g=>`<div class="tierlabel" style="text-align:left;padding:4px 8px">${esc(g)} agents</div>`+myAgents.filter(a=>a.org_title===g).map(a=>`<button data-id="${a.id}" class="${a.id===curAgent?'on':''}">🤖 ${esc(a.name)}<small>v${a.version}</small></button>`).join('')).join('');
+  $('#alist').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openAgent(b.dataset.id));
+  if(!curAgent||!myAgents.find(a=>a.id===curAgent))curAgent=(myAgents.find(a=>a.org_role===me.org_role)||myAgents[0]||{}).id;if(curAgent)openAgent(curAgent)}
+async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+  const d=await api('/api/agents/'+id+'/detail');const o=d.override||{};
+  const tabs=[['context','📄 Context'],['learned','🧠 What it learned'],['timeline',`🕒 Updates (${d.timeline.length})`],['edit','✏️ My edit'],...(d.can_publish?[['publish','🚀 Publish for everyone']]:[])];
+  const body={
+    context:`<div class="small mute">Active context file in Atlas <code>context_layers</code> (v${d.context_version}) · playbook v${d.playbook_version} · 🔌 ${esc(d.llm?.model)} · temp ${d.llm?.temperature} · ${d.llm?.max_tokens} tokens</div><pre style="max-height:520px">${esc(d.markdown)}</pre>${o.version?`<div class="prefs">+ your personal edit v${o.version} is applied on top for you</div>`:''}`,
+    learned:`<div class="kv"><div>Learned rules</div><div>${d.rules.length?d.rules.map(r=>`<div>• ${esc(r)}</div>`).join(''):'<span class="mute">none yet</span>'}</div>
+      <div>Learned workflow</div><div>${d.workflow?`${(d.workflow.procedure||[]).map((x,i)=>`<div>${i+1}. ${esc(x)}</div>`).join('')}${d.workflow.template?`<pre>${esc(d.workflow.template)}</pre>`:''}`:'<span class="mute">uses the procedure and template in its context file</span>'}</div>
+      <div>Retrieval</div><div>reads ${d.retrieval.top_k} passages${d.retrieval.rerank?', re-ranked':''}${d.retrieval.graph_context?', + company graph':''}</div></div>`,
+    timeline:`<div class="tl">${d.timeline.map(e=>`<div class="ev"><span class="k ${e.kind.split(' ')[0]}">${esc(e.kind)}</span> <b>${esc(e.what)}</b> <span class="mute small">· ${new Date(e.ts).toLocaleString()} · by ${esc(e.by||'')}</span>
+        <div class="small">${esc(e.why||'')}</div>${e.change?`<div class="small mute">change: ${esc(plain(e.change))}</div>`:''}${e.reject?`<div class="small" style="color:var(--warn)">${esc(e.reject)}</div>`:''}</div>`).join('')||'<span class="mute">No updates yet.</span>'}</div>`,
+    edit:`<div class="editor"><div class="small mute">Applies only to you, immediately. Versioned (you are on v${o.version||0}). Screened for attempts to get around the rules.</div>
+      <label class="small">Notes for this agent (added to its context for you)</label><textarea id="eNotes" placeholder="e.g. I work on the auth service; always mention session impact.">${esc(o.notes||'')}</textarea>
+      <label class="small">Procedure (one step per line, optional)</label><textarea id="eProc" placeholder="1 step per line">${esc((o.procedure||[]).join('\n'))}</textarea>
+      <label class="small">Output template (optional)</label><textarea id="eTpl" placeholder="**Verdict** · **Checks** · **Fixes**">${esc(o.template||'')}</textarea>
+      <div style="display:flex;gap:6px;margin-top:8px"><button class="primary" id="eSave">Save my edit</button>${o.version?'<button class="ghost" id="eReset">Reset to shared agent</button>':''}</div></div>`,
+    publish:`<div class="editor"><div class="small mute">Edits the agent's context file <b>for everyone who uses it</b>. Allowed by your IAM role. It must pass the injection screen and the leak safety gate, and it becomes a new version in Atlas you can roll back.</div>
+      <textarea id="pMd" style="min-height:360px">${esc(d.markdown)}</textarea><input id="pWhy" placeholder="Why are you changing it?" style="width:100%;margin-top:6px">
+      <button class="primary" id="pGo" style="margin-top:8px">Publish new version</button></div>`};
+  $('#adetail').innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 style="margin:0">🤖 ${esc(d.name)}</h2><span class="role">${esc(d.org_role)}</span><span class="mute small">${esc(d.description)}</span></div>
+    <div class="tabs2">${tabs.map(([k,l])=>`<button data-t="${k}" class="${k===agentTab?'on':''}">${l}</button>`).join('')}</div><div class="card">${body[tabs.find(t=>t[0]===agentTab)?agentTab:'context']}</div>`;
+  $('#adetail').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{agentTab=b.dataset.t;openAgent(id)});
+  const sv=$('#eSave');if(sv)sv.onclick=async()=>{try{await api('/api/agents/'+id+'/override',{method:'PUT',body:JSON.stringify({notes:$('#eNotes').value,procedure:$('#eProc').value.split('\n'),template:$('#eTpl').value})});toast('Saved. Applies to you from your next message.');openAgent(id)}catch(e){toast('⛔ '+e.message)}};
+  const rs=$('#eReset');if(rs)rs.onclick=async()=>{await api('/api/agents/'+id+'/override',{method:'DELETE'});toast('Back to the shared agent');openAgent(id)};
+  const pg=$('#pGo');if(pg)pg.onclick=async()=>{pg.disabled=true;pg.textContent='Checking safety gate…';try{const r=await api('/api/agents/'+id+'/publish',{method:'POST',body:JSON.stringify({markdown:$('#pMd').value,reason:$('#pWhy').value})});toast(`Published: context v${r.context_version}, playbook v${r.harness_version} (passed ${r.safety_gate} leak checks)`);agentTab='timeline';openAgent(id)}catch(e){toast('⛔ '+e.message);pg.disabled=false;pg.textContent='Publish new version'}}}
+
+/* ---------- 7-day cycle ---------- */
+async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<h3>Your 7-day cycle</h3><span class="mute small">Pick a person to see their cycle.</span>';return}
+  const [cs,hist]=await Promise.all([api('/api/cycles'),api(`/api/context/history?kind=person&key=${me.id}`)]);const c=cs[0];
+  const t=c?.totals||{};const pa=c?.per_agent||{};
+  $('#cycleCard').innerHTML=`<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><h3 style="margin:0">Your 7-day cycle</h3>
+      <span class="mute small">${c?`last run ${new Date(c.created).toLocaleString()} · covers ${new Date(c.since).toLocaleDateString()} → ${new Date(c.until).toLocaleDateString()}`:'never run'}</span>
+      <button class="primary small" id="runCycle" style="margin-left:auto">Run my cycle now</button></div>
+    ${c?`<div class="small" style="margin:8px 0">${esc(c.summary||'')}</div>
+      <div class="kv"><div>Decisions reviewed</div><div><b>${t.decisions||0}</b> (${t.asks||0} questions, ${t.ratings||0} ratings, ${t.suggestions||0} suggestions, ${t.memories||0} memories, ${t.governance||0} governance actions)</div>
+      <div>Per agent</div><div>${Object.entries(pa).map(([a,x])=>`<span class="badge" title="${x.up} up · ${x.down} down · ${x.regenerated} regenerated">${esc(a)}: ${x.asks} asks${x.down?` · ${x.down}👎`:''}${x.regenerated?` · ${x.regenerated}↻`:''}${x.up?` · ${x.up}👍`:''}</span>`).join('')}</div>
+      <div>Learned about you</div><div>${(c.learned||[]).map(l=>`<div>• ${esc(l)}</div>`).join('')||'<span class="mute">nothing new</span>'}</div>
+      <div>Your context</div><div>${c.persona_change?`persona <b>v${c.persona_change.from} → v${c.persona_change.to}</b> in Atlas <code>context_layers</code>`:'<span class="mute">unchanged</span>'}</div>
+      <div>Agent changes proposed</div><div>${(c.agent_recommendations||[]).map(r=>`<div>→ <b>@${esc(r.agent)}</b>: ${esc(r.recommendation)} <span class="mute small">(${esc(r.why)})</span></div>`).join('')||'<span class="mute">none needed</span>'}
+        <div class="mute small">Queued as governed recommendations: they change the agent for everyone only with a second person's agreement, a blind replay win and no leaks.</div></div></div>`:'<div class="mute small" style="margin-top:6px">The cycle reviews every decision you made in the last 7 days, updates your context, and proposes agent improvements.</div>'}
+    <details style="margin-top:8px"><summary>Context versions in Atlas (${hist.length})</summary>${hist.map(h=>`<div class="small">v${h.version} · ${h.status} · ${esc(h.source)} · ${new Date(h.created).toLocaleString()} · ${esc(h.reason||'')}</div>`).join('')}</details>`;
+  $('#runCycle').onclick=async()=>{await api('/api/cycles/run',{method:'POST',body:JSON.stringify({})});toast('Cycle started: reviewing your last 7 days…');setTimeout(loadCycle,15000);setTimeout(loadCycle,35000)}}
 
 /* ---------- IAM / access ---------- */
 const SIM_PRESETS=[['docs:read','doc:category/board'],['docs:read','doc:hr/platform'],['docs:read','doc:owner/emp-1001'],['agent:use','agent:cto/board_tech_brief'],['agent:use','agent:developer/deploy_guide'],['improve:run','harness:agent/developer/deploy_guide'],['harness:approve','harness:agent/cto/security_posture'],['iam:edit','policies']];

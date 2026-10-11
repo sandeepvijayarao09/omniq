@@ -85,6 +85,8 @@ def risk(config: dict[str, Any], patch: dict[str, Any]) -> tuple[str, list[str]]
     why = []
     if "tools" in patch and set(patch["tools"]) != set(config.get("tools", [])):
         why.append("changes tool access")
+    if "workflow" in patch and (patch["workflow"] or {}).get("template"):
+        why.append("changes the agent's output template")
     if "rules" in patch:
         dropped = [r for r in config.get("rules", []) if r not in patch["rules"]]
         if dropped:

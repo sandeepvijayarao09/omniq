@@ -29,14 +29,21 @@ def _read(path: Path) -> tuple[dict[str, Any], str]:
     return yaml.safe_load(fm) or {}, body.strip()
 
 
-@lru_cache(maxsize=64)
+def _from_db(kind: str, key: str) -> tuple[dict[str, Any], str] | None:
+    from . import contextdb
+
+    doc = contextdb.active(kind, key)
+    return (doc.get("meta", {}), doc["markdown"]) if doc else None
+
+
 def role(org_role: str) -> tuple[dict[str, Any], str]:
-    return _read(ROLES_DIR / f"{org_role}.md")
+    """Active version from Atlas `context_layers`; the file in data/roles is the seed/fallback."""
+    return _from_db("role", org_role) or _read(ROLES_DIR / f"{org_role}.md")
 
 
-@lru_cache(maxsize=256)
 def person(emp_id: str) -> tuple[dict[str, Any], str]:
-    return _read(PEOPLE_DIR / f"{emp_id}.md")
+    """Active version from Atlas `context_layers` (the 7-day cycle writes new versions); data/people is the seed."""
+    return _from_db("person", emp_id) or _read(PEOPLE_DIR / f"{emp_id}.md")
 
 
 def team() -> list[dict[str, Any]]:
@@ -93,6 +100,9 @@ def audience_card(emp_id: str, org_role: str | None) -> tuple[str, list[str]]:
             items = re.findall(r"\*\*(.+?)\*\*.*?My scope: ([^\n]+)", proj, re.S)
             if items:
                 lines.append("Their projects: " + "; ".join(f"{n} (their scope: {sc.strip()})" for n, sc in items))
+        learned = [l[2:].strip() for l in _section(pbody, "Learned from my last cycle").splitlines() if l.startswith("- ")]
+        if learned:
+            lines.append("Learned from their last 7-day cycle: " + " ".join(learned[:6]))
         prefs = [l[2:].strip() for l in _section(pbody, "How I like answers").splitlines() if l.startswith("- ")]
         if prefs:
             lines.append("They like answers that: " + " ".join(prefs))

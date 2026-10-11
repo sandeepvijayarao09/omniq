@@ -78,10 +78,12 @@ def agent_task(cfg: dict[str, Any]) -> str:
     """The @-agent's procedure and output template, restated right before the model answers."""
     ag = cfg.get("agent") or {}
     md = ag.get("instructions", "")
-    template = _md_section(md, "Output template")
+    wf = cfg.get("workflow") or {}  # learned workflow (7-day cycle / improver) overrides the file's
+    template = wf.get("template") or _md_section(md, "Output template")
     if not template:
         return ""
-    steps = _md_section(md, "How I work (procedure)")
+    steps = ("\n".join(f"{i}. {x}" for i, x in enumerate(wf["procedure"], 1)) if wf.get("procedure")
+             else _md_section(md, "How I work (procedure)"))
     first = re.search(r"\*\*([^*]+)\*\*", template)
     lead = first.group(1).split("/")[0].strip() if first else ""
     if " · " in template:  # one section per line reads far better than a single dense line
@@ -154,6 +156,11 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     h = harness.active(scope)
     cfg = cfg_override or h["config"]
     version = harness_version or h["version"]
+    personal_edit = None
+    if agent_id and personal_memory and not cfg_override:  # this person's own edits to the agent
+        from . import agentedit
+
+        cfg, personal_edit = agentedit.apply_override(cfg, user.id, agent_id)
     vault = Vault(name_registry())
 
     tq = vault.tokenize(question)
@@ -245,7 +252,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     return {"answer": answer, "event_id": event_id, "harness_version": version, "scope": scope, "role": user.role,
             "agent": (tpl or {}).get("name"), "sources": [s["title"] for s in sources], "model": meta.get("model"),
             "latency": latency, "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
-            "preferences_applied": prefs, "lessons_applied": len(notes),
+            "preferences_applied": prefs, "lessons_applied": len(notes), "personal_edit": personal_edit,
             "context_layers": card_files +
                               ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
             "model_view": {"system": t_system, "user": t_user, "answer": answer_t},

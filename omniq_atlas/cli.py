@@ -38,6 +38,10 @@ def main() -> None:
     im = sub.add_parser("improve", help="improve an agent from its users' recommendations")
     im.add_argument("--agent", required=True)
     sub.add_parser("agents")
+    cy = sub.add_parser("cycle", help="run the 7-day improvement cycle for a person")
+    cy.add_argument("--user", required=True)
+    sw = sub.add_parser("simulate-week", help="replay a realistic week of decisions for a person (backdated)")
+    sw.add_argument("--user", required=True)
     rs = sub.add_parser("reset-harness", help="put a role back on the default harness (keeps lessons)")
     rs.add_argument("--role", default="pro")
     lg = sub.add_parser("lineage")
@@ -98,6 +102,15 @@ def main() -> None:
         res = improve.run(harness.agent_scope(args.agent))
         for ev in res["events"]:
             print(ev["kind"], {k: v for k, v in ev.items() if k not in ("ts", "kind", "cases")})
+    elif args.cmd == "cycle":
+        from . import cycles
+
+        r = cycles.run(args.user)
+        _print({k: r.get(k) for k in ("totals", "per_agent", "summary", "learned", "persona_change", "agent_recommendations", "analyst_error")})
+    elif args.cmd == "simulate-week":
+        from . import simulate_week
+
+        _print(simulate_week.run(args.user))
     elif args.cmd == "agents":
         from . import agents as ag
 

@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agents, assistant, audit, context, explore, iam, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agentedit, agents, assistant, audit, context, contextdb, cycles, explore, iam, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
@@ -272,6 +272,85 @@ def my_projects(uid: str = Depends(current_user)) -> list[dict[str, Any]]:
              "mine": uid in (p.get("members") or {})} for p in rows]
 
 
+class CycleReq(BaseModel):
+    user_id: str = ""
+
+
+@app.post("/api/cycles/run")
+def run_cycle(body: CycleReq, uid: str = Depends(current_user)) -> dict[str, str]:
+    """Run the 7-day cycle now: for yourself, or for anyone if you are the CTO."""
+    target = body.user_id or uid
+    if target != uid and iam.org_role(assistant.get_user(uid)) != "cto":
+        raise HTTPException(403, "only the CTO can run someone else's cycle")
+    cid = uuid.uuid4().hex[:6]
+    threading.Thread(target=_safe, args=(cycles.run, target), daemon=True).start()
+    return {"ok": f"cycle started for {target}", "ticket": cid}
+
+
+@app.get("/api/cycles")
+def my_cycles(uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    return _jsonable(list(db().cycles.find({"user_id": uid}).sort("created", -1).limit(5)))
+
+
+@app.get("/api/context/history")
+def context_history(kind: str, key: str, uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    if kind == "person" and key != uid and iam.org_role(assistant.get_user(uid)) != "cto":
+        raise HTTPException(403, "you can only see your own context history")
+    return _jsonable(contextdb.history(kind, key))
+
+
+class OverrideReq(BaseModel):
+    notes: str = ""
+    procedure: list[str] = []
+    template: str = ""
+
+
+class PublishReq(BaseModel):
+    markdown: str
+    reason: str = ""
+
+
+def _my_agent(uid: str, agent_id: str):
+    user = assistant.get_user(uid)
+    tpl = agents.get(agent_id)
+    if not tpl or not agents.eligible(user, tpl):
+        raise HTTPException(404, "no such agent for you")
+    return user, tpl
+
+
+@app.get("/api/agents/{agent_id}/detail")
+def agent_detail(agent_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+    user, tpl = _my_agent(uid, agent_id)
+    h = harness.active(harness.agent_scope(agent_id))
+    ctx = contextdb.active("agent", agent_id) or {}
+    return _jsonable({"id": agent_id, "name": tpl["name"], "org_role": tpl.get("org_role"), "description": tpl.get("description"),
+                      "llm": tpl.get("llm"), "file": tpl.get("context_file"),
+                      "context_version": ctx.get("version"), "markdown": h["config"]["agent"]["instructions"],
+                      "playbook_version": h["version"], "rules": h["config"].get("rules", []),
+                      "workflow": h["config"].get("workflow"), "retrieval": h["config"]["retrieval"],
+                      "override": agentedit.get_override(uid, agent_id), "can_publish": agentedit.can_publish(user, tpl),
+                      "timeline": agentedit.timeline(user, agent_id)})
+
+
+@app.put("/api/agents/{agent_id}/override")
+def agent_override(agent_id: str, body: OverrideReq, uid: str = Depends(current_user)) -> dict[str, Any]:
+    user, _ = _my_agent(uid, agent_id)
+    return _jsonable(agentedit.save_override(user, agent_id, body.notes, body.procedure, body.template))
+
+
+@app.delete("/api/agents/{agent_id}/override")
+def agent_override_reset(agent_id: str, uid: str = Depends(current_user)) -> dict[str, str]:
+    user, _ = _my_agent(uid, agent_id)
+    agentedit.reset_override(user, agent_id)
+    return {"ok": "reset"}
+
+
+@app.post("/api/agents/{agent_id}/publish")
+def agent_publish(agent_id: str, body: PublishReq, uid: str = Depends(current_user)) -> dict[str, Any]:
+    user, _ = _my_agent(uid, agent_id)
+    return agentedit.publish(user, agent_id, body.markdown, body.reason)
+
+
 @app.get("/api/org")
 def org_chart(uid: str = Depends(current_user)) -> dict[str, Any]:
     """The four-role hierarchy with the people in each role and how many agents each can use."""
@@ -330,11 +409,22 @@ def _safe(fn, *args) -> None:
         pass
 
 
+def _cycles_tick() -> list[str]:
+    """Weekly cycles, only when nobody has chatted for 2 minutes (keeps live answers fast)."""
+    if os.environ.get("OA_CYCLES", "on") == "off":
+        return []
+    import datetime as _dt
+
+    recent = db().episodes.find_one({"source": "chat", "ts": {"$gt": _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=2)}})
+    return [] if recent else cycles.tick()
+
+
 @app.on_event("startup")
 def _scheduler() -> None:
     """Recurring improvement: every minute, agents with enough queued recommendations improve themselves."""
     try:
         governance.recover()
+        contextdb.sync_from_files()
     except Exception:
         pass
     if os.environ.get("OA_AUTO_IMPROVE", "true").lower() == "false":
@@ -343,7 +433,8 @@ def _scheduler() -> None:
     def loop() -> None:
         while True:
             time.sleep(60)
-            for job in (improve.tick, maintenance.watchdog, maintenance.consolidate, maintenance.auto_evolve):
+            for job in (improve.tick, maintenance.watchdog, maintenance.consolidate, maintenance.auto_evolve,
+                        _cycles_tick):
                 try:
                     out = job()
                     if out:

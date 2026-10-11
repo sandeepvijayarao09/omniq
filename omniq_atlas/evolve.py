@@ -31,6 +31,8 @@ KNOBS = """Harness fields you may change (JSON patch merged into the config):
 - tools: subset of ["search_docs", "ontology_lookup", "memory_recall"] (search_docs required)
 - model.max_tokens (100-1500), model.temperature (0-1)
 - guardrails.abstain_when_unsupported (bool), guardrails.cite_sources (bool)  — may only be turned ON
+- workflow: {"procedure": [up to 8 short steps], "template": "output template with **bold labels**"} — agents only;
+  changes HOW the agent works and formats answers (its context file stays fixed)
 Locked (never change): invariants (ACL pre-filter, PII tokenization, outbound guard, audit)."""
 
 META_SYSTEM = (

@@ -38,7 +38,8 @@ DEFAULT_HARNESS: dict[str, Any] = {
     },
 }
 
-TUNABLE = {"rules", "retrieval", "context", "tools", "model", "guardrails"}
+TUNABLE = {"rules", "retrieval", "context", "tools", "model", "guardrails", "workflow"}
+MAX_STEPS, MAX_TEMPLATE_CHARS = 8, 600
 ALLOWED_TOOLS = {"search_docs", "ontology_lookup", "memory_recall"}
 LIMITS = {"top_k": (1, 12), "num_candidates": (10, 200), "max_chunk_chars": (200, 2500),
           "max_tokens": (100, 1500), "temperature": (0.0, 1.0)}
@@ -133,6 +134,16 @@ def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
             for g, on in val.items():
                 if g in GUARDRAILS_ONE_WAY and config["guardrails"].get(g) and not on:
                     problems.append(f"guardrail '{g}' may not be switched off")
+        if key == "workflow":  # an agent's procedure and output template, on top of its context file
+            if not isinstance(val, dict) or set(val) - {"procedure", "template"}:
+                problems.append("workflow must be {procedure: [steps], template: str}")
+            else:
+                steps = val.get("procedure", [])
+                if steps and (not isinstance(steps, list) or len(steps) > MAX_STEPS
+                              or not all(isinstance(x, str) and len(x) <= 200 for x in steps)):
+                    problems.append(f"workflow.procedure must be up to {MAX_STEPS} short steps")
+                if "template" in val and (not isinstance(val["template"], str) or len(val["template"]) > MAX_TEMPLATE_CHARS):
+                    problems.append(f"workflow.template must be a string under {MAX_TEMPLATE_CHARS} chars")
         if key == "rules":
             if not isinstance(val, list) or not all(isinstance(r, str) for r in val):
                 problems.append("rules must be a list of strings")
