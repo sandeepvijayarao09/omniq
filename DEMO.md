@@ -1,37 +1,33 @@
 # 3-minute demo script
 
-**Before you go on:** Ollama running, `oa serve` (or the Modelence URL), then `oa reset-harness --role agent:deploy_guide`
-so the live run starts at v1. Open http://127.0.0.1:8000.
+**Before you go on:** Ollama running. Restart the API with automatic improvement off so nothing changes mid-demo:
+`OA_AUTO_EVOLVE_MINUTES=0 .venv/bin/oa serve`. Then `.venv/bin/oa reset-harness --role agent:security_posture`
+(it starts at 0% and climbs to 100% live). Open http://127.0.0.1:8000.
 
 **Say first (5 s):** "All code was written today. The demo company dataset is from my earlier prototype."
 
-1. **The idea (15 s).** "A company has four roles: Developer, Product Manager, Director and CTO. Each role gets five
-   agents. Each agent is one Markdown context file plus a playbook that improves itself, all on MongoDB Atlas. It can
-   tune itself, but it can never unlock itself."
+1. **The idea (15 s).** "A 10-person team: 1 CTO, 2 directors, 3 PMs, 4 developers. Everyone gets a chatbot that
+   knows their role, their own persona and their access. Type @ to bring in one of the 5 agents for your role. Each agent
+   improves itself from scores and from what people do, on MongoDB Atlas. It can never unlock itself."
 
-2. **Hierarchy and context files (40 s).** On the sign-in screen, people are grouped CTO → Directors → PMs and Developers.
-   - Sign in as **Maya Chen (Developer)**: 5 agents. Pick **Deploy Guide** → **📄 Context file**. That is exactly what the
-     model receives, including its LLM connection (model, temperature, max tokens).
-   - Ask the starter *"At what error rate or latency should I roll back a canary?"* Show **What the AI model saw**
-     (names masked) and **Where this came from** (filtered inside `$vectorSearch`).
-   - Switch to **Priya Raman (Director)**: 15 agents (hers plus every Developer and PM agent). **Team Pulse** only
-     reads notes for the team she manages.
-   - **Marcus Whitfield (CTO)**: all 20. Board Tech Brief works for him; Maya gets "not in the audience".
+2. **Same question, different people (45 s).** Sign in as **Maya (Developer)** and click the last suggestion,
+   *"What happened in the August 14 outage and what should we do next?"* She gets the engineering detail and her own action item.
+   **Switch person** → **Marcus (CTO)** → same question: business impact and the board angle. Open **ⓘ context** to show the
+   layers: `data/roles/cto.md → data/people/emp-1009.md`. Open **My context files** in the sidebar to show the actual Markdown.
 
-3. **It improves itself (60 s).** Right panel, pick **Developer: Deploy Guide**, then **Improve itself ▶**.
-   Read the plain sentences: Score → Idea → Kept / Undone. Changes are kept only if they're better on unseen questions
-   with zero leaks.
+3. **@agents (30 s).** As Maya, type `@dep` → pick **@deploy_guide** → *"At what error rate or latency should I roll back a
+   canary?"* → "0.5% / 800 ms" from the runbook. ⓘ context now also shows `data/agents/developer/deploy_guide.md`.
+   Type `@board`: nothing appears, because Board Tech Brief is a CTO agent. As Marcus, all 20 agents appear.
 
-4. **It learns from you (30 s).** As Maya, 👎 an answer and type *"Always end with the exact rollback command."*
-   The next answer shows **✦ Used your preferences**. **My memory** shows it, and you can delete it. When a second developer
-   asks for the same thing, **Learn from feedback** tries it for everyone using a blind side-by-side comparison.
+4. **It improves itself (45 s).** **📈 Self-improvement** tab → **CTO: Security Posture** → **Improve itself ▶**:
+   "0% right… never found the document" → Idea → **Kept** → … → 100%. Mention that a scheduler gives the
+   longest-waiting agent a round every 20 minutes.
 
-5. **It can't unlock itself (15 s).** **Try to break it**: a change that switches off access rules and adds an
-   "export all data" tool is refused, and the refusal is written to the audit log.
+5. **It learns from you (20 s).** 👎 an agent answer and type what to do differently. The next answer shows
+   **✦ Used your preferences**. ↻ Regenerate also counts as a quiet thumbs-down.
 
-6. **Show the data (15 s).** The **🕸 Ontology** tab shows the company graph with hidden links counted, not shown.
-   The **🗄 Data layer** tab shows all Atlas collections, vector indexes and *your* ACL filter. Close:
-   "Atlas holds the agents, their playbook versions, memory, the ontology and the audit trail."
+6. **Guardrails and data (20 s).** **Try to break it** is refused. **🕸 Ontology** and **🗄 Data layer** show the Atlas
+   collections, the vector indexes and the person's own ACL filter.
 
 **Likely questions**
 - *What is in a context file?* Persona, mission, the team's rhythm, current priorities, recent events, working style,
