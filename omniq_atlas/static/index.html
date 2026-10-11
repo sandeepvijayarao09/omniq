@@ -23,6 +23,10 @@ nav{display:flex;gap:4px}nav button{background:transparent;border-color:transpar
 nav button.on{background:var(--btn);border-color:var(--line);color:var(--text)}
 .right{margin-left:auto;display:flex;align-items:center;gap:10px}
 .pill{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:3px 10px;cursor:default;white-space:nowrap}.pill i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c3ccd5;margin-right:6px;vertical-align:1px}.pill i.on{background:var(--accent)}
+.sw{position:relative}.swmenu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(16,24,40,.14);padding:6px;z-index:20;min-width:270px;max-height:70vh;overflow:auto}
+.sw.open .swmenu{display:block}.swmenu .grp{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.6px;padding:8px 8px 2px}
+.swmenu button{display:block;width:100%;text-align:left;border-color:transparent;background:transparent;padding:6px 8px}.swmenu button:hover{background:var(--soft)}.swmenu button.cur{background:var(--accent-soft)}
+.swmenu small{color:var(--mute);margin-left:6px}
 .hood{position:relative}.hoodmenu{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(16,24,40,.12);padding:6px;z-index:9;min-width:210px}
 .hood.open .hoodmenu{display:block}.hoodmenu button{display:block;width:100%;text-align:left;margin:2px 0}
 .dots{display:flex;gap:10px;font-size:12px;color:var(--mute)}.dots i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#c3ccd5;margin-right:5px;vertical-align:1px}.dots i.on{background:var(--accent)}
@@ -151,7 +155,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
   <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Learning</button><button data-v="vImpact">📊 Impact</button>
     <span class="hood"><button class="hoodbtn" id="hoodBtn">⋯ Under the hood</button><span class="hoodmenu" id="hoodMenu">
       <button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button><button data-v="vModels">🔌 Models</button></span></span></nav>
-  <div class="right"><span class="pill" id="dots">…</span><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
+  <div class="right"><span class="pill" id="dots">…</span><span class="me" id="who">not signed in</span><span class="sw"><button class="ghost" id="switch">Switch person ▾</button><span class="swmenu" id="swMenu"></span></span></div>
 </header>
 
 <div class="view on" id="vChat">
@@ -542,7 +546,16 @@ async function loadData(){if(!token){$('#dwrap').innerHTML='<p class="empty">Pic
         ${c.indexes.filter(i=>i.name!=='_id_').map(i=>`<span class="badge ${i.ttl_seconds!=null?'ttl':''}">${i.ttl_seconds!=null?'⏱ TTL ':''}${Object.keys(i.keys).join(' + ')}${i.unique?' · unique':''}</span>`).join('')}</div>
       ${c.sample?`<details><summary>sample document</summary><pre>${esc(JSON.stringify(c.sample,null,1))}</pre></details>`:'<div class="mute small" style="margin-top:6px">empty for now</div>'}</div>`).join('')}</div>`).join('')}`}
 
-$('#role').onchange=()=>{showAll=false;loadLineage()};$('#send').onclick=()=>send();$('#switch').onclick=pickPersona;$('#newChat').onclick=()=>{if(token)newChat()};
+$('#role').onchange=()=>{showAll=false;loadLineage()};$('#send').onclick=()=>send();$('#switch').onclick=async e=>{e.stopPropagation();const sw=$('.sw');if(sw.classList.contains('open')){sw.classList.remove('open');return}
+  const ps=await api('/api/personas');const tiers=[['cto','CTO'],['director','Directors'],['product_manager','Product Managers'],['developer','Developers']];
+  $('#swMenu').innerHTML=tiers.map(([r,l])=>`<div class="grp">${l}</div>`+ps.filter(p=>p.org_role===r).map(p=>`<button data-id="${p.id}" class="${me&&me.id===p.id?'cur':''}">${esc(p.name)}<small>${esc(p.title)}</small></button>`).join('')).join('')+
+    `<div class="grp">&nbsp;</div><button data-out="1">↩ Sign out (show the org chart)</button>`;
+  $('#swMenu').querySelectorAll('[data-id]').forEach(b=>b.onclick=async ev=>{ev.stopPropagation();sw.classList.remove('open');await switchTo(b.dataset.id)});
+  $('#swMenu').querySelector('[data-out]').onclick=ev=>{ev.stopPropagation();sw.classList.remove('open');document.querySelector('nav button[data-v=vChat]').click();pickPersona()};
+  sw.classList.add('open')};
+document.addEventListener('click',()=>$('.sw')?.classList.remove('open'));
+async function switchTo(id){const view=document.querySelector('.view.on')?.id;await login(id);toast(`Now signed in as ${me.name} (${me.org_title||me.role})`);
+  if(view==='vImprove')loadScopes().then(loadLineage);if(view==='vAgents'){curAgent=null;loadAgents()}}$('#newChat').onclick=()=>{if(token)newChat()};
 status();pickPersona();loadScopes('pro').then(loadLineage);
 </script>
 </body>
