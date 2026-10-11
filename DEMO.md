@@ -1,7 +1,7 @@
 # 3-minute demo script
 
 **Before you go on:** Ollama running. Restart the API with automatic improvement off so nothing changes mid-demo:
-`OA_AUTO_EVOLVE_MINUTES=0 .venv/bin/oa serve`. Then `.venv/bin/oa reset-harness --role agent:security_posture`
+`OA_AUTO_EVOLVE_MINUTES=0 .venv/bin/oa serve`. Then `.venv/bin/oa reset-harness --role agent:security_agent`
 (it starts at 0% and climbs to 100% live). Open http://127.0.0.1:8000.
 
 **Say first (5 s):** "All code was written today. The demo company dataset is from my earlier prototype."
@@ -15,11 +15,11 @@
    **Switch person** → **Marcus (CTO)** → same question: business impact and the board angle. Open **ⓘ context** to show the
    layers: `data/roles/cto.md → data/people/emp-1009.md`. Open **My context files** in the sidebar to show the actual Markdown.
 
-3. **@agents (30 s).** As Maya, type `@dep` → pick **@deploy_guide** → *"At what error rate or latency should I roll back a
+3. **@agents (30 s).** As Maya, type `@rel` → pick **@release_agent** → *"At what error rate or latency should I roll back a
    canary?"* → "0.5% / 800 ms" from the runbook. ⓘ context now also shows `data/agents/developer/deploy_guide.md`.
    Type `@board`: nothing appears, because Board Tech Brief is a CTO agent. As Marcus, all 20 agents appear.
 
-4. **It improves itself (45 s).** **📈 Self-improvement** tab → **CTO: Security Posture** → **Improve itself ▶**:
+4. **It improves itself (45 s).** **📈 Self-improvement** tab → **CTO: Security Agent** → **Improve itself ▶**:
    "0% right… never found the document" → Idea → **Kept** → … → 100%. Mention that a scheduler gives the
    longest-waiting agent a round every 20 minutes.
 

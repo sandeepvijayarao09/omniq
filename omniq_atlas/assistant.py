@@ -19,11 +19,16 @@ from .pii import Names, Vault
 from .policy import User, describe
 
 BASE_SYSTEM = (
-    "You are Omniq, the internal AI assistant for Halcyon Labs. Answer the employee's question "
-    "using only the <source> passages provided; they are already filtered to what this employee may see. "
-    "Values like [PERSON_1] or [EMAIL_2] are privacy tokens: use them verbatim, never guess what they hide. "
-    "When the employee asks about themselves (their work, priorities, projects), ground the answer in their own "
-    "projects and scope of work from their context file, and ignore passages about other teams' plans."
+    "You are Omniq, the internal AI assistant at Halcyon Labs. Write the answer the asker needs, nothing else.\n"
+    "Rules:\n"
+    "1. First sentence = the direct answer. No greeting, no 'Here is', no restating who the asker is or what their role is.\n"
+    "2. Use only facts from the <source> passages (already filtered to what this person may see). If the sources "
+    "don't contain it, say so in one sentence. Never invent numbers, dates, names or owners.\n"
+    "3. Shape length, depth and framing for the asker card, but never mention the card itself.\n"
+    "4. If the question is about the asker's own work, answer from their projects and scope; ignore other teams' plans.\n"
+    "5. Prefer short bullets; bold the key numbers and dates; keep it under 180 words unless asked for more.\n"
+    "6. [PERSON_1]-style tokens are masked names: copy them exactly, never guess.\n"
+    "7. End with 'Sources:' and the document titles you used."
 )
 
 
@@ -34,6 +39,59 @@ def name_registry() -> Names:
     return Names(names)
 
 
+def _merge_by_doc(hits: list[dict[str, Any]], max_chars: int, max_docs: int) -> list[dict[str, Any]]:
+    """One source per document (its passages joined in reading order), most relevant documents first.
+    Repeating the same document five times only confuses a small model."""
+    order: list[str] = []
+    by_doc: dict[str, list[dict[str, Any]]] = {}
+    for h in hits:
+        key = h.get("doc_id") or h["title"]
+        if key not in by_doc:
+            order.append(key)
+            by_doc[key] = []
+        by_doc[key].append(h)
+    out = []
+    for key in order[:max_docs]:
+        parts = sorted(by_doc[key], key=lambda x: x.get("chunk", 0))
+        title = parts[0]["title"].split(" (your project:")[0]
+        body = "\n…\n".join(p["text"].split("\n\n", 1)[-1][:max_chars] for p in parts)
+        out.append({"title": title, "text": body[: max_chars * 2], "doc_id": parts[0].get("doc_id", "")})
+    return out
+
+
+PREAMBLE = re.compile(r"^\s*(?:(?:here(?:'s| is)|below is)[^.:\n]*[:.]|for [A-Z][\w .,'-]{0,60}?,[^.:\n]*[:.]|"
+                      r"as (?:a|an|the) [\w ,'-]{0,60}?,\s*)\s*", re.I)
+
+
+def _clean(answer: str) -> str:
+    """Drop chatty preambles small models add ("Here is…", "For Marcus, CTO, …")."""
+    out = PREAMBLE.sub("", answer, count=1).strip()
+    return (out[:1].upper() + out[1:]) if out else answer
+
+
+def _md_section(md: str, title: str) -> str:
+    m = re.search(rf"^## {re.escape(title)}[^\n]*\n(.*?)(?=^## |\Z)", md, re.S | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def agent_task(cfg: dict[str, Any]) -> str:
+    """The @-agent's procedure and output template, restated right before the model answers."""
+    ag = cfg.get("agent") or {}
+    md = ag.get("instructions", "")
+    template = _md_section(md, "Output template")
+    if not template:
+        return ""
+    steps = _md_section(md, "How I work (procedure)")
+    first = re.search(r"\*\*([^*]+)\*\*", template)
+    lead = first.group(1).split("/")[0].strip() if first else ""
+    if " · " in template:  # one section per line reads far better than a single dense line
+        template = "\n".join(part.strip() for part in template.split(" · "))
+    return (f"You are {ag.get('name')}. Work through these steps silently:\n{steps}\n\n"
+            "Write the answer in exactly this format: each bold label on its own line, followed by its content "
+            f"(bullets or a short table where it fits). Keep the bold labels:\n{template}\n"
+            + (f"Start your reply with **{lead}**." if lead else ""))
+
+
 def get_user(user_id: str) -> User:
     doc = db().users.find_one({"id": user_id})
     if not doc:
@@ -41,10 +99,10 @@ def get_user(user_id: str) -> User:
     return User.from_doc(doc)
 
 
-def system_prompt(cfg: dict[str, Any], persona_layers: list[tuple[str, str]] | None = None) -> str:
+def system_prompt(cfg: dict[str, Any], card: str = "") -> str:
     parts = [BASE_SYSTEM]
-    for label, body in persona_layers or []:  # role context, then the employee's own persona
-        parts.append(f"<context file=\"{label}\">\n{body}\n</context>")
+    if card:  # distilled from data/roles/<role>.md and data/people/<id>.md
+        parts.append(f"<asker>\n{card}\n</asker>")
     if cfg.get("agent"):  # the @-agent's context file, verbatim
         parts.append(f"<context file=\"{cfg['agent'].get('context_file') or 'agent'}\">\n"
                      f"{cfg['agent']['instructions'].strip()}\n</context>")
@@ -117,8 +175,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     hits = retrieve.search_docs(user, query, cfg)
     if personal_memory:  # favour documents from the asker's own projects (still access-controlled)
         hits += retrieve.project_context(user, query, {(h.get("doc_id"), h.get("chunk")) for h in hits})
-    sources = [{"title": x["title"], "text": x["text"][: int(cfg["context"]["max_chunk_chars"])],
-                "doc_id": x.get("doc_id", "")} for x in hits]
+    sources = _merge_by_doc(hits, int(cfg["context"]["max_chunk_chars"]), max_docs=max(3, int(cfg["retrieval"]["top_k"])))
     if cfg["retrieval"].get("graph_context") or "ontology_lookup" in cfg["tools"]:
         sources += retrieve.graph_context(user, question)
 
@@ -145,10 +202,12 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     if turns:
         parts.append("Earlier in this conversation:\n" + "\n".join(f"Q: {t['q']}\nA: {t['a'][:400]}" for t in turns))
     parts += [src_xml, f"Question: {question}"]
+    task = agent_task(cfg)
+    if task:  # small models follow the format best when it is the last thing they read
+        parts.append(task)
     user_msg = "\n\n".join(parts)
-    persona_layers = context.layers(user.id, agents.org_role(user)) if personal_memory else \
-        ([] if not agents.org_role(user) else context.layers("__nobody__", agents.org_role(user)))
-    system = system_prompt(cfg, persona_layers)
+    card, card_files = context.audience_card(user.id if personal_memory else "__nobody__", agents.org_role(user))
+    system = system_prompt(cfg, card)
     t_system, t_user = vault.tokenize(system), vault.tokenize(user_msg)
 
     leaked = vault.leaks(t_system + t_user)
@@ -164,7 +223,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             error = str(e)[:200]
             answer_t, meta = ("The model is unavailable right now. The most relevant passages I can show you: "
                               + "; ".join(s["title"] for s in sources[:4]), {"model": "unavailable"})
-    answer = vault.detokenize(answer_t)
+    answer = vault.detokenize(_clean(answer_t))
 
     event_id = uuid.uuid4().hex
     latency = round(time.time() - t0, 2)
@@ -187,7 +246,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             "agent": (tpl or {}).get("name"), "sources": [s["title"] for s in sources], "model": meta.get("model"),
             "latency": latency, "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
             "preferences_applied": prefs, "lessons_applied": len(notes),
-            "context_layers": [label for label, _ in persona_layers] +
+            "context_layers": card_files +
                               ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
             "model_view": {"system": t_system, "user": t_user, "answer": answer_t},
             "_context": src_xml}

@@ -67,3 +67,38 @@ def parse_mention(text: str, known: set[str]) -> tuple[str | None, str]:
             cleaned = (text[: m.start()] + text[m.end():]).strip(" ,:")
             return aid, re.sub(r"\s{2,}", " ", cleaned).strip() or text
     return None, text
+
+
+def _section(md: str, title: str) -> str:
+    m = re.search(rf"^## {re.escape(title)}\s*\n(.*?)(?=^## |\Z)", md, re.S | re.M)
+    return m.group(1).strip() if m else ""
+
+
+def audience_card(emp_id: str, org_role: str | None) -> tuple[str, list[str]]:
+    """A compact 'who is asking' card distilled from the role and persona files (small models do better with
+    a short card than with whole documents). Returns (card, files it came from)."""
+    files, lines = [], []
+    pmeta, pbody = person(emp_id)
+    rmeta, rbody = role(org_role) if org_role else ({}, "")
+    if pbody:
+        files.append(f"data/people/{emp_id}.md")
+        lines.append(f"Asker: {pmeta.get('name')}, {pmeta.get('title')}" +
+                     (f" (reports to {pmeta['reports_to_name']})" if pmeta.get("reports_to_name") else ""))
+        about = _section(pbody, "About me")
+        week = re.search(r"This week I ([^\n]+)", about)
+        if week:
+            lines.append(f"This week they {week.group(1).rstrip('.')}.")
+        proj = _section(pbody, "My projects and scope of work")
+        if proj and "No project" not in proj:
+            items = re.findall(r"\*\*(.+?)\*\*.*?My scope: ([^\n]+)", proj, re.S)
+            if items:
+                lines.append("Their projects: " + "; ".join(f"{n} (their scope: {sc.strip()})" for n, sc in items))
+        prefs = [l[2:].strip() for l in _section(pbody, "How I like answers").splitlines() if l.startswith("- ")]
+        if prefs:
+            lines.append("They like answers that: " + " ".join(prefs))
+    if rbody:
+        files.insert(0, f"data/roles/{org_role}.md")
+        framing = _section(rbody, "How to frame answers for this role")
+        if framing:
+            lines.append(f"Role ({rmeta.get('title', org_role)}): {framing}")
+    return "\n".join(f"- {l}" for l in lines), files
