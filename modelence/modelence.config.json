@@ -4,8 +4,12 @@
     "web": {
       "type": "service",
       "image": "node-22-slim",
-      "build": { "commands": ["npm install --omit=dev"] },
+      "build": { "commands": [] },
       "start": { "commands": ["node server.js"] }
     }
+  },
+  "env": {
+    // Where the Python API (FastAPI + local model) is reachable. Override in the dashboard if the tunnel changes.
+    "FASTAPI_URL": { "value": "https://power-longest-areas-structural.trycloudflare.com", "required": false }
   }
 }
