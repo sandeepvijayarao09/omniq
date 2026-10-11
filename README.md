@@ -30,6 +30,73 @@ flowchart LR
   H --> A
 ```
 
+## Flowcharts: agent improvement and context improvement
+
+Also full-screen at `/workflow` in the running app (for demos).
+
+**1 · Agent improvement (each of the 20 agents)**
+
+```mermaid
+flowchart LR
+  A["👩‍💻 People use agents<br/>@build · @verifier · @debug …"] --> B["📡 Behaviour signals<br/>rephrased · corrected · extended<br/>regenerated · copied · 👍👎"]
+  A --> R["🌧 Raindrop<br/>where the agent fails<br/>by type + playbook version"]
+  B --> E{"📒 7-day evidence<br/>same pattern in<br/>2+ people?"}
+  R --> E
+  E -- "no: one person's taste" --> P["👤 Stays that person's<br/>preference only"]
+  E -- yes --> C["💡 Improver proposes ONE change<br/>rules · retrieval ($rankFusion, top-k)<br/>workflow · output template"]
+  C --> G{"🛡 Gates<br/>locked invariants · injection screen<br/>tool allow-list · ALL leak tests"}
+  G -- fail --> X["🛑 Refused<br/>(audited)"]
+  G -- pass --> T{"🧪 Proof<br/>beats current on unseen tests<br/>or wins blind side-by-side replay?"}
+  T -- no --> U["↩️ Undone<br/>numbers recorded"]
+  T -- "yes, small change" --> K["✅ Kept"]
+  T -- "yes, template/tools" --> M["🙋 Manager approves<br/>(IAM harness:approve)"]
+  M --> K
+  K --> S[("🍃 MongoDB Atlas<br/>new playbook version<br/>parent · change · evidence · scores")]
+  S --> W{"👀 Watchdog<br/>live failure rate worse<br/>than parent?"}
+  W -- yes --> RB["⏪ Auto-rollback"]
+  W -- no --> A
+  classDef sig fill:#e8f1fb,stroke:#b5d3f2
+  classDef ev fill:#fff4e0,stroke:#f0cf95
+  classDef prop fill:#f3e8fb,stroke:#d6bff0
+  classDef gate fill:#fdecec,stroke:#f2b8bb
+  classDef ok fill:#e3f6ec,stroke:#9fd9b9
+  class B,R sig
+  class E,P ev
+  class C prop
+  class G,T,X,U gate
+  class K,M,S,W,RB ok
+```
+
+**2 · Context improvement (each person, and what the model receives)**
+
+```mermaid
+flowchart LR
+  Q["💬 Question<br/>(optionally @agent)"] --> IAM{"🔐 IAM policy<br/>role → allowed docs<br/>compiled into $vectorSearch filter"}
+  IAM --> RET["🔎 Atlas retrieval<br/>vector + full-text ($rankFusion)<br/>+ $graphLookup ontology<br/>+ your project docs"]
+  subgraph CTX["🧩 Context layers (versioned in Atlas context_layers)"]
+    direction TB
+    L1["📄 Role file<br/>what a CTO / Director / PM / Dev needs"]
+    L2["🧑 Persona file<br/>projects · scope of work · how you like answers<br/>+ 'learned from my last cycle'"]
+    L3["🤖 Agent file<br/>persona · procedure · output template<br/>+ learned rules & workflow"]
+    L4["🧠 Memory<br/>your preferences · recent turns"]
+  end
+  RET --> MASK["🫥 Mask names<br/>[PERSON_1] …"]
+  CTX --> MASK
+  MASK --> GW{"🔌 Model gateway<br/>Gemma · Llama · Claude · OpenAI<br/>private data → local models only"}
+  GW --> ANS["✅ Answer<br/>streamed, names restored, sources cited"]
+  ANS --> SIG["📡 What you do next<br/>rephrase · correct · extend · copy"]
+  SIG --> CY["🔁 Your 7-day cycle<br/>reviews every decision you made<br/>+ Raindrop signals"]
+  CY --> NV[("🍃 New persona version in Atlas<br/>'learned from my last cycle'")]
+  NV --> L2
+  CY --> AG["→ evidence for agent improvement<br/>(diagram 1)"]
+  classDef sec fill:#fdecec,stroke:#f2b8bb
+  classDef atl fill:#e3f6ec,stroke:#9fd9b9
+  classDef sig fill:#e8f1fb,stroke:#b5d3f2
+  class IAM,MASK,GW sec
+  class RET,NV atl
+  class SIG,CY,AG sig
+```
+
 ## In plain English
 
 Omniq is an AI assistant for everyone in a company. Each person only ever sees the documents their job allows,

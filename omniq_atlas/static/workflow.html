@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omniq Atlas · How it improves</title>
+<style>
+:root{--bg:#f6f8fa;--panel:#fff;--line:#dfe3e8;--text:#1b2733;--mute:#5e6b78;--accent:#00a35c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:18px 28px 6px}h1{margin:0;font-size:22px}h1 span{color:var(--accent)}header p{margin:4px 0 0;color:var(--mute)}
+.tabs{display:flex;gap:8px;padding:10px 28px}.tabs button{font:inherit;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:7px 14px;cursor:pointer}
+.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.card{margin:8px 28px 22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 18px 8px}
+.card h2{margin:0 0 4px;font-size:17px}.card .sub{color:var(--mute);font-size:13px;margin-bottom:6px}
+.mermaid{display:flex;justify-content:center}.hide{display:none}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:6px 0 4px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+</style></head><body>
+<header><h1>Omniq <span>Atlas</span>: how every agent and every person's context improves itself</h1>
+<p>Nobody fills in feedback. The system learns from how people work, and a change ships only when the data proves it, without ever loosening access or privacy.</p></header>
+<div class="tabs"><button class="on" data-t="both">Both</button><button data-t="agent">Agent improvement</button><button data-t="context">Context improvement</button></div>
+
+<div class="card" id="agent"><h2>1 · Agent improvement (each of the 20 agents)</h2>
+<div class="sub">Every 7 days, on a Raindrop failure spike, or when someone presses <b>Improve from last 7 days</b></div>
+<div class="legend"><span><i style="background:#e8f1fb"></i>signals</span><span><i style="background:#fff4e0"></i>evidence</span><span><i style="background:#f3e8fb"></i>proposal</span><span><i style="background:#fdecec"></i>gates</span><span><i style="background:#e3f6ec"></i>decision / saved</span></div>
+<pre class="mermaid">
+flowchart LR
+  A["👩‍💻 People use agents<br/>@build · @verifier · @debug …"] --> B["📡 Behaviour signals<br/>rephrased · corrected · extended<br/>regenerated · copied · 👍👎"]
+  A --> R["🌧 Raindrop<br/>where the agent fails<br/>by type + playbook version"]
+  B --> E{"📒 7-day evidence<br/>same pattern in<br/>2+ people?"}
+  R --> E
+  E -- "no: one person's taste" --> P["👤 Stays that person's<br/>preference only"]
+  E -- yes --> C["💡 Improver proposes ONE change<br/>rules · retrieval ($rankFusion, top-k)<br/>workflow · output template"]
+  C --> G{"🛡 Gates<br/>locked invariants · injection screen<br/>tool allow-list · ALL leak tests"}
+  G -- fail --> X["🛑 Refused<br/>(audited)"]
+  G -- pass --> T{"🧪 Proof<br/>beats current on unseen tests<br/>or wins blind side-by-side replay?"}
+  T -- no --> U["↩️ Undone<br/>numbers recorded"]
+  T -- "yes, small change" --> K["✅ Kept"]
+  T -- "yes, template/tools" --> M["🙋 Manager approves<br/>(IAM harness:approve)"]
+  M --> K
+  K --> S[("🍃 MongoDB Atlas<br/>new playbook version<br/>parent · change · evidence · scores")]
+  S --> W{"👀 Watchdog<br/>live failure rate worse<br/>than parent?"}
+  W -- yes --> RB["⏪ Auto-rollback"]
+  W -- no --> A
+  classDef sig fill:#e8f1fb,stroke:#b5d3f2
+  classDef ev fill:#fff4e0,stroke:#f0cf95
+  classDef prop fill:#f3e8fb,stroke:#d6bff0
+  classDef gate fill:#fdecec,stroke:#f2b8bb
+  classDef ok fill:#e3f6ec,stroke:#9fd9b9
+  class B,R sig
+  class E,P ev
+  class C prop
+  class G,T,X,U gate
+  class K,M,S,W,RB ok
+</pre></div>
+
+<div class="card" id="context"><h2>2 · Context improvement (each person, and what the model receives)</h2>
+<div class="sub">Every answer is built from layered context in Atlas; each person's layer gets a new version every 7 days</div>
+<pre class="mermaid">
+flowchart LR
+  Q["💬 Question<br/>(optionally @agent)"] --> IAM{"🔐 IAM policy<br/>role → allowed docs<br/>compiled into $vectorSearch filter"}
+  IAM --> RET["🔎 Atlas retrieval<br/>vector + full-text ($rankFusion)<br/>+ $graphLookup ontology<br/>+ your project docs"]
+  subgraph CTX["🧩 Context layers (versioned in Atlas context_layers)"]
+    direction TB
+    L1["📄 Role file<br/>what a CTO / Director / PM / Dev needs"]
+    L2["🧑 Persona file<br/>projects · scope of work · how you like answers<br/>+ 'learned from my last cycle'"]
+    L3["🤖 Agent file<br/>persona · procedure · output template<br/>+ learned rules & workflow"]
+    L4["🧠 Memory<br/>your preferences · recent turns"]
+  end
+  RET --> MASK["🫥 Mask names<br/>[PERSON_1] …"]
+  CTX --> MASK
+  MASK --> GW{"🔌 Model gateway<br/>Gemma · Llama · Claude · OpenAI<br/>private data → local models only"}
+  GW --> ANS["✅ Answer<br/>streamed, names restored, sources cited"]
+  ANS --> SIG["📡 What you do next<br/>rephrase · correct · extend · copy"]
+  SIG --> CY["🔁 Your 7-day cycle<br/>reviews every decision you made<br/>+ Raindrop signals"]
+  CY --> NV[("🍃 New persona version in Atlas<br/>'learned from my last cycle'")]
+  NV --> L2
+  CY --> AG["→ evidence for agent improvement<br/>(diagram 1)"]
+  classDef sec fill:#fdecec,stroke:#f2b8bb
+  classDef atl fill:#e3f6ec,stroke:#9fd9b9
+  classDef sig fill:#e8f1fb,stroke:#b5d3f2
+  class IAM,MASK,GW sec
+  class RET,NV atl
+  class SIG,CY,AG sig
+</pre></div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'base',securityLevel:'loose',flowchart:{curve:'basis',htmlLabels:true,nodeSpacing:28,rankSpacing:38},
+  themeVariables:{fontFamily:'ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif',fontSize:'14px',primaryColor:'#ffffff',primaryBorderColor:'#c9d1d9',lineColor:'#8b98a7',textColor:'#1b2733'}});
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  const t=b.dataset.t;document.getElementById('agent').classList.toggle('hide',t==='context');document.getElementById('context').classList.toggle('hide',t==='agent')});
+</script></body></html>

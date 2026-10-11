@@ -130,6 +130,12 @@ def index() -> FileResponse:
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/workflow")
+def workflow_page() -> FileResponse:
+    """Full-screen flowcharts of agent improvement and context improvement (for demos and judges)."""
+    return FileResponse(STATIC / "workflow.html", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/status")
 def status() -> dict[str, Any]:
     return {"voyage": embed.available(), "llm": llm.provider(), "model": llm.default_profile(), "raindrop": telemetry.available(),
