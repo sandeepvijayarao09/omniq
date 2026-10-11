@@ -78,16 +78,6 @@ def test_agent_focus_only_narrows_access():
     assert vector_filter(ENG, focus=["board"])["$or"][0]["category"]["$in"] == ["__none__"]
 
 
-def test_agent_audience():
-    from omniq_atlas.agents import eligible
-
-    deal = {"audience": {"roles": ["pro", "manager", "executive"], "departments": ["sales"]}}
-    sales = User(id="s1", name="S", role="pro", department="sales")
-    ceo = User(id="c1", name="C", role="executive", department="executive")
-    basic = User(id="b1", name="B", role="basic", department="sales")
-    assert eligible(sales, deal) and eligible(ceo, deal)
-    assert not eligible(ENG, deal) and not eligible(basic, deal)
-
 
 def test_agent_tool_allowlist_and_rule_caps():
     cfg = copy.deepcopy(harness.DEFAULT_HARNESS)
@@ -148,3 +138,40 @@ def test_risk_levels():
     assert risk(cfg, {"tools": ["search_docs", "ontology_lookup"]})[0] == "high"
     assert risk(cfg, {"guardrails": {"cite_sources": True}})[0] == "low"   # can only be tightened
     assert risk(cfg, {"model": {"max_tokens": 1500}})[0] == "high"
+
+
+def test_agent_context_files_hold_no_restricted_facts():
+    """Context files reach the model for every eligible user, so they may not carry board / HR / finance
+    facts. Those must arrive through ACL-filtered retrieval."""
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parent.parent
+    leak_strings = {s.lower() for c in yaml.safe_load((root / "data" / "evals.yaml").read_text())
+                    if c["kind"] == "leak" for s in c.get("must_not_include", [])}
+    restricted = {"bluefin", "driftwood", "$18m", "cap table", "salary", "comp band", "performance review"}
+    files = sorted((root / "data" / "agents").glob("*/*.md"))
+    assert len(files) == 20
+    for f in files:
+        body = f.read_text().split("---", 2)[2].lower()
+        hits = [s for s in leak_strings | restricted if s in body]
+        assert not hits, f"{f.name} contains restricted content: {hits}"
+
+
+def test_org_hierarchy():
+    from omniq_atlas.agents import eligible, org_role
+
+    dev = User(id="d", name="D", role="pro", department="engineering", title="Software Engineer")
+    pm = User(id="p", name="P", role="pro", department="product", title="Product Manager")
+    director = User(id="m", name="M", role="manager", department="engineering", title="Engineering Manager")
+    cto = User(id="c", name="C", role="executive", department="executive", title="Chief Technology Officer")
+    office = User(id="o", name="O", role="basic", department="workplace", title="Office Coordinator")
+    assert [org_role(u) for u in (dev, pm, director, cto, office)] == ["developer", "product_manager", "director", "cto", None]
+    dev_agent = {"org_role": "developer", "audience": {"org_roles": ["developer"], "inherit_upward": True}}
+    pm_agent = {"org_role": "product_manager", "audience": {"org_roles": ["product_manager"], "inherit_upward": True}}
+    cto_agent = {"org_role": "cto", "audience": {"org_roles": ["cto"], "inherit_upward": True}}
+    assert eligible(dev, dev_agent) and not eligible(dev, pm_agent) and not eligible(pm, dev_agent)
+    assert eligible(director, dev_agent) and eligible(director, pm_agent) and not eligible(director, cto_agent)
+    assert eligible(cto, cto_agent) and eligible(cto, dev_agent)
+    assert not eligible(office, dev_agent)

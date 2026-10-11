@@ -64,8 +64,8 @@ def _rate_limit(uid: str, per_minute: int = 30) -> None:
     q.append(now)
 STATIC = Path(__file__).parent / "static"
 
-FEATURED = ["emp-1005", "emp-1001", "emp-1059", "emp-1002", "emp-1074", "emp-1003", "emp-1012", "emp-1085",
-            "emp-1092", "emp-1007"]
+FEATURED = ["emp-1001", "emp-1019", "emp-1048", "emp-1051", "emp-1003", "emp-1012", "emp-1047", "emp-1009",
+            "emp-1005", "emp-1007"]
 
 
 def _token(user_id: str) -> str:
@@ -138,7 +138,9 @@ def personas() -> list[dict[str, Any]]:
             u = assistant.get_user(uid)
         except KeyError:
             continue
-        out.append({"id": u.id, "name": u.name, "title": u.title, "role": u.role, "access": describe(u)})
+        org = agents.org_role(u)
+        out.append({"id": u.id, "name": u.name, "title": u.title, "role": u.role, "access": describe(u),
+                    "org_role": org, "org_title": agents.ORG_ROLES[org]["title"] if org else None})
     return out
 
 
@@ -149,7 +151,9 @@ def login(body: Login) -> dict[str, Any]:
     except KeyError:
         raise HTTPException(404, "unknown user")
     audit.record("login", u.id)
-    return {"token": _token(u.id), "user": {"id": u.id, "name": u.name, "role": u.role, "title": u.title}}
+    org = agents.org_role(u)
+    return {"token": _token(u.id), "user": {"id": u.id, "name": u.name, "role": u.role, "title": u.title,
+                                            "org_role": org, "org_title": agents.ORG_ROLES[org]["title"] if org else None}}
 
 
 @app.post("/api/ask")
@@ -178,15 +182,46 @@ def my_agents(uid: str = Depends(current_user)) -> list[dict[str, Any]]:
     for a in agents.for_user(user):
         h = harness.active(harness.agent_scope(a["id"]))
         out.append({"id": a["id"], "name": a["name"], "description": a.get("description", ""),
+                    "org_role": a.get("org_role"), "org_title": agents.ORG_ROLES.get(a.get("org_role"), {}).get("title"),
+                    "llm": a.get("llm"), "context_file": a.get("context_file"),
                     "starter_questions": a.get("starter_questions", []), "version": h["version"]})
     return out
+
+
+@app.get("/api/agents/{agent_id}/context")
+def agent_context(agent_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+    """The agent's context file exactly as the model receives it (plus the rules it has learned since)."""
+    user = assistant.get_user(uid)
+    tpl = agents.get(agent_id)
+    if not tpl or not agents.eligible(user, tpl):
+        raise HTTPException(404, "no such agent for you")
+    h = harness.active(harness.agent_scope(agent_id))
+    return {"id": agent_id, "name": tpl["name"], "file": tpl.get("context_file"), "llm": tpl.get("llm"),
+            "markdown": tpl.get("context_md", ""), "learned_rules": h["config"].get("rules", []),
+            "version": h["version"]}
+
+
+@app.get("/api/org")
+def org_chart(uid: str = Depends(current_user)) -> dict[str, Any]:
+    """The four-role hierarchy with the people in each role and how many agents each can use."""
+    people = [assistant.get_user(d["id"]) for d in db().users.find({}, {"id": 1})]
+    by_role: dict[str, list[dict[str, Any]]] = {r: [] for r in agents.ORG_ROLES}
+    for u in people:
+        r = agents.org_role(u)
+        if r:
+            by_role[r].append({"id": u.id, "name": u.name, "title": u.title,
+                               "reports_to": (db().users.find_one({"id": u.id}) or {}).get("reports_to")})
+    counts = {r: db().agents.count_documents({"org_role": r}) for r in agents.ORG_ROLES}
+    return {"roles": [{"role": r, **meta, "people": by_role[r], "own_agents": counts[r]}
+                      for r, meta in agents.ORG_ROLES.items()]}
 
 
 @app.get("/api/scopes")
 def scopes() -> dict[str, Any]:
     counts = memory.pending_counts()
-    ags = [{"scope": harness.agent_scope(a["id"]), "name": a["name"], "pending": counts.get(harness.agent_scope(a["id"]), 0)}
-           for a in db().agents.find({}, {"_id": 0, "id": 1, "name": 1}).sort("name", 1)]
+    ags = [{"scope": harness.agent_scope(a["id"]), "name": f"{agents.ORG_ROLES.get(a.get('org_role'), {}).get('title', '')}: {a['name']}",
+            "pending": counts.get(harness.agent_scope(a["id"]), 0)}
+           for a in db().agents.find({}, {"_id": 0, "id": 1, "name": 1, "org_role": 1}).sort([("org_role", 1), ("name", 1)])]
     return {"roles": [r for r in harness.ROLES if r != "admin"], "agents": ags}
 
 

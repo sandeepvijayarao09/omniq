@@ -40,8 +40,8 @@ def get_user(user_id: str) -> User:
 
 def system_prompt(cfg: dict[str, Any]) -> str:
     parts = [BASE_SYSTEM]
-    if cfg.get("agent"):
-        parts.append(f"You are acting as the {cfg['agent']['name']} agent.\n{cfg['agent']['instructions'].strip()}")
+    if cfg.get("agent"):  # the agent's context file, verbatim
+        parts.append(cfg["agent"]["instructions"].strip())
     g = cfg["guardrails"]
     if g.get("abstain_when_unsupported"):
         parts.append("If the sources do not contain the answer, say you couldn't find it in the documents "
@@ -141,7 +141,8 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     else:
         try:
             answer_t, meta = llm.complete(t_system, t_user, max_tokens=int(cfg["model"]["max_tokens"]),
-                                          temperature=float(cfg["model"]["temperature"]))
+                                          temperature=float(cfg["model"]["temperature"]),
+                                          model=(cfg.get("agent") or {}).get("llm_model") or None)
         except Exception as e:  # model down or timed out: degrade, never 500
             error = str(e)[:200]
             answer_t, meta = ("The model is unavailable right now. The most relevant passages I can show you: "
