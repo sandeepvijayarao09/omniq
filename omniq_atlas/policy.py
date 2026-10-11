@@ -39,12 +39,20 @@ class User:
                    manages=tuple(d.get("manages") or ()))
 
     def open_categories(self) -> set[str]:
+        from . import iam
+
+        if iam.org_role(self):  # org members: compiled from IAM policies
+            return set(iam.categories(self))
         grants = set(OPEN_GRANTS[self.role])
         if self.role in ("pro", "manager"):
             grants |= DEPARTMENT_GRANTS.get(self.department, set())
         return grants
 
     def hr_scope(self) -> tuple[str, ...]:
+        from . import iam
+
+        if iam.org_role(self):
+            return iam.hr_teams(self)
         if self.role != "manager":
             return ()
         return self.manages or (self.team,)

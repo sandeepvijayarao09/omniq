@@ -1,0 +1,93 @@
+# Projects and scope of work for the 10-person team.
+# Members carry their own scope (what *they* do on the project). Linked docs are preferred in retrieval for
+# project members, and still pass each person's access control. Facts here are general/engineering level only.
+
+- id: sso-saml
+  name: SSO/SAML for Business and Enterprise
+  owner: emp-1048
+  status: Private beta
+  milestones: ["Private beta with six customers", "GA in December"]
+  docs: [product-prd-sso, product-roadmap-q4, general-company-okrs]
+  members:
+    emp-1048: {role: Product owner, scope: "Requirements, beta customers, GA readiness and pricing tier fit"}
+    emp-1001: {role: Backend engineer, scope: "SAML assertion handling and session issuance in the auth service"}
+    emp-1025: {role: Frontend engineer, scope: "Admin SSO settings screens in the web app"}
+    emp-1012: {role: Engineering sponsor, scope: "Staffing, delivery risk and the December date"}
+
+- id: sessions-postgres
+  name: ADR-007 — Sessions from Redis to Postgres
+  owner: emp-1001
+  status: In progress
+  milestones: ["Dual-write sessions", "Cut reads over to Postgres", "Redis as read-through cache only"]
+  docs: [eng-adr-007, eng-incident-postmortem, eng-architecture-overview]
+  members:
+    emp-1001: {role: Tech lead, scope: "Migration design, dual-write rollout and cutover"}
+    emp-1040: {role: SRE, scope: "Failover testing and alerting for the new session path"}
+    emp-1012: {role: Engineering sponsor, scope: "Prioritisation against roadmap work"}
+
+- id: ingest-reliability
+  name: August outage follow-ups and ingest reliability
+  owner: emp-1019
+  status: In progress
+  milestones: ["Load-test gate for gateway config changes (done)", "Out-of-band alerting path by end of Q4"]
+  docs: [eng-incident-postmortem, eng-adr-012-kafka, eng-deploy-runbook, eng-oncall-rotation]
+  members:
+    emp-1019: {role: Ingest engineer, scope: "Gateway quotas, connection limits and Kafka pipeline health"}
+    emp-1040: {role: SRE, scope: "Out-of-band alerting path and on-call runbooks"}
+    emp-1049: {role: Product manager, scope: "Customer communication and ingest quota tiers"}
+    emp-1012: {role: Engineering sponsor, scope: "Reliability OKR and follow-up tracking"}
+    emp-1009: {role: Executive sponsor, scope: "Reliability story for enterprise customers"}
+
+- id: nimbus
+  name: Project Nimbus — AI incident summaries
+  owner: emp-1051
+  status: Planned private beta
+  milestones: ["Private beta in Q1", "Five more design partners"]
+  docs: [product-prd-nimbus, design-research-oncall, product-roadmap-q4]
+  members:
+    emp-1051: {role: Product owner, scope: "PRD, design partners and success metrics"}
+    emp-1025: {role: Frontend engineer, scope: "Incident timeline UI and summary panel"}
+    emp-1047: {role: Product sponsor, scope: "Roadmap placement and pricing as an add-on"}
+
+- id: anomaly-v2
+  name: Anomaly detection v2
+  owner: emp-1049
+  status: Beta
+  milestones: ["v2 beta with large tenants", "Noise below v1 levels"]
+  docs: [eng-anomaly-detection-design, product-roadmap-q4]
+  members:
+    emp-1049: {role: Product manager, scope: "Beta tenants, alert-noise metrics and rollout criteria"}
+    emp-1019: {role: Ingest engineer, scope: "Feature extraction from the ingest stream"}
+
+- id: tide-design-system
+  name: Tide design system adoption
+  owner: emp-1025
+  status: Ongoing
+  milestones: ["All new screens on Tide components"]
+  docs: [design-tide-guidelines, eng-adr-015-feature-flags]
+  members:
+    emp-1025: {role: Frontend engineer, scope: "Component migration and accessibility checks"}
+
+- id: q4-roadmap
+  name: Q4 FY26 roadmap and planning
+  owner: emp-1047
+  status: In planning
+  milestones: ["Q4 roadmap locked", "Mid-quarter review"]
+  docs: [product-roadmap-q4, general-company-okrs, general-all-hands-oct]
+  members:
+    emp-1047: {role: Head of Product, scope: "Roadmap sequencing and trade-offs across product areas"}
+    emp-1012: {role: Engineering lead, scope: "Capacity and delivery commitments"}
+    emp-1048: {role: Product manager, scope: "Platform and enterprise items"}
+    emp-1049: {role: Product manager, scope: "Ingest items"}
+    emp-1051: {role: Product manager, scope: "AI items"}
+    emp-1009: {role: Executive sponsor, scope: "Technology priorities and risk"}
+
+- id: platform-strategy
+  name: Platform strategy and spend
+  owner: emp-1009
+  status: Ongoing
+  milestones: ["Cloud cost per host down 15% this half", "SOC 2 Type II by January"]
+  docs: [eng-architecture-overview, eng-adr-012-kafka, general-company-okrs, eng-security-incident-response]
+  members:
+    emp-1009: {role: Owner, scope: "Architecture direction, build vs buy, security and compliance posture"}
+    emp-1012: {role: Engineering lead, scope: "Execution of platform bets"}

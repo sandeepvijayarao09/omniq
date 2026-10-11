@@ -82,8 +82,48 @@ def role_file(role: str) -> str:
     title, rank, duties, framing = ROLES[role]
     meta = {"org_role": role, "title": title, "rank": rank}
     lines = [f"# Role: {title}", "", "## What this role is responsible for", *[f"- {d}" for d in duties], "",
-             "## How to frame answers for this role", framing, ""]
+             "## How to frame answers for this role", framing, "",
+             *access_section(role)]
     return "---\n" + yaml.safe_dump(meta, sort_keys=False) + "---\n\n" + "\n".join(lines)
+
+
+PROJECTS = yaml.safe_load((ROOT / "data" / "projects.yaml").read_text())
+IAM = yaml.safe_load((ROOT / "data" / "iam" / "policies.yaml").read_text())
+
+
+def projects_section(eid: str, role: str, names: dict[str, str]) -> list[str]:
+    mine = [p for p in PROJECTS if eid in p["members"]]
+    lines = ["## My projects and scope of work"]
+    if not mine:
+        return lines + ["- No project assignments right now.", ""]
+    for p in mine:
+        m = p["members"][eid]
+        owner = "I own this" if p["owner"] == eid else f"owner: {names.get(p['owner'], p['owner'])}"
+        lines += [f"- **{p['name']}** ({p['status']}; {owner})",
+                  f"  - My role: {m['role']}", f"  - My scope: {m['scope']}",
+                  f"  - Milestones: {'; '.join(p['milestones'])}"]
+    if role in ("director", "cto"):
+        others = [p["name"] for p in PROJECTS if eid not in p["members"]]
+        if others:
+            lines.append(f"- I also have visibility into: {', '.join(others)}.")
+    return lines + [""]
+
+
+def access_section(role: str) -> list[str]:
+    chain, seen = [], set()
+
+    def visit(r):
+        if r in seen:
+            return
+        seen.add(r)
+        chain.append(r)
+        for x in IAM["roles"][r].get("inherits", []):
+            visit(x)
+
+    visit(role)
+    sids = [f"{r}.{st['sid']}" for r in chain for st in IAM["roles"][r]["statements"] if st["effect"] == "Allow"]
+    return ["## What my role may access (IAM)", f"Role chain: {' → '.join(chain)}. Allow statements: {', '.join(sids)}.",
+            "Anything not allowed is denied; answers must respect this.", ""]
 
 
 def person_file(emp: dict, role: str, reports_to: str | None, focus: str, names: dict[str, str]) -> str:
@@ -91,6 +131,7 @@ def person_file(emp: dict, role: str, reports_to: str | None, focus: str, names:
     styles = rnd.sample(STYLES[role], 2)
     quirks = rnd.sample(QUIRKS, 2)
     meta = {"id": emp["id"], "name": emp["name"], "title": emp["title"], "org_role": role,
+            "projects": [p["id"] for p in PROJECTS if emp["id"] in p["members"]],
             "team": emp.get("team", ""), "reports_to": reports_to,
             "reports_to_name": names.get(reports_to) if reports_to else None,
             "tone": rnd.choice(TONES)}
@@ -101,8 +142,10 @@ def person_file(emp: dict, role: str, reports_to: str | None, focus: str, names:
              f"My focus right now: {focus}.", f"This week I {rnd.choice(WEEK[role])}.", "",
              "## How I like answers", *[f"- {s}" for s in styles], *[f"- {q}" for q in quirks],
              f"- Tone: {meta['tone']}.", "",
+             *projects_section(emp["id"], role, names),
+             *access_section(role),
              "## Use this to tailor every answer",
-             f"Write for {first} specifically. Relate the answer to the focus above when it's relevant. Never invent "
+             f"Write for {first} specifically. Relate the answer to my projects and scope above when relevant. Never invent "
              "facts about them; the sources still decide what is true.", ""]
     return "---\n" + yaml.safe_dump(meta, sort_keys=False) + "---\n\n" + "\n".join(lines)
 

@@ -168,10 +168,40 @@ def test_org_hierarchy():
     cto = User(id="c", name="C", role="executive", department="executive", title="Chief Technology Officer")
     office = User(id="o", name="O", role="basic", department="workplace", title="Office Coordinator")
     assert [org_role(u) for u in (dev, pm, director, cto, office)] == ["developer", "product_manager", "director", "cto", None]
-    dev_agent = {"org_role": "developer", "audience": {"org_roles": ["developer"], "inherit_upward": True}}
-    pm_agent = {"org_role": "product_manager", "audience": {"org_roles": ["product_manager"], "inherit_upward": True}}
-    cto_agent = {"org_role": "cto", "audience": {"org_roles": ["cto"], "inherit_upward": True}}
+    dev_agent = {"id": "dev_a", "org_role": "developer", "audience": {"org_roles": ["developer"], "inherit_upward": True}}
+    pm_agent = {"id": "pm_a", "org_role": "product_manager", "audience": {"org_roles": ["product_manager"], "inherit_upward": True}}
+    cto_agent = {"id": "cto_a", "org_role": "cto", "audience": {"org_roles": ["cto"], "inherit_upward": True}}
     assert eligible(dev, dev_agent) and not eligible(dev, pm_agent) and not eligible(pm, dev_agent)
     assert eligible(director, dev_agent) and eligible(director, pm_agent) and not eligible(director, cto_agent)
     assert eligible(cto, cto_agent) and eligible(cto, dev_agent)
     assert not eligible(office, dev_agent)
+
+
+
+def test_iam_policies():
+    from omniq_atlas import iam
+
+    dev = User(id="emp-1001", name="Maya", role="pro", department="engineering", team="platform", title="Engineer")
+    nadia = User(id="emp-1012", name="Nadia", role="manager", department="engineering", team="eng-leadership",
+                 title="VP of Engineering", manages=("platform", "ingest"))
+    cto = User(id="emp-1009", name="Marcus", role="executive", department="executive", title="Chief Technology Officer")
+    assert iam.categories(dev) == frozenset({"general", "engineering", "sales"})
+    assert iam.hr_teams(dev) == ()
+    assert set(iam.hr_teams(nadia)) == {"platform", "ingest"}
+    assert iam.categories(cto) == frozenset({"general", "engineering", "sales", "finance", "board"})
+    assert "sales" in iam.hr_teams(cto)
+    # decisions name the statement that decided them
+    d = iam.evaluate(dev, "docs:read", "doc:category/board")
+    assert d["decision"] == "Deny" and "implicit" in d["reason"]
+    assert iam.evaluate(dev, "agent:use", "agent:developer/deploy_guide")["sid"] == "UseDeveloperAgents"
+    assert iam.evaluate(dev, "improve:run", "harness:agent/developer/deploy_guide")["decision"] == "Deny"
+    assert iam.evaluate(nadia, "improve:run", "harness:agent/developer/deploy_guide")["decision"] == "Allow"
+    assert iam.evaluate(nadia, "improve:run", "harness:agent/cto/board_tech_brief")["decision"] == "Deny"
+    # explicit deny beats every allow, even for the CTO
+    d = iam.evaluate(cto, "iam:edit", "anything")
+    assert d["decision"] == "Deny" and d["sid"] == "NobodyEditsIAMOrInvariants"
+    # personal files: only your own
+    assert iam.evaluate(dev, "docs:read", "doc:owner/emp-1001")["decision"] == "Allow"
+    assert iam.evaluate(cto, "docs:read", "doc:owner/emp-1001")["decision"] == "Deny"
+    # projects from data/projects.yaml
+    assert "sso-saml" in iam.variables(dev)["projects"]

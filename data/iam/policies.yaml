@@ -1,0 +1,109 @@
+# IAM policies for the engineering org. Evaluation, like AWS IAM:
+#   1. an explicit Deny anywhere wins
+#   2. otherwise an Allow that matches the action and resource grants access
+#   3. otherwise the request is denied (implicit deny)
+# Roles inherit every statement of the roles listed in `inherits`.
+# Variables: ${user.id}, ${user.team}, ${user.manages} (teams the person manages), ${user.projects} (project ids).
+#
+# Resources
+#   doc:category/<general|engineering|sales|hr|finance|board|personal>
+#   doc:hr/<team>                 HR notes for one team
+#   doc:owner/<emp-id>            a personal workspace file
+#   agent:<org_role>/<agent-id>   using an agent
+#   harness:agent/<org_role>/<agent-id> | harness:role/<access-role>   a playbook
+#   project:<project-id>          project context and docs
+#   memory:<emp-id>               a person's agent memory
+version: "2026-10-11"
+
+roles:
+  employee:
+    description: Everyone in the company.
+    statements:
+      - sid: ReadCompanyWide
+        effect: Allow
+        actions: ["docs:read"]
+        resources: ["doc:category/general"]
+      - sid: ReadOwnPersonalFiles
+        effect: Allow
+        actions: ["docs:read"]
+        resources: ["doc:owner/${user.id}"]
+      - sid: UseChat
+        effect: Allow
+        actions: ["chat:use", "feedback:give", "ontology:read", "datalayer:read", "harness:view", "iam:simulate"]
+        resources: ["*"]
+      - sid: ManageOwnMemory
+        effect: Allow
+        actions: ["memory:read", "memory:delete"]
+        resources: ["memory:${user.id}"]
+      - sid: ReadOwnProjects
+        effect: Allow
+        actions: ["project:read"]
+        resources: ["project:${user.projects}"]
+      - sid: NobodyEditsIAMOrInvariants
+        effect: Deny
+        actions: ["iam:edit", "harness:edit-invariants", "audit:delete"]
+        resources: ["*"]
+
+  developer:
+    description: Builds and operates services.
+    inherits: [employee]
+    statements:
+      - sid: ReadEngineeringAndCustomerContext
+        effect: Allow
+        actions: ["docs:read"]
+        resources: ["doc:category/engineering", "doc:category/sales"]
+      - sid: UseDeveloperAgents
+        effect: Allow
+        actions: ["agent:use"]
+        resources: ["agent:developer/*"]
+
+  product_manager:
+    description: Owns problems, requirements and launches for a product area.
+    inherits: [employee]
+    statements:
+      - sid: ReadEngineeringAndCustomerContext
+        effect: Allow
+        actions: ["docs:read"]
+        resources: ["doc:category/engineering", "doc:category/sales"]
+      - sid: UseProductAgents
+        effect: Allow
+        actions: ["agent:use"]
+        resources: ["agent:product_manager/*"]
+
+  director:
+    description: Runs a function through managers; owns delivery and team health.
+    inherits: [developer, product_manager]
+    statements:
+      - sid: ReadHRForManagedTeamsOnly
+        effect: Allow
+        actions: ["docs:read"]
+        resources: ["doc:hr/${user.manages}"]
+      - sid: UseDirectorAgents
+        effect: Allow
+        actions: ["agent:use"]
+        resources: ["agent:director/*"]
+      - sid: ImproveAndApproveTeamPlaybooks
+        effect: Allow
+        actions: ["improve:run", "harness:approve", "harness:freeze", "harness:rollback"]
+        resources: ["harness:agent/developer/*", "harness:agent/product_manager/*", "harness:agent/director/*"]
+      - sid: SeeAllProjects
+        effect: Allow
+        actions: ["project:read"]
+        resources: ["project:*"]
+
+  cto:
+    description: Owns technology strategy, spend and risk.
+    inherits: [director]
+    statements:
+      - sid: ReadBoardFinanceAndAllHR
+        effect: Allow
+        actions: ["docs:read"]
+        resources: ["doc:category/board", "doc:category/finance", "doc:hr/*"]
+      - sid: UseEveryAgent
+        effect: Allow
+        actions: ["agent:use"]
+        resources: ["agent:*"]
+      - sid: GovernEveryPlaybook
+        effect: Allow
+        actions: ["improve:run", "harness:approve", "harness:freeze", "harness:rollback"]
+        resources: ["harness:*"]

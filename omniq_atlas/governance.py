@@ -182,13 +182,36 @@ class NotAllowed(PermissionError):
     pass
 
 
+def resource_for(scope: str) -> str:
+    if scope.startswith("agent:"):
+        from .db import db as _db
+
+        a = _db().agents.find_one({"id": scope[6:]}, {"org_role": 1}) or {}
+        return f"harness:agent/{a.get('org_role', '?')}/{scope[6:]}"
+    return f"harness:role/{scope}"
+
+
+def check(user_id: str, action: str, scope: str) -> None:
+    """IAM check for org members; admins and executives outside the org keep legacy rights."""
+    from . import iam
+    from .assistant import get_user
+
+    u = get_user(user_id)
+    if iam.org_role(u):
+        d = iam.evaluate(u, action, resource_for(scope))
+        if d["decision"] != "Allow":
+            raise NotAllowed(f"IAM denied {action} on {resource_for(scope)} for {u.name}: {d['reason']}")
+    elif u.role not in APPROVER_ROLES:
+        raise NotAllowed(f"{u.name} may not {action}")
+
+
 def _require_approver(user_role: str) -> None:
     if user_role not in APPROVER_ROLES:
         raise NotAllowed("only admins and executives can approve, roll back or freeze harnesses")
 
 
 def approve(scope: str, version: int, approver: str, approver_role: str) -> None:
-    _require_approver(approver_role)
+    check(approver, "harness:approve", scope)
     doc = db().harness.find_one({"role": scope, "version": version, "status": "awaiting_approval"})
     if not doc:
         raise KeyError(f"{scope} v{version} is not awaiting approval")
@@ -198,7 +221,7 @@ def approve(scope: str, version: int, approver: str, approver_role: str) -> None
 
 
 def reject(scope: str, version: int, approver: str, approver_role: str, reason: str = "") -> None:
-    _require_approver(approver_role)
+    check(approver, "harness:approve", scope)
     res = db().harness.update_one({"role": scope, "version": version, "status": "awaiting_approval"},
                                   {"$set": {"status": "rolled_back", "reject_reason": reason or f"rejected by {approver}"}})
     if not res.modified_count:
@@ -208,7 +231,7 @@ def reject(scope: str, version: int, approver: str, approver_role: str, reason: 
 
 def rollback(scope: str, version: int, approver: str, approver_role: str) -> None:
     """Make an earlier version active again (it must have been active or superseded before)."""
-    _require_approver(approver_role)
+    check(approver, "harness:rollback", scope)
     target = db().harness.find_one({"role": scope, "version": version, "status": {"$in": ["superseded", "active"]}})
     if not target:
         raise KeyError(f"{scope} v{version} was never live")
@@ -218,7 +241,7 @@ def rollback(scope: str, version: int, approver: str, approver_role: str) -> Non
 
 
 def freeze(scope: str, frozen: bool, approver: str, approver_role: str) -> None:
-    _require_approver(approver_role)
+    check(approver, "harness:freeze", scope)
     db().scope_policy.update_one({"_id": scope}, {"$set": {"frozen": frozen}}, upsert=True)
     audit.record("harness_frozen" if frozen else "harness_unfrozen", approver, role=scope)
 

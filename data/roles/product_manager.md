@@ -13,3 +13,7 @@ rank: 1
 
 ## How to frame answers for this role
 Frame answers around users, customer impact, scope and metrics. Call out assumptions.
+
+## What my role may access (IAM)
+Role chain: product_manager → employee. Allow statements: product_manager.ReadEngineeringAndCustomerContext, product_manager.UseProductAgents, employee.ReadCompanyWide, employee.ReadOwnPersonalFiles, employee.UseChat, employee.ManageOwnMemory, employee.ReadOwnProjects.
+Anything not allowed is denied; answers must respect this.

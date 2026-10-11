@@ -32,16 +32,9 @@ ORG_ROLES = {
 
 
 def org_role(user: User) -> str | None:
-    """Derive a person's org role from the directory (role, department, title)."""
-    if user.role == "executive" and "technology" in user.title.lower():
-        return "cto"
-    if user.role == "manager" and user.department in ("engineering", "product"):
-        return "director"
-    if user.role == "pro" and user.department == "product":
-        return "product_manager"
-    if user.role == "pro" and user.department == "engineering":
-        return "developer"
-    return None
+    from . import iam
+
+    return iam.org_role(user)
 
 
 def parse(path: Path) -> dict[str, Any]:
@@ -67,19 +60,12 @@ def get(agent_id: str) -> dict[str, Any] | None:
 
 
 def eligible(user: User, agent: dict[str, Any]) -> bool:
-    if user.role in ("executive", "admin"):
-        return True
-    mine = org_role(user)
-    if not mine:
-        return False
-    aud = agent.get("audience") or {}
-    roles = aud.get("org_roles") or [agent.get("org_role")]
-    if mine in roles:
-        return True
-    if aud.get("inherit_upward", True):
-        floor = min(ORG_ROLES[r]["rank"] for r in roles if r in ORG_ROLES)
-        return ORG_ROLES[mine]["rank"] > floor
-    return False
+    """agent:use on agent:<org_role>/<id>, decided by IAM for org members; executives and admins keep full use."""
+    from . import iam
+
+    if iam.org_role(user):
+        return iam.allowed(user, "agent:use", f"agent:{agent.get('org_role')}/{agent['id']}")
+    return user.role in ("executive", "admin")
 
 
 def for_user(user: User) -> list[dict[str, Any]]:

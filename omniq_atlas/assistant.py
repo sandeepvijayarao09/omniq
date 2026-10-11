@@ -7,6 +7,7 @@ question → harness → (rewrite) → ACL-filtered $vectorSearch (+rerank, +gra
 from __future__ import annotations
 
 import datetime as dt
+import re
 import time
 import uuid
 from functools import lru_cache
@@ -20,7 +21,9 @@ from .policy import User, describe
 BASE_SYSTEM = (
     "You are Omniq, the internal AI assistant for Halcyon Labs. Answer the employee's question "
     "using only the <source> passages provided; they are already filtered to what this employee may see. "
-    "Values like [PERSON_1] or [EMAIL_2] are privacy tokens: use them verbatim, never guess what they hide."
+    "Values like [PERSON_1] or [EMAIL_2] are privacy tokens: use them verbatim, never guess what they hide. "
+    "When the employee asks about themselves (their work, priorities, projects), ground the answer in their own "
+    "projects and scope of work from their context file, and ignore passages about other teams' plans."
 )
 
 
@@ -63,6 +66,7 @@ def _rewrite(question: str, cfg: dict[str, Any]) -> str:
 
 
 MAX_QUESTION_CHARS = 2000
+SELF_REF = re.compile(r"\b(i|my|me|mine|we|our|us)\b", re.I)
 
 
 class Forbidden(PermissionError):
@@ -105,8 +109,16 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     if turns:  # follow-ups ("and their renewal?") retrieve with the previous question for context
         query = f"{turns[-1]['q']} {query}"
 
+    from . import iam
+
+    my_projects = iam.user_projects(user.id) if personal_memory else []
+    if my_projects and SELF_REF.search(question):  # "what should I…", "my projects": search with their projects
+        query = f"{query} {' '.join(p['name'] for p in my_projects)}"
     hits = retrieve.search_docs(user, query, cfg)
-    sources = [{"title": x["title"], "text": x["text"], "doc_id": x.get("doc_id", "")} for x in hits]
+    if personal_memory:  # favour documents from the asker's own projects (still access-controlled)
+        hits += retrieve.project_context(user, query, {(h.get("doc_id"), h.get("chunk")) for h in hits})
+    sources = [{"title": x["title"], "text": x["text"][: int(cfg["context"]["max_chunk_chars"])],
+                "doc_id": x.get("doc_id", "")} for x in hits]
     if cfg["retrieval"].get("graph_context") or "ontology_lookup" in cfg["tools"]:
         sources += retrieve.graph_context(user, question)
 

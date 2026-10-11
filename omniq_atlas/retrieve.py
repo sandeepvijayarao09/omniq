@@ -104,3 +104,30 @@ def similar_failures(role: str, text: str, k: int = 5) -> list[dict[str, Any]]:
         ]))
     except Exception:
         return []
+
+
+def project_context(user: User, query: str, have: set[tuple[str, int]], k: int = 2,
+                    min_sim: float = 0.3) -> list[dict[str, Any]]:
+    """Up to k extra passages from documents linked to the asker's projects (data/projects.yaml), ranked by
+    similarity to the question. Every passage still has to pass the person's access control."""
+    from . import iam
+
+    doc_ids = sorted({d for p in iam.user_projects(user.id) for d in p.get("docs", [])})
+    if not doc_ids:
+        return []
+    q = embed.embed_one(query)
+    scored = []
+    for c in db().chunks.find({"doc_id": {"$in": doc_ids}}):
+        if (c["doc_id"], c["chunk"]) in have or not can_read(user, c):
+            continue
+        sim = sum(a * b for a, b in zip(q, c["embedding"]))
+        if sim >= min_sim:
+            scored.append((sim, c))
+    scored.sort(key=lambda x: -x[0])
+    names = {p["id"]: p["name"] for p in iam.user_projects(user.id)}
+    out = []
+    for sim, c in scored[:k]:
+        proj = next((names[p["id"]] for p in iam.user_projects(user.id) if c["doc_id"] in p.get("docs", [])), "")
+        out.append({"title": f"{c['title']} (your project: {proj})", "text": c["text"], "doc_id": c["doc_id"],
+                    "chunk": c["chunk"], "score": round(sim, 3)})
+    return out

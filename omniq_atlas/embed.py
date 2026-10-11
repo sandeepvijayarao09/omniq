@@ -46,8 +46,13 @@ def embed(texts: list[str], kind: str = "document") -> list[list[float]]:
     return out
 
 
+@lru_cache(maxsize=1024)
+def _embed_one_cached(text: str, kind: str) -> tuple[float, ...]:
+    return tuple(embed([text], kind)[0])
+
+
 def embed_one(text: str, kind: str = "query") -> list[float]:
-    return embed([text], kind)[0]
+    return list(_embed_one_cached(text, kind))
 
 
 def rerank(query: str, docs: list[str], top_k: int) -> list[tuple[int, float]]:

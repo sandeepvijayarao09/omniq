@@ -13,3 +13,7 @@ rank: 1
 
 ## How to frame answers for this role
 Be concrete: exact numbers, commands, file or system names, and the ADR or runbook section.
+
+## What my role may access (IAM)
+Role chain: developer → employee. Allow statements: developer.ReadEngineeringAndCustomerContext, developer.UseDeveloperAgents, employee.ReadCompanyWide, employee.ReadOwnPersonalFiles, employee.UseChat, employee.ManageOwnMemory, employee.ReadOwnProjects.
+Anything not allowed is denied; answers must respect this.
