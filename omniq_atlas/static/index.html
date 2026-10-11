@@ -147,6 +147,19 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 .tierrow .person{width:200px}.tierlabel{text-align:center;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.7px;margin-top:18px}
 .drawer2{max-width:780px;margin:0 auto 12px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 14px;display:none}.drawer2.on{display:block}
 #vImprove{display:none}#vImprove.on{display:block;overflow:auto}
+
+.wf{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 26px;padding:16px 18px 6px;position:relative}
+.wf .n{position:relative;border:1.5px solid var(--line);border-radius:14px;background:var(--panel);padding:10px 12px;min-height:92px;transition:all .25s ease}
+.wf .n b{display:block;font-size:13.5px}.wf .n .num{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}.wf .n span{display:block;font-size:11.5px;color:var(--mute);line-height:1.35}
+.wf .n .step{position:absolute;top:-9px;left:10px;font-size:10.5px;background:var(--panel);padding:0 6px;color:var(--mute);border-radius:6px}
+.wf .n:not(.last)::after{content:"→";position:absolute;right:-21px;top:50%;transform:translateY(-50%);color:#9aa6b2;font-size:16px}
+.wf .n.row2:not(.last)::after{content:"←";right:auto;left:-21px}
+.wf .n.down::after{content:"↓";right:auto;left:50%;top:auto;bottom:-22px;transform:translateX(-50%)}
+.wf .n.live{border-color:var(--blue);box-shadow:0 0 0 4px rgba(11,101,194,.12);transform:translateY(-2px)}
+.wf .n.ok{border-color:var(--accent);box-shadow:0 0 0 4px rgba(0,163,92,.12)}.wf .n.warn{border-color:var(--warn);box-shadow:0 0 0 4px rgba(178,107,0,.12)}.wf .n.bad{border-color:var(--bad);box-shadow:0 0 0 4px rgba(198,47,53,.12)}
+.wf .n .now{font-size:11.5px;color:var(--blue);margin-top:4px;display:none}.wf .n.live .now,.wf .n.ok .now,.wf .n.warn .now,.wf .n.bad .now{display:block}
+.wf .loop{grid-column:1/-1;text-align:center;font-size:12px;color:var(--mute);margin-top:-6px}
+@media (max-width:900px){.wf{grid-template-columns:1fr 1fr}.wf .n::after{display:none}}
 </style>
 </head>
 <body>
@@ -178,9 +191,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 
 <div class="view" id="vImprove">
   <section style="max-width:980px;margin:0 auto">
-    <div class="steps3"><div><b>① People just use agents</b><span>it watches rephrasing, corrections, ↻, copies, 👍👎</span></div><div class="arr">→</div>
-      <div><b>② Patterns are measured</b><span>per person and per agent · graded tests · Raindrop</span></div><div class="arr">→</div>
-      <div><b>③ Kept only if proven better</b><span>unseen tests · blind replay · zero leaks</span></div></div>
+    <div class="wf" id="wf"></div>
     <div class="bar" style="border:0;padding-top:4px"><select id="role" title="Which playbook to look at"></select>
       <button class="primary big" id="cycleBtn" style="display:none" title="Improve this agent from everything people did with it in the last 7 days">Improve from last 7 days ▶</button>
       <details class="more"><summary>More</summary><div class="moremenu">
@@ -233,7 +244,7 @@ const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
 $('#hoodBtn').onclick=e=>{e.stopPropagation();$('.hood').classList.toggle('open')};document.addEventListener('click',()=>$('.hood').classList.remove('open'));
 document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>{$('.hood').classList.remove('open');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b||(x.id==='hoodBtn'&&!!b.closest('.hoodmenu'))));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact();if(b.dataset.v==='vModels')loadModels()});
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove'){loadCycle();renderWorkflow()}if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact();if(b.dataset.v==='vModels')loadModels()});
 
 async function status(){const s=await api('/api/status');const d=[['MongoDB Atlas',true],['Voyage AI',s.voyage],['Raindrop',s.raindrop],[s.model+' (local)',s.llm!=='offline']];
   const all=d.every(x=>x[1]);$('#dots').innerHTML=`<i class="${all?'on':''}"></i>${all?'All connected':'Partly connected'}`;$('#dots').title=d.map(([n,on])=>`${on?'●':'○'} ${n}`).join('\n')}
@@ -251,10 +262,10 @@ async function login(id){const r=await api('/api/login',{method:'POST',body:JSON
   $('#mecard').innerHTML=`<b>${esc(me.name)}</b><span class="mute">${esc(me.title)}</span><br><span class="role">${esc(me.org_title||me.role)}</span> <span class="mute small">${myAgents.length} agents</span><div style="margin-top:6px"><a id="myCtx">My context files</a><a id="myMem">My memory</a></div>`;
   $('#myCtx').onclick=showMyContext;$('#myMem').onclick=showMemory;
   newChat();loadConvos();loadScopes(me.org_role?myAgents.find(a=>a.org_role===me.org_role)?'agent:'+myAgents.find(a=>a.org_role===me.org_role).id:me.role:me.role).then(loadLineage);
-  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData();if($('#vAccess').classList.contains('on'))loadAccess();if($('#vImprove').classList.contains('on'))loadCycle();if($('#vAgents').classList.contains('on'))loadAgents()}
+  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData();if($('#vAccess').classList.contains('on'))loadAccess();if($('#vImprove').classList.contains('on')){loadCycle();renderWorkflow()}if($('#vAgents').classList.contains('on'))loadAgents()}
 function newChat(){convo=Math.random().toString(36).slice(2,12);$('#ctxDrawer').classList.remove('on');document.querySelectorAll('#convos button').forEach(b=>b.classList.remove('on'));
   const mine=myAgents.filter(a=>a.org_role===me.org_role).slice(0,4);const first=me.name.split(' ')[0];
-  $('#thread').innerHTML=`<div class="inner welcome"><h2>Hi ${esc(first)} 👋</h2><p>Ask anything, or bring in one of your agents with <b>@</b>.</p>
+  $('#thread').innerHTML=`<div class="inner welcome"><h2>Hi ${esc(first)} 👋</h2><p>You + your team of agents. Type <b>@</b> to hand off a job; they get better every week by watching how you work.</p>
     <div class="sugs">${mine.map(a=>`<button data-q="@${a.id} ${esc(a.starter_questions[0]||'')}"><b>@${esc(a.id)}</b><small>${esc(a.starter_questions[0]||a.description)}</small></button>`).join('')}
     <button data-q="What happened in the August 14 outage and what should we do next?"><b>Ask without an agent</b><small>What happened in the August 14 outage and what should we do next?</small></button></div></div>`;
   $('#thread').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;send()});
@@ -394,8 +405,8 @@ const STEP={
   cycle_result:ev=>[{promoted:'✅',rolled_back:'↩️',awaiting_approval:'🙋',converged:'🏁',blocked:'🛑',done:'·',skipped:'⏭️',paused:'⏸️'}[ev.result]||'•',ev.step==='suggestions'?'From suggestions':'From scores',`${({promoted:'kept a change',rolled_back:'tried a change, undone (not better)',awaiting_approval:'better, waiting for a manager',converged:'already perfect on its tests',blocked:'refused by safety rules',done:'no agent-wide change needed',skipped:'skipped',paused:'paused'})[ev.result]||ev.result}${ev.detail?' · '+ev.detail:''}`],
   done:ev=>['🏁','Finished',ev.final_version?`Using v${ev.final_version}.`:(ev.reason||'')]};
 const fmt=ev=>(STEP[ev.kind]||(e=>['•',e.kind,'']))(ev);
-function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;const es=new EventSource(`/api/evolve/${run_id}/stream`);
-  es.onmessage=e=>{const ev=JSON.parse(e.data);const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <b class="k-${ev.kind}">${esc(label)}</b> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','done','evaluated','awaiting_approval'].includes(ev.kind))loadLineage()};
+function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;wfReset();const es=new EventSource(`/api/evolve/${run_id}/stream`);
+  es.onmessage=e=>{const ev=JSON.parse(e.data);try{wfEvent(ev)}catch(err){}const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <b class="k-${ev.kind}">${esc(label)}</b> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','done','evaluated','awaiting_approval'].includes(ev.kind))loadLineage()};
   es.addEventListener('end',()=>{es.close();btn.disabled=false;loadScopes().then(loadLineage)});es.onerror=()=>{es.close();btn.disabled=false}}
 $('#cycleBtn').onclick=async()=>{if(!token)return toast('Pick a person first');const id=$('#role').value.slice(6);try{var {run_id}=await api('/api/agents/'+id+'/improve-cycle',{method:'POST'})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#cycleBtn'))};
 $('#evolve').onclick=async()=>{if(!token)return toast('Pick a person first');try{var {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#evolve'))};
@@ -506,6 +517,50 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
   const sv=$('#eSave');if(sv)sv.onclick=async()=>{try{await api('/api/agents/'+id+'/override',{method:'PUT',body:JSON.stringify({notes:$('#eNotes').value,procedure:$('#eProc').value.split('\n'),template:$('#eTpl').value,profile:$('#eModel')?.value||''})});toast('Saved. Applies to you from your next message.');openAgent(id)}catch(e){toast('⛔ '+e.message)}};
   const rs=$('#eReset');if(rs)rs.onclick=async()=>{await api('/api/agents/'+id+'/override',{method:'DELETE'});toast('Back to the shared agent');openAgent(id)};
   const pg=$('#pGo');if(pg)pg.onclick=async()=>{pg.disabled=true;pg.textContent='Checking safety gate…';try{const r=await api('/api/agents/'+id+'/publish',{method:'POST',body:JSON.stringify({markdown:$('#pMd').value,reason:$('#pWhy').value})});toast(`Published: context v${r.context_version}, playbook v${r.harness_version} (passed ${r.safety_gate} leak checks)`);agentTab='timeline';openAgent(id)}catch(e){toast('⛔ '+e.message);pg.disabled=false;pg.textContent='Publish new version'}}}
+
+
+/* ---------- live workflow diagram ---------- */
+const WF=[
+  ['use','① People just work','chat and @agents; nobody is asked for feedback'],
+  ['signals','② Signals','rephrased · corrected · extended · ↻ · copied · 👍👎'],
+  ['raindrop','③ Raindrop','where each agent fails, by type and version'],
+  ['evidence','④ Evidence','7-day cycle per person + per agent; patterns in 2+ people'],
+  ['propose','⑤ Proposed change','rules · retrieval · workflow · output template'],
+  ['atlas','⑨ Saved in Atlas','new playbook version, with parent, evidence, scores'],
+  ['decide','⑧ Decision','kept · undone · refused · needs a manager'],
+  ['proof','⑦ Proof','unseen tests · blind side-by-side replay · eval guard'],
+  ['gates','⑥ Gates','locked safety rules · injection screen · leak tests (absolute)'],
+  ['spacer','','']];
+async function renderWorkflow(){if(!token){$('#wf').innerHTML='';return}let D={};try{D=(await api('/api/impact')).decisions}catch(e){}
+  const S=D.signals||{},o=D.outcomes||{},im=S.implicit||{};const sigs=(im.rephrased||0)+(im.followup_correction||0)+(im.copied||0)+(im.regenerated||0)+(S.ratings||0);
+  const rd=(window._rdTotal!=null)?window._rdTotal:'';
+  const num={use:`${S.answers||0} answers`,signals:`${sigs} signals`,raindrop:rd?`${rd} events`:'live',evidence:`${(S.cycles||0)+(S.agent_cycles||0)} cycles`,
+    propose:`${D.total||0} proposals`,gates:`${o.blocked||0} refused`,proof:`${S.graded_eval_cases||84} tests`,
+    decide:`${(o.active||0)+(o.superseded||0)} kept · ${o.rolled_back||0} undone`,atlas:D.first_time_right?.rate!=null?`${Math.round(D.first_time_right.rate*100)}% right 1st time`:''};
+  const order=['use','signals','raindrop','evidence','propose','atlas','decide','proof','gates'];
+  $('#wf').innerHTML=WF.filter(w=>w[0]!=='spacer').map(([k,t,d],i)=>{const row2=i>=5;const cls=['n',row2?'row2':'',k==='propose'?'down last':'',k==='gates'?'last':''].join(' ');
+    return `<div class="${cls}" data-n="${k}" style="grid-row:${row2?2:1};grid-column:${row2?(5-(i-5)):(i+1)}"><span class="step">${t.split(' ')[0]}</span><b>${t.slice(2)}</b><div class="num">${esc(num[k]||'')}</div><span>${d}</span><div class="now"></div></div>`}).join('')+
+    `<div class="loop">↺ the new version serves the next answer, and the loop starts again (every 7 days, on a Raindrop failure spike, or when someone presses Improve)</div>`}
+function wfMark(node,state,text){const el=$(`#wf [data-n="${node}"]`);if(!el)return;$('#wf').querySelectorAll('.n.live').forEach(x=>{if(x!==el){x.classList.remove('live');x.classList.add('ok')}});
+  el.classList.remove('live','ok','warn','bad');el.classList.add(state);if(text)el.querySelector('.now').textContent=text}
+function wfReset(){$('#wf')?.querySelectorAll('.n').forEach(x=>{x.classList.remove('live','ok','warn','bad');x.querySelector('.now').textContent=''})}
+function wfEvent(ev){const k=ev.kind;
+  if(k==='cycle_ledger'){wfMark('use','ok',`${ev.asks} answers to ${ev.users} people`);wfMark('signals','live',`${(ev.rephrased||0)+(ev.corrected||0)} rephrased/corrected · ${ev.regenerated} ↻ · ${ev.down} 👎`)}
+  else if(k==='raindrop_failures'){wfMark('signals','ok');wfMark('raindrop',ev.status?'warn':'live',ev.status?'unavailable':`${ev.failing}/${ev.answers} failing (${pct(ev.failure_rate)})`)}
+  else if(k==='cycle_step'){wfMark('raindrop','ok');wfMark('evidence','live',ev.step.slice(0,70))}
+  else if(k==='recommendations'||k==='themes'||k==='triaged'||k==='below_quorum'){wfMark('evidence','live',k==='below_quorum'?'only 1 person: stays personal':k==='triaged'?`${ev.agent_wide} agent-wide · ${ev.personal} personal`:'grouping patterns…')}
+  else if(k==='scored'){wfMark('evidence','ok');wfMark('proof','live',`baseline ${pct(ev.train.pass_rate)} practice · ${pct(ev.holdout.pass_rate)} unseen`)}
+  else if(k==='proposed'||k==='repair'||k==='meta_overruled'){wfMark('propose','live',k==='meta_overruled'?'overruled the improver':plain(ev.patch).slice(0,80))}
+  else if(k==='blocked'){wfMark('gates','bad','refused: '+(ev.problems||[]).join('; ').slice(0,70));wfMark('decide','bad','refused')}
+  else if(k==='replaying'||k==='evaluated'){wfMark('propose','ok');wfMark('gates','ok','passed');wfMark('proof','live',k==='evaluated'?`replay won ${pct(ev.replay)} · tests ${pct(ev.evals_before)}→${pct(ev.evals_after)}`:'blind replay…')}
+  else if(k==='promoted'){wfMark('gates','ok','0 leaks');wfMark('proof','ok');wfMark('decide','ok',`✅ kept v${ev.version}`);wfMark('atlas','live',`v${ev.version} saved`)}
+  else if(k==='rolled_back'){if(!$('#wf [data-n="gates"]').classList.contains('bad'))wfMark('gates','ok','passed (no leaks)');wfMark('proof','warn','not better');wfMark('decide','warn',`↩️ undone v${ev.version}`)}
+  else if(k==='awaiting_approval'){wfMark('proof','ok');wfMark('decide','warn','🙋 needs a manager')}
+  else if(k==='converged'){wfMark('proof','ok','already 100% on its tests');wfMark('decide','ok','no change needed')}
+  else if(k==='cycle_result'){if(ev.result==='promoted')wfMark('decide','ok','✅ kept');else if(ev.result==='rolled_back')wfMark('decide','warn','↩️ undone');else if(ev.result==='converged')wfMark('decide','ok','no change needed')}
+  else if(k==='done'){wfMark('atlas','ok',`using v${ev.final_version||'–'}`);setTimeout(renderWorkflowKeep,1500)}}
+async function renderWorkflowKeep(){const marks=[...$('#wf').querySelectorAll('.n')].map(x=>[x.dataset.n,[...x.classList].find(c=>['ok','warn','bad','live'].includes(c)),x.querySelector('.now').textContent]);
+  await renderWorkflow();marks.forEach(([n,c,t])=>{if(c)wfMark(n,c,t)})}
 
 /* ---------- 7-day cycle ---------- */
 async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<span class="mute small">Pick a person to see their cycle.</span>';return}

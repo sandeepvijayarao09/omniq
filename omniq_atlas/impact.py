@@ -49,7 +49,10 @@ def decisions() -> dict[str, Any]:
     rows.sort(key=lambda r: r["created"], reverse=True)
     kept = [r for r in rows if r["decision"] in ("active", "superseded") and r["before"] is not None and r["after"] is not None]
     uplift = round(sum(r["after"] - r["before"] for r in kept) / len(kept), 3) if kept else None
-    signals = {"answers": db().episodes.count_documents({"source": "chat"}),
+    imp = {r["_id"]: r["n"] for r in db().implicit_signals.aggregate([{"$group": {"_id": "$kind", "n": {"$sum": 1}}}])}
+    signals = {"answers": db().episodes.count_documents({"source": "chat"}), "implicit": imp,
+               "intents": db().intent_events.count_documents({"intent": {"$ne": "new_task"}}),
+               "agent_cycles": db().agent_cycles.count_documents({}),
                "ratings": db().feedback.count_documents({}),
                "thumbs_down": db().feedback.count_documents({"good": False}),
                "suggestions": db().recommendations.count_documents({}),

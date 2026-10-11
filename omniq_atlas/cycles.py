@@ -259,6 +259,22 @@ def agent_ledger(agent_id: str, since: dt.datetime, until: dt.datetime) -> dict[
             "worst_questions": [e["question_t"][:160] for e in (down + not_found)[:6]]}
 
 
+RELAY = ("scored", "proposed", "meta_overruled", "repair", "blocked", "replaying", "evaluated", "promoted", "rolled_back",
+         "awaiting_approval", "converged", "themes", "triaged", "below_quorum", "quarantined")
+PRIORITY = ("promoted", "awaiting_approval", "rolled_back", "blocked", "converged", "skipped", "paused", "done")
+
+
+def _relay(run_id: str, sub: dict[str, Any]) -> str:
+    """Copy a sub-run's key steps into this cycle's stream (so every stage shows), and return its real outcome."""
+    from .evolve import _log
+
+    for e in sub.get("events", []):
+        if e["kind"] in RELAY:
+            _log(run_id, e["kind"], **{k: v for k, v in e.items() if k not in ("ts", "kind")})
+    kinds = {e["kind"] for e in sub.get("events", [])}
+    return next((k for k in PRIORITY if k in kinds), "done")
+
+
 def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, actor: str = "scheduler") -> dict[str, Any]:
     """Improve one agent from the last `days` of evidence: suggestions first (governed), then hard metrics."""
     from . import evolve, improve
@@ -295,21 +311,20 @@ def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, 
     if L["pending_suggestions"]:
         _log(run_id, "cycle_step", step="Learning from behaviour patterns (rephrasing, corrections, regenerations, ratings)")
         r = improve.run(scope)
-        kinds = [e["kind"] for e in r["events"]]
-        last = next((e for e in reversed(r["events"]) if e["kind"] in ("promoted", "rolled_back", "awaiting_approval",
-                                                                        "blocked", "done", "skipped")), {})
-        outcome["suggestions"] = last.get("kind")
-        _log(run_id, "cycle_result", step="suggestions", result=last.get("kind"),
-             detail=str(last.get("reason") or last.get("reasons") or last.get("replay") or "")[:200], run=r["_id"], kinds=kinds)
+        res = _relay(run_id, r)
+        last = next((e for e in reversed(r["events"]) if e["kind"] == res), {})
+        outcome["suggestions"] = res
+        _log(run_id, "cycle_result", step="suggestions", result=res,
+             detail=str(last.get("reason") or last.get("reasons") or last.get("replay") or "")[:200], run=r["_id"])
 
     # 2) hard metrics, with last week's downvoted questions in the evidence the improver sees
     _log(run_id, "cycle_step", step="Testing against graded questions and last week's failures")
     r = evolve.run(scope, 2)
-    last = next((e for e in reversed(r["events"]) if e["kind"] in ("promoted", "rolled_back", "converged",
-                                                                    "awaiting_approval", "blocked", "skipped", "paused")), {})
-    scored = next((e for e in r["events"] if e["kind"] == "scored"), None)
-    outcome["metrics"] = last.get("kind")
-    _log(run_id, "cycle_result", step="metrics", result=last.get("kind"),
+    res = _relay(run_id, r)
+    last = next((e for e in reversed(r["events"]) if e["kind"] == res), {})
+    scored = next((e for e in reversed(r["events"]) if e["kind"] == "scored"), None)
+    outcome["metrics"] = res
+    _log(run_id, "cycle_result", step="metrics", result=res,
          detail=(f"practice {scored['train']['pass_rate']:.0%}, unseen {scored['holdout']['pass_rate']:.0%}" if scored else str(last.get("reason", "")))[:200],
          run=r["_id"])
 
