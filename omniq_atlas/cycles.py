@@ -320,8 +320,8 @@ def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, 
                                   "run": run_id, "final_version": final["version"], **outcome})
     audit.record("agent_cycle_completed", actor, agent=agent_id, run=run_id, final_version=final["version"],
                  asks=L["asks"], down=L["down"])
+    _log(run_id, "done", final_version=final["version"])  # log first: the live stream closes on status "done"
     db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done", "final_version": final["version"]}})
-    _log(run_id, "done", final_version=final["version"])
     return db().evolve_runs.find_one({"_id": run_id})
 
 

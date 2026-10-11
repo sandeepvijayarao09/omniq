@@ -225,8 +225,8 @@ def _run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str
         _checkpoint(run_id, gen + 1)
 
     final = harness.active(role)
+    _log(run_id, "done", final_version=final["version"])  # log first: the live stream closes on status "done"
     db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done", "final_version": final["version"]}})
-    _log(run_id, "done", final_version=final["version"])
     telemetry.flush()
     return db().evolve_runs.find_one({"_id": run_id})
 

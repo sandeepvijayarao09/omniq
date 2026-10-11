@@ -238,4 +238,9 @@ cd modelence && FASTAPI_URL=https://<your-api-host> npx modelence@latest deploy
 
 ## Tests
 
+`.venv/bin/python scripts/e2e_live.py [base_url]` runs 29 end-to-end checks through the real API (chat, @agents, IAM, implicit
+signals, follow-up intent, Raindrop failures, personal model choice, both 7-day cycles, red team, ontology ACL, audit chain).
+It passed 29/29 against the public Modelence URL.
+
+
 `.venv/bin/pytest -q` covers ACL compilation, tokenization and the leak guard, patch validation and grading.
