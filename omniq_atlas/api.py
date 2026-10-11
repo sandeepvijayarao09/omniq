@@ -130,6 +130,21 @@ def index() -> FileResponse:
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/workflow-stats")
+def workflow_stats() -> dict[str, Any]:
+    """Aggregate, non-sensitive counts for the public workflow page."""
+    D = impact.decisions()
+    S, o = D["signals"], D["outcomes"]
+    im = S.get("implicit", {})
+    return _jsonable({"answers": S["answers"], "signals": sum(im.values()) + S["ratings"], "intents": S.get("intents", 0),
+                      "cycles": S["cycles"] + S.get("agent_cycles", 0), "decisions": D["total"],
+                      "kept": o.get("active", 0) + o.get("superseded", 0), "undone": o.get("rolled_back", 0),
+                      "refused": o.get("blocked", 0), "approval": o.get("awaiting_approval", 0),
+                      "uplift": D["avg_uplift_kept"], "ftr": (D.get("first_time_right") or {}).get("rate"),
+                      "tests": S["graded_eval_cases"], "agents": db().agents.estimated_document_count(),
+                      "audit": db().audit.estimated_document_count()})
+
+
 @app.get("/workflow")
 def workflow_page() -> FileResponse:
     """Full-screen flowcharts of agent improvement and context improvement (for demos and judges)."""

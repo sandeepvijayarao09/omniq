@@ -1,28 +1,28 @@
 # Results (generated from MongoDB Atlas)
 
-_Generated 2026-10-11 22:52 UTC by `scripts/results.py`. Every number below is a query over the live data._
+_Generated 2026-10-11 23:13 UTC by `scripts/results.py`. Every number below is a query over the live data._
 
 ## Data-driven decisions
 
 | | |
 |---|---|
-| Automatic decisions about playbooks | **25** |
-| Kept (proven better on unseen tests / blind replay) | **5** |
+| Automatic decisions about playbooks | **26** |
+| Kept (proven better on unseen tests / blind replay) | **6** |
 | Undone (not better: that is a decision too) | **12** |
 | Refused by safety rules | **4** |
 | Waiting for a manager's approval | **1** |
-| Average score gain of kept changes | **+34 pts** |
+| Average score gain of kept changes | **+38 pts** |
 | Privacy leaks in any kept version | **0** |
-| Answers right the first time, last 7 days (no rephrase, correction, regenerate or 👎) | **76%** of 84 |
+| Answers right the first time, last 7 days (no rephrase, correction, regenerate or 👎) | **78%** of 90 |
 
 ## First-time-right by agent (last 7 days)
 
 | Agent | Answers | Right first time |
 |---|---|---|
-| General assistant | 31 | 90% |
+| General assistant | 33 | 91% |
 | Release Agent | 13 | 77% |
+| Verifier Agent | 10 | 80% |
 | Debug Agent | 7 | 43% |
-| Verifier Agent | 6 | 67% |
 | Build Agent | 6 | 100% |
 | renewal_risk (retired agent) | 5 | 20% |
 | deal_coach (retired agent) | 5 | 60% |
@@ -35,6 +35,7 @@ _Generated 2026-10-11 22:52 UTC by `scripts/results.py`. Every number below is a
 | Playbook | Start | Now |
 |---|---|---|
 | executive | 0% | 100% |
+| Security Agent | 50% | 100% |
 | manager | 50% | 75% |
 | pro | 75% | 88% |
 | Code Review Agent | 67% | 67% |
@@ -48,7 +49,7 @@ _Generated 2026-10-11 22:52 UTC by `scripts/results.py`. Every number below is a
 
 | Signal | Count |
 |---|---|
-| Answers given | 84 |
+| Answers given | 90 |
 | 👍/👎 ratings | 22 |
 | followup_correction | 3 |
 | copied | 3 |
@@ -57,14 +58,14 @@ _Generated 2026-10-11 22:52 UTC by `scripts/results.py`. Every number below is a
 | follow-up understood as refinement | 1 |
 | follow-up understood as correction | 1 |
 | follow-up understood as new_task | 1 |
-| 7-day person cycles run | 11 (reviewing 128 decisions) |
-| Agent 7-day cycles run | 5 |
-| Events stored in Raindrop | 77 |
+| 7-day person cycles run | 12 (reviewing 138 decisions) |
+| Agent 7-day cycles run | 9 |
+| Events stored in Raindrop | 83 |
 | Graded test cases | 84 |
 
 ## Safety
 
 - Leak test cases across roles and agents: all pass on every kept version (absolute safety gate).
 - Suggestions quarantined as injection attempts: 0.
-- Hash-chained audit log: 415 events, verified end to end.
+- Hash-chained audit log: 453 events, verified end to end.
 - End-to-end suite `scripts/e2e_live.py`: **29/29** through the public Modelence URL.

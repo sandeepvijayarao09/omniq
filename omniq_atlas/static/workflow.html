@@ -1,89 +1,140 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Omniq Atlas · How it improves</title>
+<title>Omniq Atlas · Self-improvement workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f6f8fa;--panel:#fff;--line:#dfe3e8;--text:#1b2733;--mute:#5e6b78;--accent:#00a35c}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-header{padding:18px 28px 6px}h1{margin:0;font-size:22px}h1 span{color:var(--accent)}header p{margin:4px 0 0;color:var(--mute)}
-.tabs{display:flex;gap:8px;padding:10px 28px}.tabs button{font:inherit;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:7px 14px;cursor:pointer}
-.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-.card{margin:8px 28px 22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 18px 8px}
-.card h2{margin:0 0 4px;font-size:17px}.card .sub{color:var(--mute);font-size:13px;margin-bottom:6px}
-.mermaid{display:flex;justify-content:center}.hide{display:none}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute);margin:6px 0 4px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-</style></head><body>
-<header><h1>Omniq <span>Atlas</span>: how every agent and every person's context improves itself</h1>
-<p>Nobody fills in feedback. The system learns from how people work, and a change ships only when the data proves it, without ever loosening access or privacy.</p></header>
-<div class="tabs"><button class="on" data-t="both">Both</button><button data-t="agent">Agent improvement</button><button data-t="context">Context improvement</button></div>
+:root{--bg:#f4f6f9;--ink:#0f1b2a;--mute:#5b6878;--line:#dde3ea;--card:#fff;--green:#00a35c;--green-s:#e3f6ec;--blue:#1565c0;--blue-s:#e8f1fb;
+--amber:#b26b00;--amber-s:#fff4e0;--red:#c62f35;--red-s:#fdecec;--violet:#6d3fb8;--violet-s:#f1eafb;--teal:#00796b;--teal-s:#e0f2f1;--r:14px}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+.page{max-width:1480px;margin:0 auto;padding:26px 30px 40px}
+.top{display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.brand{font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+h1{margin:4px 0 2px;font-size:28px;font-weight:800;letter-spacing:-.02em}
+.lede{color:var(--mute);max-width:820px;font-size:15px}
+.kpis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;margin:18px 0 22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}.kpi span{font-size:11.5px;color:var(--mute)}
+.kpi.g b{color:var(--green)}.kpi.a b{color:var(--amber)}.kpi.r b{color:var(--red)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px 22px;margin-bottom:22px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.ph{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.ph h2{margin:0;font-size:18px;font-weight:700}.ph .tag{font-size:12px;color:var(--mute)}
+.ph .trig{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.pill{font-size:11.5px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--mute);white-space:nowrap}
+.phases{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:30px;position:relative}
+.phase{position:relative;border-radius:var(--r);padding:12px;background:#fafbfc;border:1px solid var(--line)}
+.phase:not(:last-child)::after{content:"";position:absolute;right:-24px;top:50%;width:18px;height:18px;transform:translateY(-50%);
+  background:no-repeat center/18px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98a7' stroke-width='2.5'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E")}
+.phase h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.phase h3 i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.p1 h3{color:var(--blue)}.p1 h3 i{background:var(--blue)}.p2 h3{color:var(--amber)}.p2 h3 i{background:var(--amber)}
+.p3 h3{color:var(--violet)}.p3 h3 i{background:var(--violet)}.p4 h3{color:var(--green)}.p4 h3 i{background:var(--green)}
+.step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;position:relative}
+.step:last-child{margin-bottom:0}
+.step .n{position:absolute;top:10px;right:10px;font-size:11px;font-weight:700;color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.p1 .n{background:var(--blue)}.p2 .n{background:var(--amber)}.p3 .n{background:var(--violet)}.p4 .n{background:var(--green)}
+.step b{display:block;font-size:13.5px;margin-right:26px}.step p{margin:3px 0 6px;font-size:12.5px;color:var(--mute)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}.chip{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;background:var(--teal-s);color:var(--teal);font-family:ui-monospace,Menlo,monospace}
+.chip.rd{background:#eef0ff;color:#3a4bc4}.chip.vo{background:#fff0e6;color:#b4500a}.chip.sec{background:var(--red-s);color:var(--red)}
+.outcomes{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px}
+.oc{font-size:11.5px;border-radius:8px;padding:5px 7px;font-weight:600}
+.oc.k{background:var(--green-s);color:var(--green)}.oc.u{background:var(--amber-s);color:var(--amber)}.oc.x{background:var(--red-s);color:var(--red)}.oc.m{background:var(--violet-s);color:var(--violet)}
+.loop{margin-top:16px;display:flex;align-items:center;gap:10px;color:var(--mute);font-size:12.5px}
+.loop .bar{flex:1;height:2px;background:repeating-linear-gradient(90deg,#c3ccd5 0 8px,transparent 8px 14px)}
+/* context pipeline */
+.pipe{display:grid;grid-template-columns:1fr 1fr 1.15fr 1.6fr 1fr 1.15fr 1fr;gap:22px;align-items:stretch}
+.pn{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;position:relative}
+.pn:not(:last-child)::after{content:"";position:absolute;right:-19px;top:50%;width:16px;height:16px;transform:translateY(-50%);
+  background:no-repeat center/16px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b98a7' stroke-width='2.5'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E")}
+.pn .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:700}
+.pn b{display:block;font-size:13.5px;margin:2px 0}.pn p{margin:0 0 6px;font-size:12px;color:var(--mute)}
+.pn.sec{border-color:#f2c4c7;background:#fffafa}
+.stack{display:flex;flex-direction:column;gap:6px;padding:8px;border:1.5px dashed #c9d4df;border-radius:12px;background:#fbfcfd}
+.stack .lay{border-radius:9px;padding:7px 9px;font-size:12px;border:1px solid var(--line);background:#fff}
+.stack .lay b{font-size:12.5px}.stack .lay span{color:var(--mute)}
+.lay.l1{border-left:4px solid var(--blue)}.lay.l2{border-left:4px solid var(--green)}.lay.l3{border-left:4px solid var(--violet)}.lay.l4{border-left:4px solid var(--amber)}
+.lay.l2.glow{box-shadow:0 0 0 3px rgba(0,163,92,.18)}
+.ret{display:grid;grid-template-columns:1fr 1.3fr 1.3fr 1fr;gap:22px;margin-top:18px}
+.ret .pn:last-child::after{display:none}
+.rnote{grid-column:1/-1;display:flex;align-items:center;gap:10px;color:var(--mute);font-size:12.5px}
+.guar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.g{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px}.g b{display:block;font-size:13px;margin-bottom:2px}
+.foot{display:flex;justify-content:space-between;color:var(--mute);font-size:12px;margin-top:6px}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(4,1fr)}.phases,.pipe,.ret,.guar{grid-template-columns:1fr 1fr}.phase::after,.pn::after{display:none}}
+</style></head><body><div class="page">
+<div class="top"><div><div class="brand">Omniq Atlas · MongoDB Atlas</div>
+<h1>How every agent, and every person's context, improves itself</h1>
+<div class="lede">Every person gets a team of agents that makes them 10×. Nobody fills in feedback: the system learns from how people work, and a change ships only when the data proves it, without ever loosening access or privacy.</div></div></div>
 
-<div class="card" id="agent"><h2>1 · Agent improvement (each of the 20 agents)</h2>
-<div class="sub">Every 7 days, on a Raindrop failure spike, or when someone presses <b>Improve from last 7 days</b></div>
-<div class="legend"><span><i style="background:#e8f1fb"></i>signals</span><span><i style="background:#fff4e0"></i>evidence</span><span><i style="background:#f3e8fb"></i>proposal</span><span><i style="background:#fdecec"></i>gates</span><span><i style="background:#e3f6ec"></i>decision / saved</span></div>
-<pre class="mermaid">
-flowchart LR
-  A["👩‍💻 People use agents<br/>@build · @verifier · @debug …"] --> B["📡 Behaviour signals<br/>rephrased · corrected · extended<br/>regenerated · copied · 👍👎"]
-  A --> R["🌧 Raindrop<br/>where the agent fails<br/>by type + playbook version"]
-  B --> E{"📒 7-day evidence<br/>same pattern in<br/>2+ people?"}
-  R --> E
-  E -- "no: one person's taste" --> P["👤 Stays that person's<br/>preference only"]
-  E -- yes --> C["💡 Improver proposes ONE change<br/>rules · retrieval ($rankFusion, top-k)<br/>workflow · output template"]
-  C --> G{"🛡 Gates<br/>locked invariants · injection screen<br/>tool allow-list · ALL leak tests"}
-  G -- fail --> X["🛑 Refused<br/>(audited)"]
-  G -- pass --> T{"🧪 Proof<br/>beats current on unseen tests<br/>or wins blind side-by-side replay?"}
-  T -- no --> U["↩️ Undone<br/>numbers recorded"]
-  T -- "yes, small change" --> K["✅ Kept"]
-  T -- "yes, template/tools" --> M["🙋 Manager approves<br/>(IAM harness:approve)"]
-  M --> K
-  K --> S[("🍃 MongoDB Atlas<br/>new playbook version<br/>parent · change · evidence · scores")]
-  S --> W{"👀 Watchdog<br/>live failure rate worse<br/>than parent?"}
-  W -- yes --> RB["⏪ Auto-rollback"]
-  W -- no --> A
-  classDef sig fill:#e8f1fb,stroke:#b5d3f2
-  classDef ev fill:#fff4e0,stroke:#f0cf95
-  classDef prop fill:#f3e8fb,stroke:#d6bff0
-  classDef gate fill:#fdecec,stroke:#f2b8bb
-  classDef ok fill:#e3f6ec,stroke:#9fd9b9
-  class B,R sig
-  class E,P ev
-  class C prop
-  class G,T,X,U gate
-  class K,M,S,W,RB ok
-</pre></div>
+<div class="kpis" id="kpis"></div>
 
-<div class="card" id="context"><h2>2 · Context improvement (each person, and what the model receives)</h2>
-<div class="sub">Every answer is built from layered context in Atlas; each person's layer gets a new version every 7 days</div>
-<pre class="mermaid">
-flowchart LR
-  Q["💬 Question<br/>(optionally @agent)"] --> IAM{"🔐 IAM policy<br/>role → allowed docs<br/>compiled into $vectorSearch filter"}
-  IAM --> RET["🔎 Atlas retrieval<br/>vector + full-text ($rankFusion)<br/>+ $graphLookup ontology<br/>+ your project docs"]
-  subgraph CTX["🧩 Context layers (versioned in Atlas context_layers)"]
-    direction TB
-    L1["📄 Role file<br/>what a CTO / Director / PM / Dev needs"]
-    L2["🧑 Persona file<br/>projects · scope of work · how you like answers<br/>+ 'learned from my last cycle'"]
-    L3["🤖 Agent file<br/>persona · procedure · output template<br/>+ learned rules & workflow"]
-    L4["🧠 Memory<br/>your preferences · recent turns"]
-  end
-  RET --> MASK["🫥 Mask names<br/>[PERSON_1] …"]
-  CTX --> MASK
-  MASK --> GW{"🔌 Model gateway<br/>Gemma · Llama · Claude · OpenAI<br/>private data → local models only"}
-  GW --> ANS["✅ Answer<br/>streamed, names restored, sources cited"]
-  ANS --> SIG["📡 What you do next<br/>rephrase · correct · extend · copy"]
-  SIG --> CY["🔁 Your 7-day cycle<br/>reviews every decision you made<br/>+ Raindrop signals"]
-  CY --> NV[("🍃 New persona version in Atlas<br/>'learned from my last cycle'")]
-  NV --> L2
-  CY --> AG["→ evidence for agent improvement<br/>(diagram 1)"]
-  classDef sec fill:#fdecec,stroke:#f2b8bb
-  classDef atl fill:#e3f6ec,stroke:#9fd9b9
-  classDef sig fill:#e8f1fb,stroke:#b5d3f2
-  class IAM,MASK,GW sec
-  class RET,NV atl
-  class SIG,CY,AG sig
-</pre></div>
+<div class="panel">
+  <div class="ph"><h2>1 · Agent self-improvement loop</h2><span class="tag">runs for each of the 20 role agents</span>
+    <div class="trig"><span class="pill">⏱ every 7 days</span><span class="pill">🌧 Raindrop failure spike (≥30% of ≥5 answers / 24h)</span><span class="pill">▶ "Improve from last 7 days"</span></div></div>
+  <div class="phases">
+    <div class="phase p1"><h3><i></i>Observe</h3>
+      <div class="step"><span class="n">1</span><b>People just work</b><p>Chat and @-hand off jobs to their agents (Build, Verifier, Debug…). No forms, no prompts for feedback.</p><div class="chips"><span class="chip">episodes</span><span class="chip">conversations</span></div></div>
+      <div class="step"><span class="n">2</span><b>Behaviour becomes signals</b><p>Rephrased (Voyage cosine ≥ 0.6) · follow-up intent: correction / refinement / extension · regenerated · copied · 👍👎</p><div class="chips"><span class="chip">implicit_signals</span><span class="chip">intent_events</span><span class="chip vo">voyage-4</span></div></div>
+      <div class="step"><span class="n">3</span><b>Raindrop: where it fails</b><p>Each agent's failing answers by type and playbook version, read back through the Query API.</p><div class="chips"><span class="chip rd">Raindrop Query API</span><span class="chip rd">signal sentiment</span></div></div>
+    </div>
+    <div class="phase p2"><h3><i></i>Diagnose</h3>
+      <div class="step"><span class="n">4</span><b>7-day ledger</b><p>Every decision in the window, per person and per agent: asks, ratings, rephrasings, corrections, extensions, Raindrop flags.</p><div class="chips"><span class="chip">cycles</span><span class="chip">agent_cycles</span></div></div>
+      <div class="step"><span class="n">5</span><b>Find the pattern</b><p>Group similar evidence by embedding; label each failure a retrieval miss (fact never reached the model) or a reasoning miss.</p><div class="chips"><span class="chip vo">Voyage similarity</span><span class="chip">$vectorSearch</span></div></div>
+      <div class="step"><span class="n">6</span><b>Quorum</b><p>One person's taste stays their preference. A change for everyone needs the <b>same pattern from 2+ people</b>.</p><div class="chips"><span class="chip">recommendations</span><span class="chip">agent_memory</span></div></div>
+    </div>
+    <div class="phase p3"><h3><i></i>Propose &amp; prove</h3>
+      <div class="step"><span class="n">7</span><b>One focused change</b><p>The improver (any model) proposes a patch to rules, retrieval (top-k, hybrid <code>$rankFusion</code>, rerank), workflow or output template. The agent's context file never changes.</p><div class="chips"><span class="chip">harness</span><span class="chip">$rankFusion</span></div></div>
+      <div class="step"><span class="n">8</span><b>Gates (absolute)</b><p>Locked invariants · type and bounds checks · tool allow-list · injection screen + LLM rule review · <b>every leak test must pass</b>.</p><div class="chips"><span class="chip sec">governance</span><span class="chip sec">safety gate</span></div></div>
+      <div class="step"><span class="n">9</span><b>Proof</b><p>Must beat the current version on <b>unseen</b> graded questions, or win a <b>blind, order-randomised replay</b> of the real failed questions; eval guard checks for regressions.</p><div class="chips"><span class="chip">evals</span><span class="chip">LLM judge</span></div></div>
+    </div>
+    <div class="phase p4"><h3><i></i>Decide &amp; ship</h3>
+      <div class="step"><span class="n">10</span><b>Decision</b><p>Every outcome is recorded with its numbers, including "not better".</p>
+        <div class="outcomes"><div class="oc k">✅ Kept</div><div class="oc u">↩️ Undone</div><div class="oc x">🛑 Refused</div><div class="oc m">🙋 Manager approves</div></div></div>
+      <div class="step"><span class="n">11</span><b>Versioned in Atlas</b><p>New playbook version: parent, change, evidence, scores. Hash-chained audit entry. Live progress via change streams.</p><div class="chips"><span class="chip">harness versions</span><span class="chip">audit</span><span class="chip">change streams</span></div></div>
+      <div class="step"><span class="n">12</span><b>Watchdog</b><p>Compares live failure rates per version (Atlas + Raindrop) and auto-restores the parent if the new one is worse. Pauses after 3 failed attempts.</p><div class="chips"><span class="chip rd">Raindrop by version</span><span class="chip">scope_policy</span></div></div>
+    </div>
+  </div>
+  <div class="loop"><span>↺</span><div class="bar"></div><span>the new version serves the very next answer, and the loop starts again</span><div class="bar"></div><span>↺</span></div>
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<div class="panel">
+  <div class="ph"><h2>2 · Context assembly &amp; improvement</h2><span class="tag">what the model receives for every answer, and how each person's layer improves every 7 days</span></div>
+  <div class="pipe">
+    <div class="pn"><div class="k">Request</div><b>💬 Question</b><p>Optionally <code>@agent</code>: routed only if the person's IAM allows it.</p></div>
+    <div class="pn sec"><div class="k">Access</div><b>🔐 IAM policy</b><p>Role chain + <code>${user.manages}</code>, <code>${user.projects}</code> → compiled into the search filter.</p><div class="chips"><span class="chip sec">policies.yaml</span></div></div>
+    <div class="pn"><div class="k">Retrieval</div><b>🔎 Atlas search</b><p>Vector + full-text (<code>$rankFusion</code>) + <code>$graphLookup</code> ontology + the asker's project docs.</p><div class="chips"><span class="chip">$vectorSearch</span><span class="chip">$search</span></div></div>
+    <div class="stack"><div class="k" style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:700">Context layers · versioned in Atlas <code>context_layers</code></div>
+      <div class="lay l1"><b>📄 Role</b> <span>what a CTO / Director / PM / Dev needs</span></div>
+      <div class="lay l2 glow"><b>🧑 Persona</b> <span>projects · scope of work · how they like answers · <b>learned from last cycle</b></span></div>
+      <div class="lay l3"><b>🤖 Agent</b> <span>procedure · output template · learned rules &amp; workflow</span></div>
+      <div class="lay l4"><b>🧠 Memory</b> <span>personal preferences · recent turns</span></div></div>
+    <div class="pn sec"><div class="k">Privacy</div><b>🫥 Mask names</b><p><code>[PERSON_1]</code> tokens; outbound guard blocks anything unmasked.</p></div>
+    <div class="pn sec"><div class="k">Model</div><b>🔌 Gateway</b><p>Gemma · Llama (local) · Claude · OpenAI… Board/HR/finance context → local models only.</p><div class="chips"><span class="chip">models.yaml</span></div></div>
+    <div class="pn"><div class="k">Answer</div><b>✅ Streamed answer</b><p>Names restored, sources cited, model shown.</p></div>
+  </div>
+  <div class="ret">
+    <div class="pn"><div class="k">Behaviour</div><b>📡 What they do next</b><p>Rephrase · correct · extend · copy · ↻</p></div>
+    <div class="pn"><div class="k">Every 7 days</div><b>🔁 Person cycle</b><p>Reviews every decision they made, plus Raindrop's signals on their conversations.</p><div class="chips"><span class="chip">cycles</span><span class="chip rd">Raindrop</span></div></div>
+    <div class="pn"><div class="k">Result</div><b>🍃 New persona version</b><p>"Learned from my last cycle" section written to Atlas, screened, with the reason.</p><div class="chips"><span class="chip">context_layers v+1</span></div></div>
+    <div class="pn"><div class="k">Also</div><b>→ Agent evidence</b><p>The same patterns feed the agent loop in panel 1 (with the 2-person quorum).</p></div>
+    <div class="rnote"><span>↺</span><div class="bar" style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#c3ccd5 0 8px,transparent 8px 14px)"></div><span>the new persona version feeds the <b style="color:var(--green)">Persona</b> layer of the next answer</span></div>
+  </div>
+</div>
+
+<div class="panel"><div class="ph"><h2>What can never change</h2><span class="tag">the agents can tune themselves, never unlock themselves</span></div>
+  <div class="guar">
+    <div class="g"><b>🔐 Access in the database</b>IAM compiles into <code>$vectorSearch</code>; MongoDB enforces it.</div>
+    <div class="g"><b>🫥 Masked names</b>No raw personal data reaches any model.</div>
+    <div class="g"><b>🧪 Zero leaks</b>Every leak test must pass before anything ships.</div>
+    <div class="g"><b>🚫 Injection screen</b>Steering attempts are quarantined, never learned.</div>
+    <div class="g"><b>🙋 Human approval</b>Template and tool changes wait for a manager (IAM).</div>
+    <div class="g"><b>🔗 Audit chain</b>Every decision, hash-chained and verifiable.</div>
+  </div></div>
+<div class="foot"><span>Omniq Atlas · github.com/sandeepvijayarao09/omniq-atlas</span><span id="stamp"></span></div>
+</div>
 <script>
-mermaid.initialize({startOnLoad:true,theme:'base',securityLevel:'loose',flowchart:{curve:'basis',htmlLabels:true,nodeSpacing:28,rankSpacing:38},
-  themeVariables:{fontFamily:'ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif',fontSize:'14px',primaryColor:'#ffffff',primaryBorderColor:'#c9d1d9',lineColor:'#8b98a7',textColor:'#1b2733'}});
-document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
-  const t=b.dataset.t;document.getElementById('agent').classList.toggle('hide',t==='context');document.getElementById('context').classList.toggle('hide',t==='agent')});
+fetch('/api/workflow-stats').then(r=>r.json()).then(s=>{const pct=x=>x==null?'–':Math.round(x*100)+'%';
+  const k=[['',s.answers,'answers by real people'],['',s.signals,'behaviour signals'],['',s.cycles,'7-day cycles run'],['',s.decisions,'automatic decisions'],
+    ['g',s.kept,'kept: proven better'],['a',s.undone,'undone: not better'],['r',s.refused,'refused by safety gates'],['g',pct(s.ftr),'answers right the first time']];
+  document.getElementById('kpis').innerHTML=k.map(([c,v,l])=>`<div class="kpi ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+  document.getElementById('stamp').textContent=`live from MongoDB Atlas · ${s.agents} agents · ${s.tests} graded tests · ${s.audit} audit events · 0 leaks in kept versions`}).catch(()=>{});
 </script></body></html>

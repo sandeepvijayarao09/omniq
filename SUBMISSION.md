@@ -29,8 +29,7 @@ Raindrop failure spike triggers one immediately. Each week the home screen shows
 **A change is kept only if the data proves it.** Every proposed change to an agent's playbook (rules, retrieval,
 workflow, output template) must win on unseen tests or a blind side-by-side replay, pass an absolute leak safety gate,
 and come from a pattern seen in 2+ people. Bigger changes wait for a manager. Everything else is undone, and that is
-recorded as a decision too. Current numbers: 25 automatic decisions, 5 kept, 12 undone, 4 refused, 1 awaiting approval,
-+34 points average gain on kept changes, 0 leaks (docs/RESULTS.md is generated from Atlas).
+recorded as a decision too. Current numbers: 26 automatic decisions, 6 kept, 12 undone, 4 refused, 1 awaiting approval, +38 points average gain on kept changes, 0 leaks, 78% of answers right the first time (docs/RESULTS.md is generated from Atlas).
 
 **It can't unlock itself.** IAM policies (explicit Deny > Allow > implicit deny, role inheritance, ${user.manages} /
 ${user.projects} variables) compile into the `$vectorSearch` pre-filter, so MongoDB enforces document access. Names are
@@ -60,7 +59,7 @@ quarantined, and every action is in a hash-chained audit log.
    it just logged a rephrase and understood the follow-up as an extension."
 4. **0:32–0:45** 🤖 My agents → Release Agent → **🌧 Where it fails** (from Raindrop). Then 📈 Learning →
    **Improve from last 7 days ▶**: Raindrop → tests → kept/undone, in plain sentences.
-5. **0:45–0:55** 📊 Impact: 25 decisions, 5 kept, 12 undone, +34 pts, 0 leaks. Then ⋯ Under the hood → 🔐 Access
+5. **0:45–0:55** 📊 Impact: 25 decisions, 5 kept, 12 undone, +34 pts, 0 leaks. Flowcharts at /workflow. Then ⋯ Under the hood → 🔐 Access
    simulator: Deny with the reason.
 6. **0:55–1:00** "MongoDB Atlas holds the agents, their playbook versions, memory and audit. Raindrop tells each agent
    where it fails. Repo and live link are in the submission."
