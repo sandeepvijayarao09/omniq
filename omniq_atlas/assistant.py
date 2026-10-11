@@ -12,7 +12,7 @@ import uuid
 from functools import lru_cache
 from typing import Any
 
-from . import agents, audit, embed, harness, llm, memory, retrieve, telemetry
+from . import agents, audit, context, embed, harness, llm, memory, retrieve, telemetry
 from .db import db
 from .pii import Names, Vault
 from .policy import User, describe
@@ -38,10 +38,13 @@ def get_user(user_id: str) -> User:
     return User.from_doc(doc)
 
 
-def system_prompt(cfg: dict[str, Any]) -> str:
+def system_prompt(cfg: dict[str, Any], persona_layers: list[tuple[str, str]] | None = None) -> str:
     parts = [BASE_SYSTEM]
-    if cfg.get("agent"):  # the agent's context file, verbatim
-        parts.append(cfg["agent"]["instructions"].strip())
+    for label, body in persona_layers or []:  # role context, then the employee's own persona
+        parts.append(f"<context file=\"{label}\">\n{body}\n</context>")
+    if cfg.get("agent"):  # the @-agent's context file, verbatim
+        parts.append(f"<context file=\"{cfg['agent'].get('context_file') or 'agent'}\">\n"
+                     f"{cfg['agent']['instructions'].strip()}\n</context>")
     g = cfg["guardrails"]
     if g.get("abstain_when_unsupported"):
         parts.append("If the sources do not contain the answer, say you couldn't find it in the documents "
@@ -131,7 +134,9 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         parts.append("Earlier in this conversation:\n" + "\n".join(f"Q: {t['q']}\nA: {t['a'][:400]}" for t in turns))
     parts += [src_xml, f"Question: {question}"]
     user_msg = "\n\n".join(parts)
-    system = system_prompt(cfg)
+    persona_layers = context.layers(user.id, agents.org_role(user)) if personal_memory else \
+        ([] if not agents.org_role(user) else context.layers("__nobody__", agents.org_role(user)))
+    system = system_prompt(cfg, persona_layers)
     t_system, t_user = vault.tokenize(system), vault.tokenize(user_msg)
 
     leaked = vault.leaks(t_system + t_user)
@@ -170,6 +175,8 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             "agent": (tpl or {}).get("name"), "sources": [s["title"] for s in sources], "model": meta.get("model"),
             "latency": latency, "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
             "preferences_applied": prefs, "lessons_applied": len(notes),
+            "context_layers": [label for label, _ in persona_layers] +
+                              ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
             "model_view": {"system": t_system, "user": t_user, "answer": answer_t},
             "_context": src_xml}
 

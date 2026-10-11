@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agents, assistant, audit, explore, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agents, assistant, audit, context, explore, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
@@ -133,14 +133,17 @@ def status() -> dict[str, Any]:
 @app.get("/api/personas")
 def personas() -> list[dict[str, Any]]:
     out = []
-    for uid in FEATURED:
+    for uid in [m["id"] for m in context.team()] or FEATURED:
         try:
             u = assistant.get_user(uid)
         except KeyError:
             continue
         org = agents.org_role(u)
+        meta, _ = context.person(u.id)
         out.append({"id": u.id, "name": u.name, "title": u.title, "role": u.role, "access": describe(u),
-                    "org_role": org, "org_title": agents.ORG_ROLES[org]["title"] if org else None})
+                    "org_role": org, "org_title": agents.ORG_ROLES[org]["title"] if org else None,
+                    "reports_to": meta.get("reports_to"), "reports_to_name": meta.get("reports_to_name"),
+                    "focus": meta.get("tone")})
     return out
 
 
@@ -159,7 +162,12 @@ def login(body: Login) -> dict[str, Any]:
 @app.post("/api/ask")
 def ask(body: Ask, uid: str = Depends(current_user)) -> dict[str, Any]:
     _rate_limit(uid)
-    res = assistant.ask(uid, body.question, convo_id=body.convo_id, agent_id=body.agent_id or None)
+    user = assistant.get_user(uid)
+    allowed = {a["id"] for a in agents.for_user(user)}
+    mentioned, question = context.parse_mention(body.question, {a["id"] for a in db().agents.find({}, {"id": 1})})
+    if mentioned and mentioned not in allowed:
+        raise assistant.Forbidden(f"@{mentioned} isn't available to {user.name}'s role")
+    res = assistant.ask(uid, question, convo_id=body.convo_id, agent_id=mentioned or body.agent_id or None)
     res.pop("_context", None)
     return _jsonable(res)
 
@@ -199,6 +207,31 @@ def agent_context(agent_id: str, uid: str = Depends(current_user)) -> dict[str, 
     return {"id": agent_id, "name": tpl["name"], "file": tpl.get("context_file"), "llm": tpl.get("llm"),
             "markdown": tpl.get("context_md", ""), "learned_rules": h["config"].get("rules", []),
             "version": h["version"]}
+
+
+@app.get("/api/me/context")
+def my_context(uid: str = Depends(current_user)) -> dict[str, Any]:
+    user = assistant.get_user(uid)
+    org = agents.org_role(user)
+    rmeta, rbody = context.role(org) if org else ({}, "")
+    pmeta, pbody = context.person(uid)
+    return {"role_file": f"data/roles/{org}.md" if org else None, "role_md": rbody,
+            "person_file": f"data/people/{uid}.md" if pbody else None, "person_md": pbody}
+
+
+@app.get("/api/conversations")
+def conversations(uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    rows = db().conversations.find({"user_id": uid}, {"turns": {"$slice": 1}, "updated": 1, "agent_id": 1}).sort("updated", -1).limit(30)
+    return _jsonable([{"id": r["_id"], "title": (r.get("turns") or [{}])[0].get("q", "New chat")[:60],
+                       "updated": r.get("updated")} for r in rows])
+
+
+@app.get("/api/conversations/{convo_id}")
+def conversation(convo_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+    doc = db().conversations.find_one({"_id": convo_id, "user_id": uid})
+    if not doc:
+        raise HTTPException(404, "no such conversation")
+    return _jsonable({"id": convo_id, "turns": doc.get("turns", [])})
 
 
 @app.get("/api/org")

@@ -85,7 +85,7 @@ def remember_turn(convo_id: str, user_id: str, agent_id: str, question: str, ans
         return
     db().conversations.update_one(
         {"_id": convo_id, "user_id": user_id},
-        {"$push": {"turns": {"$each": [{"q": question[:1000], "a": answer[:1500], "ts": _now()}], "$slice": -8}},
+        {"$push": {"turns": {"$each": [{"q": question[:1000], "a": answer[:4000], "agent": agent_id, "ts": _now()}], "$slice": -40}},
          "$set": {"agent_id": agent_id, "updated": _now()}}, upsert=True)
 
 
