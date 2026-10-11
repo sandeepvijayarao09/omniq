@@ -26,7 +26,7 @@ DEFAULT_HARNESS: dict[str, Any] = {
                   "graph_context": False, "use_lessons": False},
     "context": {"max_chunk_chars": 900, "include_memories": True},
     "tools": ["search_docs"],
-    "model": {"temperature": 0.2, "max_tokens": 500},
+    "model": {"temperature": 0.0, "max_tokens": 500},
     "guardrails": {"abstain_when_unsupported": False, "cite_sources": False},
     "invariants": {
         "acl_prefilter": True,       # ACL enforced inside $vectorSearch
