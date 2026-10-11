@@ -24,17 +24,61 @@ def _vsearch(user: User, qvec: list[float], cfg: dict[str, Any], limit: int, foc
     return [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]  # second line of defence
 
 
+def _search_acl(user: User, focus: list[str] | None) -> dict[str, Any]:
+    """The same access rule as vector_filter(), expressed for Atlas Search ($search compound filter)."""
+    cats = sorted(user.open_categories() & set(focus) if focus else user.open_categories()) or ["__none__"]
+    should: list[dict[str, Any]] = [{"in": {"path": "category", "value": cats}}]
+    if user.hr_scope() and (not focus or "hr" in focus):
+        should.append({"compound": {"must": [{"equals": {"path": "category", "value": "hr"}},
+                                             {"in": {"path": "team", "value": list(user.hr_scope())}}]}})
+    should.append({"compound": {"must": [{"equals": {"path": "category", "value": "personal"}},
+                                         {"equals": {"path": "owner", "value": user.id}}]}})
+    return {"compound": {"should": should, "minimumShouldMatch": 1}}
+
+
+def _hybrid(user: User, query: str, qvec: list[float], cfg: dict[str, Any], limit: int, focus: list[str] | None):
+    """Reciprocal-rank fusion of semantic ($vectorSearch) and keyword ($search) results in one Atlas query.
+    Exact identifiers ("ADR-007", "SEV1", "$42,000") that embeddings blur are caught by the keyword side."""
+    from . import usage
+
+    usage.bump("atlas_rankfusion_queries")
+    pipeline = [
+        {"$rankFusion": {"input": {"pipelines": {
+            "vector": [{"$vectorSearch": {"index": VECTOR_INDEX, "path": "embedding", "queryVector": qvec,
+                                          "numCandidates": max(int(cfg["retrieval"]["num_candidates"]), limit * 10),
+                                          "limit": limit * 2, "filter": vector_filter(user, focus)}}],
+            "text": [{"$search": {"index": "chunks_text", "compound": {
+                "must": [{"text": {"query": query, "path": ["text", "title"]}}],
+                "filter": [_search_acl(user, focus)]}}}, {"$limit": limit * 2}]}},
+            "combination": {"weights": {"vector": 1, "text": 0.7}}}},
+        {"$limit": limit},
+        {"$project": {"embedding": 0}},
+    ]
+    return [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]  # second line of defence
+
+
 def search_docs(user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     """Agent focus first, then the rest of what the user may read to fill any gap."""
+    r = cfg["retrieval"]
+    if r.get("hybrid"):
+        try:
+            return _search_with(_hybrid, user, query, cfg)
+        except Exception:
+            pass  # index still building or unsupported: fall back to vector-only
+    return _search_with(None, user, query, cfg)
+
+
+def _search_with(fn, user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     r = cfg["retrieval"]
     top_k = int(r["top_k"])
     fetch = top_k * 4 if r.get("rerank") else top_k
     qvec = embed.embed_one(query)
     focus = (cfg.get("agent") or {}).get("focus_categories") or None
-    hits = _vsearch(user, qvec, cfg, fetch, focus)
+    run = (lambda f: fn(user, query, qvec, cfg, fetch, f)) if fn else (lambda f: _vsearch(user, qvec, cfg, fetch, f))
+    hits = run(focus)
     if focus and len(hits) < fetch:
         seen = {(h["doc_id"], h["chunk"]) for h in hits}
-        hits += [h for h in _vsearch(user, qvec, cfg, fetch, None) if (h["doc_id"], h["chunk"]) not in seen][: fetch - len(hits)]
+        hits += [h for h in run(None) if (h["doc_id"], h["chunk"]) not in seen][: fetch - len(hits)]
     if r.get("rerank") and hits:
         order = embed.rerank(query, [h["text"] for h in hits], top_k)
         hits = [dict(hits[i], score=s) for i, s in order]

@@ -72,12 +72,12 @@ def partners() -> dict[str, Any]:
          "how": "System of record for everything: documents + vectors, ontology graph, agents, playbook versions, "
                 "context layers, memory, feedback, cycles, governance, audit. Hackathon Sandbox cluster.",
          "features": [f"{vec} Vector Search indexes with ACL filter fields", "$vectorSearch pre-filter compiled from IAM",
-                      "$graphLookup ontology traversal", "change streams → live SSE", "TTL index locks",
+                      "$graphLookup ontology traversal", "Atlas Search + $rankFusion hybrid retrieval (ACL in both pipelines)", "change streams → live SSE", "TTL index locks",
                       "versioned config documents", "hash-chained audit"],
          "counts": {"collections": len(d.list_collection_names()), "vector searches": u.get("atlas_vector_searches", 0),
-                    "graph lookups": u.get("atlas_graphlookups", 0), "memory recalls": u.get("atlas_memory_recalls", 0),
+                    "graph lookups": u.get("atlas_graphlookups", 0), "$rankFusion hybrid queries": u.get("atlas_rankfusion_queries", 0), "memory recalls": u.get("atlas_memory_recalls", 0),
                     "change streams": u.get("atlas_change_streams", 0), "audit events": d.audit.estimated_document_count()},
-         "gaps": ["Atlas Agent Engine not used", "no Atlas Search / $rankFusion hybrid yet", "Automated Embeddings not used"]},
+         "gaps": ["Atlas Agent Engine not used", "Automated Embeddings not used"]},
         {"partner": "Voyage AI", "status": "in use" if embed.available() else "not configured", "depth": "core",
          "how": "voyage-4 embeddings for every document, memory, lesson and failure (via the Atlas AI Model API key); "
                 "rerank-3 available as a tunable the improver can switch on.",

@@ -38,7 +38,7 @@ INJECTION = re.compile(
     r"|(un)?tokeni[sz]e|raw (names|emails|data)|\[(person|email|phone)_\d+\]", re.I)
 
 KNOB_TYPES = {("retrieval", "top_k"): int, ("retrieval", "num_candidates"): int, ("retrieval", "rerank"): bool,
-              ("retrieval", "query_rewrite"): bool, ("retrieval", "graph_context"): bool,
+              ("retrieval", "query_rewrite"): bool, ("retrieval", "hybrid"): bool, ("retrieval", "graph_context"): bool,
               ("retrieval", "use_lessons"): bool, ("context", "max_chunk_chars"): int,
               ("context", "include_memories"): bool, ("model", "max_tokens"): int,
               ("model", "temperature"): (int, float), ("guardrails", "abstain_when_unsupported"): bool,

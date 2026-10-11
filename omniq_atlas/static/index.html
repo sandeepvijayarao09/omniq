@@ -319,7 +319,7 @@ let rec=null,chunks=[];
 
 const STATUS={active:'in use',superseded:'replaced',rolled_back:'tried, undone',blocked:'refused',candidate:'testing',awaiting_approval:'needs approval',abandoned:'abandoned'};
 function plain(p){if(!p||!Object.keys(p).length)return 'starting playbook';const out=[];const r=p.retrieval||{},c=p.context||{},g=p.guardrails||{};
-  if(r.top_k!=null)out.push(`read ${r.top_k} passages per question`);if(r.rerank)out.push('re-rank passages by relevance');if(r.graph_context)out.push('add company-graph facts');if(r.query_rewrite)out.push('rewrite the question before searching');
+  if(r.top_k!=null)out.push(`read ${r.top_k} passages per question`);if(r.rerank)out.push('re-rank passages by relevance');if(r.hybrid)out.push('hybrid keyword + vector search');if(r.graph_context)out.push('add company-graph facts');if(r.query_rewrite)out.push('rewrite the question before searching');
   if(c.max_chunk_chars)out.push(`keep ${c.max_chunk_chars} characters per passage`);if(g.abstain_when_unsupported)out.push('say "not found" instead of guessing');if(g.cite_sources)out.push('cite sources');
   if(p.rules){const last=p.rules.slice(-1)[0]||'';out.push(`new rule: “${last.slice(0,140)}${last.length>140?'…':''}”`)}if(p.tools)out.push(`tools: ${p.tools.join(', ')}`);if(p.invariants)out.push('switch off locked safety rules');
   return out.join(' · ')||'change'}

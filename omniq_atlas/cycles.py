@@ -363,9 +363,32 @@ def agent_due(agent_id: str) -> bool:
     return not last or last["until"].replace(tzinfo=dt.timezone.utc) <= _now() - dt.timedelta(days=CYCLE_DAYS)
 
 
+SPIKE_MIN_ANSWERS, SPIKE_RATE, SPIKE_COOLDOWN_H = 5, 0.3, 6
+
+
+def raindrop_spikes() -> list[dict[str, Any]]:
+    """Agents whose Raindrop failure rate over the last 24h crossed the threshold, not improved in the cooldown."""
+    from . import raindrop_read
+
+    rates = raindrop_read.failure_rates(_now() - dt.timedelta(hours=24))
+    out = []
+    for aid, r in rates.items():
+        if r["answers"] >= SPIKE_MIN_ANSWERS and r["rate"] >= SPIKE_RATE:
+            recent = db().agent_cycles.find_one({"agent_id": aid, "created": {"$gt": _now() - dt.timedelta(hours=SPIKE_COOLDOWN_H)}})
+            if not recent:
+                out.append({"agent": aid, **r})
+    return sorted(out, key=lambda x: -x["rate"])
+
+
 def agent_tick(limit: int = 1) -> list[str]:
-    """Scheduler: run the weekly cycle for agents that are due (oldest first), a few per tick."""
+    """Scheduler: first any agent Raindrop shows failing (event-driven), then weekly cycles that are due."""
     done = []
+    for spike in raindrop_spikes()[:limit]:
+        audit.record("raindrop_spike", "raindrop", agent=spike["agent"], rate=spike["rate"], answers=spike["answers"])
+        run_agent(spike["agent"], actor=f"raindrop spike: {spike['failing']}/{spike['answers']} failing in 24h")
+        done.append(spike["agent"])
+    if done:
+        return done
     for a in db().agents.find({}, {"id": 1}):
         if len(done) >= limit:
             break

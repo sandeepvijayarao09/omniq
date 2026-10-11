@@ -26,6 +26,7 @@ KNOBS = """Harness fields you may change (JSON patch merged into the config):
 - rules: list[str]  — role-specific instructions appended to the system prompt (replace the whole list; keep good existing rules)
 - retrieval.top_k (1-12), retrieval.num_candidates (10-200), retrieval.rerank (Voyage reranker, bool),
   retrieval.query_rewrite (LLM rewrites the question into a search query, bool),
+  retrieval.hybrid (Atlas $rankFusion of vector + full-text search; catches exact ids like ADR-007 or $42,000, bool),
   retrieval.graph_context (add ontology facts via $graphLookup, bool), retrieval.use_lessons (bool)
 - context.max_chunk_chars (200-2500): characters kept per retrieved passage
 - tools: subset of ["search_docs", "ontology_lookup", "memory_recall"] (search_docs required)
@@ -100,6 +101,7 @@ def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], tried: list[Any
     retrieval = [
         ({"context": {"max_chunk_chars": min(2500, int(c["max_chunk_chars"]) * 2)}}, "facts cut off: keep more of each passage"),
         ({"retrieval": {"top_k": min(12, int(r["top_k"]) + 3), "num_candidates": 100}}, "facts never retrieved: widen top_k"),
+        ({"retrieval": {"hybrid": True}}, "exact terms missed by embeddings: add Atlas full-text via $rankFusion"),
         ({"retrieval": {"rerank": True}}, "irrelevant passages crowd out the answer: add Voyage rerank"),
         ({"retrieval": {"graph_context": True}}, "entity questions: add ontology context"),
     ]

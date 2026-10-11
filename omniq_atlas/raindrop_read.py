@@ -173,3 +173,30 @@ def agent_failures(agent_id: str, since: dt.datetime, until: dt.datetime) -> dic
     return {"status": "ok", "answers": n, "failing": len(failing), "failure_rate": round(len(failing) / n, 3) if n else None,
             "by_kind": dict(by_kind.most_common()), "by_version": by_version, "examples": failing[:8],
             "failing_event_ids": [f["event_id"] for f in failing]}
+
+
+def failure_rates(since: dt.datetime) -> dict[str, dict[str, Any]]:
+    """Per-agent failure rate since `since`, from one Raindrop read (for the spike trigger)."""
+    c = _client()
+    if c is None:
+        return {}
+    try:
+        events = _all_events(c)
+        sentiment = {d.get("id"): d.get("sentiment") for d in _items(c.signals.list(limit=100)) if isinstance(d, dict)}
+    except Exception:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for e in events:
+        aid = (e.get("properties") or {}).get("agent")
+        t = _ts(e)
+        if not aid or (t and t < since):
+            continue
+        row = out.setdefault(aid, {"answers": 0, "failing": 0})
+        row["answers"] += 1
+        sigs = [s for s in (e.get("signals") or []) if isinstance(s, dict)]
+        if any(s.get("name") in FAILURE_KINDS and sentiment.get(s.get("id")) != "POSITIVE" for s in sigs) \
+                or NOT_FOUND.search(str(e.get("assistant_output") or "")):
+            row["failing"] += 1
+    for row in out.values():
+        row["rate"] = round(row["failing"] / row["answers"], 3) if row["answers"] else 0.0
+    return out
