@@ -45,6 +45,9 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0a0e13;border:1px sol
 .spark{display:flex;align-items:flex-end;gap:4px;height:46px;margin:6px 0 14px}.spark i{flex:1;background:#24313f;border-radius:3px 3px 0 0;min-height:2px;position:relative}
 .spark i.on{background:var(--accent)}.spark i span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--mute);font-style:normal}
 .empty{color:var(--mute);padding:20px 0}
+.how{border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;background:var(--panel);font-size:13px}
+.how ol{margin:8px 0 2px 18px;padding:0}.how li{margin:4px 0;color:#c9d4df}
+.chip.awaiting_approval{color:#c58af9;border-color:#4b2a6b}.k.awaiting_approval{color:#c58af9}.k.quarantined,.k.paused{color:var(--warn)}
 @media (max-width:900px){main{grid-template-columns:1fr;height:auto}section+section{border-left:0;border-top:1px solid var(--line)}.scroll{max-height:70vh}}
 .agentbar{display:flex;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{font-size:12px;padding:4px 10px;border-radius:99px;background:transparent}
@@ -80,14 +83,23 @@ textarea{width:100%;background:#0a0e13;color:var(--text);border:1px solid var(--
     </div>
   </section>
   <section>
-    <div class="bar"><h2>Harness</h2>
+    <div class="bar"><h2>How it improves</h2>
       <select id="role"></select>
       <span class="who" id="activeVer"></span>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-        <button id="redteam" title="Try to inject an unsafe patch">Red-team patch</button>
-        <button id="improve" title="Improve this agent from its users' recommendations" style="display:none">Improve from feedback</button>
-        <button class="primary" id="evolve" title="Improve against graded eval cases">Evolve ▶</button></span></div>
+        <button id="redteam" title="Try to sneak in a dangerous change; the safety rules should refuse it">Try to break it</button>
+        <button id="improve" title="Learn from users' 👎 suggestions" style="display:none">Learn from feedback</button>
+        <button class="primary" id="evolve" title="Test, find mistakes, fix them, keep only what's better">Improve itself ▶</button></span></div>
     <div class="scroll">
+      <details class="how" open><summary><b>How it works</b> (30-second version)</summary>
+        <ol>
+          <li><b>Every team and every agent has a "playbook"</b>: how many documents to read, rules to follow, what to refuse. Each version is saved in MongoDB Atlas.</li>
+          <li><b>It tests itself.</b> Practice questions with known answers give it a score. Wrong answers show what to fix.</li>
+          <li><b>It learns from you.</b> 👎 + "do this instead" applies to <i>you</i> right away. If two or more people ask for the same thing, the agent tries it for everyone.</li>
+          <li><b>It keeps a change only if it's proven better</b> on questions it has never seen, with zero privacy leaks. Otherwise the change is undone.</li>
+          <li><b>It can never unlock itself.</b> Access rules, privacy masking and the audit log are locked. Suspicious suggestions are set aside, and big changes wait for a manager.</li>
+        </ol></details>
+      <div id="gov" style="margin:0 0 10px"></div>
       <div id="sparkWrap"></div>
       <div id="log" class="log" style="display:none"></div>
       <div id="recs"></div>
@@ -157,36 +169,62 @@ async function loadLineage(){const role=$('#role').value;if(!role)return;const r
   const isAgent=role.startsWith('agent:');$('#improve').style.display=isAgent?'':'none';
   const scored=L.filter(v=>v.scores&&(v.scores.train||v.scores.evals));
   const val=v=>v.scores.train?v.scores.train.score:(v.scores.evals?.score??0);
-  $('#sparkWrap').innerHTML=scored.length?`<div class="who">score by version (green = promoted)</div><div class="spark">${scored.map(v=>{const s=Math.max(0,val(v));return `<i class="${['active','superseded'].includes(v.status)?'on':''}" style="height:${Math.max(4,s*100)}%"><span>v${v.version} ${s.toFixed(2)}</span></i>`}).join('')}</div>`:'';
+  $('#sparkWrap').innerHTML=scored.length?`<div class="who">score of each version (green = kept)</div><div class="spark">${scored.map(v=>{const s=Math.max(0,val(v));return `<i class="${['active','superseded'].includes(v.status)?'on':''}" style="height:${Math.max(4,s*100)}%"><span>v${v.version} ${s.toFixed(2)}</span></i>`}).join('')}</div>`:'';
   if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));
     $('#recs').innerHTML=rs.length?`<div class="who" style="margin:4px 0">User recommendations for this agent</div>`+rs.slice(0,8).map(x=>`<div class="rec"><span class="st chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':x.status==='rejected'?'rolled_back':'superseded'}">${x.status}${x.handled_by?' → v'+x.handled_by:''}</span>${esc(x.text)}</div>`).join('')+'<div style="height:10px"></div>':''}else $('#recs').innerHTML='';
-  $('#lineage').innerHTML=L.slice().reverse().map(v=>`<div class="ver"><div class="top"><b>v${v.version}</b><span class="chip ${v.status}">${v.status.replace('_',' ')}</span>${v.parent?`<span class="who">from v${v.parent}</span>`:''}
-    <span class="score">${v.scores?.train?`train ${v.scores.train.score} · holdout ${v.scores.holdout?.score} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}`:v.scores?.replay_win_rate!=null?`replay win ${v.scores.replay_win_rate} · evals ${v.scores.evals_before?.score??'–'}→${v.scores.evals?.score??'–'}`:''}</span></div>
-    <div class="who" style="margin:4px 0">${esc(v.rationale||'')}</div>
-    ${v.patch?`<code>${esc(JSON.stringify(v.patch))}</code>`:''}
+  $('#lineage').innerHTML=L.slice().reverse().map(v=>`<div class="ver"><div class="top"><b>v${v.version}</b><span class="chip ${v.status}">${STATUS[v.status]||v.status}</span>${v.parent?`<span class="who">from v${v.parent}</span>`:''}
+    <span class="score">${v.scores?.train?`practice ${pct(v.scores.train.pass_rate)} · unseen ${pct(v.scores.holdout?.pass_rate)} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}`:v.scores?.replay_win_rate!=null?`won ${pct(v.scores.replay_win_rate)} of comparisons · tests ${pct(v.scores.evals_before?.pass_rate)}→${pct(v.scores.evals?.pass_rate)}`:''}</span></div>
+    <div class="who" style="margin:4px 0">${esc((v.rationale||'').length>180?(v.rationale||'').slice(0,180)+'…':(v.rationale||''))}</div>
+    ${v.patch?`<div style="font-size:13px">Change: ${esc(plain(v.patch))}</div>`:''}
+    ${v.status==='awaiting_approval'&&canApprove()?`<div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-approve="${v.version}">Approve</button><button data-reject="${v.version}">Reject</button></div>`:''}
     ${v.problems?.length?`<div style="color:var(--bad);font-size:12px;margin-top:4px">✗ ${esc(v.problems.join(' · '))}</div>`:''}
-    ${v.reject_reason?`<div style="color:var(--warn);font-size:12px;margin-top:4px">↩ ${esc(v.reject_reason)}</div>`:''}
-    <details><summary>config</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div>`).join('')}
+    ${v.reject_reason?`<div style="color:var(--warn);font-size:12px;margin-top:4px">↩ Undone because it wasn't better: ${esc(v.reject_reason)}</div>`:''}
+    ${v.risk_reasons?.length?`<div style="color:#c58af9;font-size:12px;margin-top:4px">🙋 Needs approval: ${esc(v.risk_reasons.join('; '))}</div>`:''}
+    <details><summary>full settings</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div>`).join('')
+  $('#lineage').querySelectorAll('[data-approve]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/approve/${b.dataset.approve}`,{method:'POST'});toast('Approved: now in use');loadLineage()});
+  $('#lineage').querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/reject/${b.dataset.reject}`,{method:'POST',body:JSON.stringify({reason:'rejected in review'})});toast('Rejected');loadLineage()});
+  const gv=await api('/api/governance/'+encodeURIComponent(role));
+  $('#gov').innerHTML=(gv.frozen?'<b style="color:var(--warn)">❄️ Frozen: no automatic changes</b>':gv.paused_until?'<b style="color:var(--warn)">⏸️ Auto-paused after repeated failed attempts</b>':'<span class="who">🟢 Improving automatically (safety rules locked)</span>')+(canApprove()?` <button class="ghost" id="freezeBtn">${gv.frozen?'Unfreeze':'Freeze changes'}</button>`:'');
+  const fb=$('#freezeBtn');if(fb)fb.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/freeze`,{method:'POST',body:JSON.stringify({frozen:!gv.frozen})});toast(gv.frozen?'Unfrozen':'Frozen: no automatic changes');loadLineage()}}
+const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
-function fmt(ev){const k=ev.kind;const rest={...ev};delete rest.kind;delete rest.ts;
-  if(k==='scored')return `v${ev.version} train=${ev.train.score} (pass ${ev.train.pass_rate}, leaks ${ev.train.leaks}) holdout=${ev.holdout.score}`+(ev.failures.length?`\n   failing: ${ev.failures.map(f=>f.id+' — '+f.why).join('\n            ')}`:' · all passing');
-  if(k==='meta_overruled')return `${ev.reason}: ${JSON.stringify(ev.patch).slice(0,140)}…`;
-  if(k==='rolled_back')return `v${ev.version} ${ev.reason}`;
-  if(k==='proposed')return `${ev.diagnosis||''}  →  ${JSON.stringify(ev.patch)}`;
-  if(k==='promoted')return `v${ev.version}`+(ev.train?` train=${ev.train.score} holdout=${ev.holdout.score} (Δ ${ev.delta>0?'+':''}${ev.delta})`:` replay win rate ${ev.replay}`);
-  if(k==='recommendations')return `${ev.count} pending`+(ev.items?.length?`: ${ev.items.map(t=>'“'+t+'”').join(' ')}`:'');
-  if(k==='themes')return ev.themes.map(t=>`${t.n}× “${t.example}”`).join('\n   ');
-  if(k==='triaged')return `${ev.agent_wide} agent-wide, ${ev.personal} personal → ${JSON.stringify(ev.patch||{}).slice(0,220)}`;
-  if(k==='evaluated')return `v${ev.version} blind replay win rate ${ev.replay} · graded evals ${ev.evals_before}→${ev.evals_after} · leaks ${ev.leaks}`;
-  if(k==='repair')return `validator objected: ${ev.problems.join('; ')}. Asking the agent to fix its patch`;
-  return JSON.stringify(rest)}
+const STATUS={active:'in use',superseded:'replaced by a newer version',rolled_back:'tried, then undone',blocked:'refused by safety rules',candidate:'being tested',awaiting_approval:'waiting for a manager',abandoned:'abandoned'};
+const pct=x=>x==null?'–':Math.round(x*100)+'%';
+const STEP={
+  evaluating:ev=>['🧪','Testing',`Running the test questions on version ${ev.version}…`],
+  scored:ev=>['📊','Score',`Version ${ev.version} got ${pct(ev.train.pass_rate)} of practice questions right (${pct(ev.holdout.pass_rate)} on unseen ones), ${ev.train.leaks} leaks.`+(ev.failures.length?`\nWrong: `+ev.failures.map(f=>f.id+(f.why.includes('retrieval_miss')?' (it never found the right document)':f.why.includes('reasoning_miss')?' (it had the document but missed the fact)':'')).join('; '):'')],
+  proposed:ev=>['💡','Idea',`${ev.diagnosis||'Proposed a change'}\nChange: ${plain(ev.patch)}`],
+  meta_overruled:ev=>['✋','Overruled',`The improver suggested ${plain(ev.patch)}, but ${ev.reason}. Trying a different fix.`],
+  promoted:ev=>['✅','Kept',`Version ${ev.version} is better, so it's now in use`+(ev.train?` (practice ${pct(ev.train.pass_rate)}, unseen ${pct(ev.holdout.pass_rate)})`:` (won ${pct(ev.replay)} of side-by-side comparisons)`)+'. Passed every privacy check.'],
+  rolled_back:ev=>['↩️','Undone',`Version ${ev.version} wasn't better, so it was undone: ${ev.reason}`],
+  blocked:ev=>['🛑','Refused',`The safety rules refused version ${ev.version}: ${(ev.problems||[]).join('; ')}`],
+  awaiting_approval:ev=>['🙋','Needs a manager',`Version ${ev.version} tested well but is a bigger change (${ev.reasons}). A manager must approve it.`],
+  converged:ev=>['🏁','Done',`Version ${ev.version} answers every practice question correctly. Nothing left to fix.`],
+  recommendations:ev=>['📬','Feedback',`${ev.count} suggestion(s) from users`+(ev.items?.length?`: ${ev.items.map(t=>'“'+t+'”').join(' ')}`:'')],
+  quarantined:ev=>['🚫','Quarantined',`${ev.count} suggestion(s) looked like attempts to get around the rules and were set aside.`],
+  themes:ev=>['🗂️','Grouped',ev.themes.map(t=>`${t.n} similar: “${t.example}”`).join('\n')],
+  below_quorum:ev=>['👤','Kept personal',`Only one person asked for this, so it stays their personal preference: ${ev.themes.map(t=>'“'+t+'”').join(' ')}`],
+  triaged:ev=>['⚖️','Decided',`${ev.agent_wide} suggestion(s) would help everyone, ${ev.personal} are personal taste.`+(ev.patch&&Object.keys(ev.patch).length?`\nChange: ${plain(ev.patch)}`:'')],
+  repair:ev=>['🔧','Fixing',`The safety rules objected (${ev.problems.join('; ')}). Asking the improver to fix its change.`],
+  replaying:ev=>['🔁','Comparing',`Re-asking the users' questions with the old and new version, without their personal preferences…`],
+  evaluated:ev=>['🧑‍⚖️','Judged',`The new version won ${pct(ev.replay)} of blind comparisons. Test score ${pct(ev.evals_before)} → ${pct(ev.evals_after)}, leaks ${ev.leaks??0}.`],
+  paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],
+  meta_error:ev=>['⚠️','Hiccup','The improver gave an unreadable answer. Falling back to a safe built-in fix.'],
+  done:ev=>['🏁','Finished',ev.final_version?`Version ${ev.final_version} is in use.`:(ev.reason||'Finished.')],
+};
+function plain(p){if(!p||!Object.keys(p).length)return 'nothing';const out=[];const r=p.retrieval||{},c=p.context||{},g=p.guardrails||{};
+  if(r.top_k!=null)out.push(`read ${r.top_k} passages per question`);if(r.rerank)out.push('re-rank passages by relevance');if(r.graph_context)out.push('add company-graph facts');if(r.query_rewrite)out.push('rewrite the question before searching');
+  if(c.max_chunk_chars)out.push(`keep ${c.max_chunk_chars} characters of each passage`);if(g.abstain_when_unsupported)out.push('say "not found" instead of guessing');if(g.cite_sources)out.push('cite sources');
+  if(p.rules)out.push(`rules: ${p.rules.map(x=>'“'+x.slice(0,110)+(x.length>110?'…':'')+'”').join(' ')}`);if(p.tools)out.push(`tools: ${p.tools.join(', ')}`);
+  return out.join('; ')||JSON.stringify(p)}
+function fmt(ev){const f=STEP[ev.kind];return f?f(ev):[ '•',ev.kind,JSON.stringify(Object.fromEntries(Object.entries(ev).filter(([k])=>!['kind','ts'].includes(k))))]}
 function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;
   const es=new EventSource(`/api/evolve/${run_id}/stream`);
-  es.onmessage=e=>{const ev=JSON.parse(e.data);const d=document.createElement('div');d.innerHTML=`<span class="k ${ev.kind}">${ev.kind}</span> ${esc(fmt(ev))}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','scored','done','evaluated'].includes(ev.kind))loadLineage()};
+  es.onmessage=e=>{const ev=JSON.parse(e.data);const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <span class="k ${ev.kind}">${esc(label)}</span> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','scored','done','evaluated'].includes(ev.kind))loadLineage()};
   es.addEventListener('end',()=>{es.close();btn.disabled=false;loadScopes().then(loadLineage)});es.onerror=()=>{es.close();btn.disabled=false}}
 $('#evolve').onclick=async()=>{if(!token)return toast('Sign in first');const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})});stream(run_id,$('#evolve'))};
 $('#improve').onclick=async()=>{if(!token)return toast('Sign in first');const {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})});stream(run_id,$('#improve'))};
-$('#redteam').onclick=async()=>{if(!token)return toast('Sign in first');const r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');d.innerHTML=`<span class="k blocked">${r.status}</span> injected patch v${r.version}: ${esc(r.problems.join(' · '))}`;log.appendChild(d);loadLineage()};
+$('#redteam').onclick=async()=>{if(!token)return toast('Sign in first');const r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');d.innerHTML=`🛑 <span class="k blocked">Refused</span> A change that tried to switch off access rules and add an "export all data" tool was refused: ${esc(r.problems.join('; '))}`;log.appendChild(d);loadLineage()};
 $('#role').onchange=loadLineage;$('#agent').onchange=onAgent;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;$('#memBtn').onclick=showMemory;
 status();pickPersona();loadScopes('pro').then(loadLineage);
 </script>

@@ -10,6 +10,33 @@ Built at the Harness Engineering & Model Wrangling #SFTechWeek Hackathon (Oct 11
 > The fictional demo company dataset in `data/seed/` (Halcyon Labs) is reused from that prototype.
 > `data/evals.yaml`, the evolution loop, the Atlas data layer and every partner integration are new.
 
+## In plain English
+
+Omniq is an AI assistant for everyone in a company. Each person only ever sees the documents their job allows,
+and names and contact details are masked before the AI model sees anything.
+
+Every team, and each of the 9 job-specific agents (Deal Coach, Renewal Risk Radar, On-call Copilot…),
+follows a **playbook**: how many documents to read, which rules to follow, when to say "I don't know".
+Each version of every playbook is saved in **MongoDB Atlas**, and the playbooks **improve themselves**:
+
+1. **Test.** Practice questions with known answers give each playbook a score.
+2. **Find the mistake.** For each wrong answer it asks: did it never find the right document, or did it find it and miss the fact?
+3. **Try a fix.** An AI "improver" suggests one change, such as "read 5 documents instead of 2" or a new rule.
+4. **Keep it only if it's proven better** on questions it has never seen, with zero privacy leaks. Otherwise the change is undone.
+5. **Learn from people.** A 👎 with "do this instead" changes *your* answers right away. When two or more people ask
+   for the same thing, the agent tries it for everyone, and keeps it only if a blind side-by-side comparison says it's better.
+
+**What it can never do.** It can't turn off access rules, privacy masking or the audit log.
+- Suggestions that try to get around the rules are set aside.
+- Big changes (new tools, dropped rules) wait for a manager's approval.
+- After three failed attempts in a row it pauses itself.
+- If real users dislike a new version, it automatically switches back to the old one.
+
+**Try it:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app
+- Pick a person.
+- Ask the agent something.
+- Press **Improve itself ▶** and watch it test, fix and decide, in plain sentences.
+
 ## The problem
 
 Enterprise assistants are tuned by hand. Someone edits the prompt, retrieval settings and guardrails for
@@ -32,6 +59,19 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
          ─► PII → [PERSON_1] tokens ─► outbound guard ─► Claude ─► de-tokenize
          ─► episode (Atlas) + hash-chained audit (Atlas) + Raindrop event
 ```
+
+## Governance of the autonomous cycle (`omniq_atlas/governance.py`)
+
+Both loops end in one function, `governance.decide()`.
+
+| Layer | Guard |
+|---|---|
+| Inputs | Injection screening at intake (flagged recommendations are quarantined); a 2-user quorum before any agent-wide change; 10 recommendations per user per agent per day |
+| Changes | Validator (locked invariants, bounds, per-agent tool allow-list, rule caps), knob type checks, LLM safety review of new rule text |
+| Promotion | Must beat the parent on evidence (holdout, or blind replay plus eval guard) **and** pass an absolute safety gate: every leak case for the audience |
+| Risk | Tool changes, dropped rules and output-budget blowups go to `awaiting_approval` for an admin or executive |
+| Runtime | One run per scope (TTL lock), 6 runs per hour, auto-pause for 30 min after 3 failed candidates, freeze switch, manual rollback, crash recovery, live watchdog |
+| Record | Every proposal, block, quarantine, approval, rollback and pause goes into the hash-chained audit log |
 
 ## How the harness evolves (`omniq_atlas/evolve.py`)
 
