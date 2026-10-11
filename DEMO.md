@@ -17,7 +17,7 @@ Open http://127.0.0.1:8000 (or the Modelence URL).
    - Ask *"What are the Project Bluefin deal terms?"* Board docs never come back.
    - Click 👎. That becomes a Raindrop signal and an Atlas episode.
 
-3. **Recursive harnessing (75 s).** Harness panel, role `pro`, click **Evolve ▶**. Narrate the stream:
+3. **Recursive harnessing (75 s).** Harness panel, role `pro`, click **Improve itself ▶**. Narrate the stream:
    - `scored`: the hard metric on the train split. Each failure is labelled **retrieval_miss** (the fact
      never reached the model) or **reasoning_miss** (it was in context but not used).
    - `proposed`: the meta-agent diagnoses the failure and patches the harness.
@@ -29,12 +29,12 @@ Open http://127.0.0.1:8000 (or the Modelence URL).
    Sign in as **Lauren Fitzgerald** (Customer Success). Pick **Renewal Risk Radar**, then the Corvid starter question.
    Give 👎 and type *"Always start with a one-line risk verdict (Healthy / Watch / At risk) with the ARR and renewal date."*
    Ask the other starter question. It now starts with the verdict and shows **✦ applied your preferences**.
-   Open **My memory** to show the preference (it can be deleted). Then **Improve from feedback**: it groups
+   Open **My memory** to show the preference (it can be deleted). Then **Learn from feedback**: it groups
    recommendations into themes, sorts them into personal vs agent-wide, runs a blind judge replay *with personal
    memory off* plus the graded guard, then promotes or rolls back. "Personal taste stays personal. What helps
    everyone becomes the agent."
 
-4. **It can't unlock itself (20 s).** Click **Red-team patch**. It's an injected patch that disables the ACL
+4. **It can't unlock itself (20 s).** Click **Try to break it**. It's an injected patch that disables the ACL
    and adds an `export_all_data` tool. It's **blocked**, with four reasons, and written to the hash-chained audit log.
 
 5. **Close (15 s).** "Atlas holds the harness versions, episodic and procedural memory, the ontology

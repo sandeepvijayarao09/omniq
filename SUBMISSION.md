@@ -42,7 +42,7 @@ telemetry), ElevenLabs (Scribe STT / Flash TTS), Modelence (edge deploy), Gemma 
 ## 1-minute video shot list (record with QuickTime → New Screen Recording, with your mic on)
 1. (0:00–0:08) Title: say the one-liner over the app.
 2. (0:08–0:20) Daniel → Deal Coach asks about a 15% discount. Show the answer, then **What the model saw** (tokens).
-3. (0:20–0:35) Harness panel → pro → **Evolve ▶**. Stream: scored → proposed → promoted (0.87 → 0.94 → 1.00).
+3. (0:20–0:35) Harness panel → pro → **Improve itself ▶**. Stream: scored → proposed → promoted (0.87 → 0.94 → 1.00).
 4. (0:35–0:48) Lauren → Renewal Risk Radar: 👎 + recommendation, then the next answer shows **✦ applied your preferences**.
-5. (0:48–0:55) **Red-team patch**: blocked with reasons.
+5. (0:48–0:55) **Try to break it**: blocked with reasons.
 6. (0:55–1:00) "MongoDB Atlas holds the harness, the memory and the audit trail. Repo link on screen."
