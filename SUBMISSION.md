@@ -59,7 +59,7 @@ quarantined, and every action is in a hash-chained audit log.
    it just logged a rephrase and understood the follow-up as an extension."
 4. **0:32–0:45** 🤖 My agents → Release Agent → **🌧 Where it fails** (from Raindrop). Then 📈 Learning →
    **Improve from last 7 days ▶**: Raindrop → tests → kept/undone, in plain sentences.
-5. **0:45–0:55** 📊 Impact: 25 decisions, 5 kept, 12 undone, +34 pts, 0 leaks. Flowcharts at /workflow. Then ⋯ Under the hood → 🔐 Access
+5. **0:45–0:55** 📊 Impact: 26 decisions, 6 kept, 12 undone, +38 pts, 0 leaks. Flowcharts at /workflow. Then ⋯ Under the hood → 🔐 Access
    simulator: Deny with the reason.
 6. **0:55–1:00** "MongoDB Atlas holds the agents, their playbook versions, memory and audit. Raindrop tells each agent
    where it fails. Repo and live link are in the submission."
