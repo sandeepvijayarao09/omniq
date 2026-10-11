@@ -15,8 +15,13 @@ Built at the Harness Engineering & Model Wrangling #SFTechWeek Hackathon (Oct 11
 Omniq is an AI assistant for everyone in a company. Each person only ever sees the documents their job allows,
 and names and contact details are masked before the AI model sees anything.
 
-Every team, and each of the 9 job-specific agents (Deal Coach, Renewal Risk Radar, On-call Copilot…),
-follows a **playbook**: how many documents to read, which rules to follow, when to say "I don't know".
+The company has **four roles in a hierarchy: CTO → Directors → Product Managers and Developers**. Each role has
+**5 prebuilt agents** (20 in all). Higher roles also get the agents of the roles below: a Director has 15, the CTO all 20.
+Each agent is **one Markdown context file** (`data/agents/<role>/<agent>.md`). The file holds its LLM connection (model,
+temperature, max tokens) and a context layer (persona, mission, priorities, recent events, working style, house rules,
+output format, glossary), and the model receives it verbatim.
+
+Every agent and access level follows a **playbook**: how many documents to read, which rules to follow, when to say "I don't know".
 Each version of every playbook is saved in **MongoDB Atlas**, and the playbooks **improve themselves**:
 
 1. **Test.** Practice questions with known answers give each playbook a score.
@@ -88,8 +93,17 @@ Both loops end in one function, `governance.decide()`.
 
 ## Role-specific agents that keep improving from their users (`agents.py`, `memory.py`, `improve.py`)
 
-Nine agents (`data/agents.yaml`) are gated by role and department: Deal Coach, Renewal Risk Radar, On-call Copilot,
-Deploy & Architecture Guide, Escalation Triage, Team Pulse, Variance Analyst, Executive Brief and Policy Helper.
+| Role (rank) | Agents |
+|---|---|
+| **Developer** (1) | Code Review Buddy, On-call Copilot, Deploy Guide, Architecture Explainer, API Spec Helper |
+| **Product Manager** (1) | PRD Writer, Roadmap Planner, Customer Voice, Launch Checklist, Metrics Analyst |
+| **Director** (2) | Team Pulse, Incident Review, Capacity Planner, OKR Tracker, Delivery Risk Radar |
+| **CTO** (3) | Tech Strategy Brief, Board Tech Brief, Reliability Scorecard, Build vs Buy Advisor, Security Posture |
+
+Org roles come from the directory: engineers → Developer, the product team → Product Manager, engineering and product
+managers → Director, the CTO → CTO. An org role only decides which agents a person can use. What each agent can read
+is still that person's ACL. `scripts/build_agents.py` regenerates the context files deterministically
+(seed = agent id), and a test ensures no context file contains restricted facts.
 Each agent has:
 
 - **its own harness lineage** (`agent:<id>`), seeded from the template's persona, focus categories and tool allow-list.
