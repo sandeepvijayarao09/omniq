@@ -1,0 +1,11 @@
+{
+  "$schema": "https://cloud.modelence.com/schema/modelence.config.json?version=1",
+  "resources": {
+    "web": {
+      "type": "service",
+      "image": "node-22-slim",
+      "build": { "commands": ["npm install --omit=dev"] },
+      "start": { "commands": ["node server.js"] }
+    }
+  }
+}

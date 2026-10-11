@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omniq Atlas</title>
+<style>
+:root{--bg:#0d1117;--panel:#151b23;--line:#262f3a;--text:#e6edf3;--mute:#8b98a7;--accent:#00ed64;--warn:#f5a524;--bad:#f2555a;--blue:#58a6ff;--r:10px}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;background:#1f2732;border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;transition:background .15s,border-color .15s,transform .08s}
+button:hover{border-color:#3a4654}button:active{transform:scale(.97)}button.primary{background:var(--accent);color:#04120a;border-color:var(--accent);font-weight:600}
+button.ghost{background:transparent}button:disabled{opacity:.5;cursor:default}
+header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;letter-spacing:.2px}header .tag{color:var(--mute);font-size:12px}
+.pills{margin-left:auto;display:flex;gap:6px}.pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+.pill.on{color:var(--accent);border-color:#0b5f2d}
+main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);height:calc(100% - 53px)}
+section{display:flex;flex-direction:column;min-height:0}section+section{border-left:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bar h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+select{background:#1f2732;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
+.scroll{flex:1;overflow:auto;padding:16px}
+.msg{margin:0 0 14px;max-width:92%}.msg.me{margin-left:auto;background:#1b2a3d;border:1px solid #23405f;padding:9px 12px;border-radius:var(--r)}
+.msg.ai{background:var(--panel);border:1px solid var(--line);padding:11px 13px;border-radius:var(--r)}
+.msg .meta{color:var(--mute);font-size:12px;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.msg .meta button{padding:2px 8px;font-size:12px}
+details{margin-top:8px}summary{cursor:pointer;color:var(--mute);font-size:12px}
+pre{white-space:pre-wrap;word-break:break-word;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c9d4df;max-height:260px;overflow:auto}
+.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.composer input{flex:1;background:#0a0e13;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;font:inherit}
+.composer input:focus{outline:none;border-color:var(--blue)}
+.mic.rec{background:var(--bad);border-color:var(--bad)}
+.who{color:var(--mute);font-size:12px}
+.persona-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.persona{text-align:left;padding:12px;background:var(--panel)}.persona b{display:block}.persona small{color:var(--mute)}
+.ver{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;background:var(--panel)}
+.ver .top{display:flex;gap:8px;align-items:center}.ver code{font-size:12px;color:#c9d4df}
+.chip{font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid}
+.chip.active{color:var(--accent);border-color:#0b5f2d}.chip.rolled_back{color:var(--warn);border-color:#6b4a0e}
+.chip.blocked{color:var(--bad);border-color:#6b1f22}.chip.superseded,.chip.candidate{color:var(--mute);border-color:var(--line)}
+.score{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mute);font-size:12px}
+.log{font:12px/1.5 ui-monospace,Menlo,monospace;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:300px;overflow:auto;margin-bottom:12px}
+.log div{padding:2px 0;border-bottom:1px dashed #1a222c}.k{font-weight:700}
+.k.promoted{color:var(--accent)}.k.rolled_back{color:var(--warn)}.k.blocked{color:var(--bad)}.k.proposed{color:var(--blue)}
+.spark{display:flex;align-items:flex-end;gap:4px;height:46px;margin:6px 0 14px}.spark i{flex:1;background:#24313f;border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.spark i.on{background:var(--accent)}.spark i span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--mute);font-style:normal}
+.empty{color:var(--mute);padding:20px 0}
+@media (max-width:900px){main{grid-template-columns:1fr;height:auto}section+section{border-left:0;border-top:1px solid var(--line)}.scroll{max-height:70vh}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Omniq <span style="color:var(--accent)">Atlas</span></h1>
+  <span class="tag">A governed org assistant with a harness that improves itself, on MongoDB Atlas</span>
+  <div class="pills" id="pills"></div>
+</header>
+<main>
+  <section>
+    <div class="bar"><h2>Assistant</h2><span class="who" id="who">not signed in</span>
+      <button class="ghost" id="switch" style="margin-left:auto">Switch person</button></div>
+    <div class="scroll" id="chat"></div>
+    <div class="composer">
+      <button class="mic" id="mic" title="Hold to talk (ElevenLabs)">🎙</button>
+      <input id="q" placeholder="Ask about policies, customers, incidents… or /remember something" autocomplete="off">
+      <button class="primary" id="send">Ask</button>
+    </div>
+  </section>
+  <section>
+    <div class="bar"><h2>Harness</h2>
+      <select id="role"><option>pro</option><option>manager</option><option>basic</option><option>executive</option></select>
+      <span class="who" id="activeVer"></span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+        <button id="redteam" title="Try to inject an unsafe patch">Red-team patch</button>
+        <button class="primary" id="evolve">Evolve ▶</button></span></div>
+    <div class="scroll">
+      <div id="sparkWrap"></div>
+      <div id="log" class="log" style="display:none"></div>
+      <div id="lineage"></div>
+    </div>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s);let token=null,me=null,lastAnswer='';
+const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:{...(o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(o.headers||{})}});if(!r.ok)throw new Error((await r.text())||r.status);return r.headers.get('content-type')?.includes('json')?r.json():r};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function status(){const s=await api('/api/status');$('#pills').innerHTML=['claude','voyage','raindrop','elevenlabs'].map(k=>`<span class="pill ${s[k]?'on':''}">${k}</span>`).join('')+`<span class="pill on">atlas · ${s.chunks} chunks</span>`}
+async function pickPersona(){const ps=await api('/api/personas');$('#chat').innerHTML=`<p class="empty">Sign in as someone. Each person sees only what their role allows; the harness behind them evolves per role.</p><div class="persona-grid">${ps.map(p=>`<button class="persona" data-id="${p.id}"><b>${esc(p.name)}</b><small>${esc(p.title)} · ${p.role}</small><br><small>sees: ${esc(p.access)}</small></button>`).join('')}</div>`;
+  document.querySelectorAll('.persona').forEach(b=>b.onclick=()=>login(b.dataset.id))}
+async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;$('#who').textContent=`${me.name} · ${me.title} · ${me.role}`;$('#chat').innerHTML='';$('#role').value=me.role;loadLineage()}
+function add(html,cls){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;$('#chat').appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'});return d}
+async function ask(){const q=$('#q').value.trim();if(!q||!token)return;$('#q').value='';add(esc(q),'me');
+  if(q.startsWith('/remember ')){await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10)})});add('Saved to your memory (stored in Atlas, tokenized before any model call).','ai');return}
+  const d=add('<span class="who">thinking…</span>','ai');
+  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q})});lastAnswer=r.answer;
+    const pii=Object.entries(r.pii||{}).map(([k,v])=>`${v} ${k}`).join(', ')||'none';
+    d.innerHTML=`<div>${esc(r.answer).replace(/\n/g,'<br>')}</div>
+    <div class="meta">harness v${r.harness_version} · ${esc(r.model)} · ${r.latency}s · tokenized: ${pii}${r.blocked?' · <b style="color:var(--bad)">blocked by guard</b>':''}
+      <button data-g="1">👍</button><button data-g="0">👎</button><button data-say>🔊</button></div>
+    <details><summary>Sources (${r.sources.length}) — ACL-filtered in $vectorSearch</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
+    <details><summary>What the model saw</summary><pre>${esc(r.model_view.system)}\n\n${esc(r.model_view.user)}</pre></details>`;
+    d.querySelectorAll('[data-g]').forEach(b=>b.onclick=async()=>{const good=b.dataset.g==='1';const comment=good?'':(prompt('What was wrong? (optional)')||'');await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,comment})});b.parentElement.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);b.textContent+=' sent'});
+    d.querySelector('[data-say]').onclick=()=>say(r.answer);
+  }catch(e){d.innerHTML=`<span style="color:var(--bad)">${esc(e.message)}</span>`}}
+async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){alert('Voice unavailable: '+e.message)}}
+let rec=null,chunks=[];
+$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;ask()}catch(e){alert('Voice unavailable: '+e.message)}};rec.start();$('#mic').classList.add('rec')};
+$('#mic').onmouseup=$('#mic').onmouseleave=()=>{if(rec&&rec.state==='recording'){rec.stop();$('#mic').classList.remove('rec')}};
+
+async function loadLineage(){const role=$('#role').value;const r=await api('/api/harness/'+role);const L=r.lineage;$('#activeVer').textContent=`active v${r.active.version}`;
+  const scored=L.filter(v=>v.scores&&v.scores.train);
+  $('#sparkWrap').innerHTML=scored.length?`<div class="who">train score by version (green = promoted)</div><div class="spark">${scored.map(v=>{const s=Math.max(0,v.scores.train.score);return `<i class="${['active','superseded'].includes(v.status)?'on':''}" style="height:${Math.max(4,s*100)}%"><span>${s.toFixed(2)}</span></i>`}).join('')}</div>`:'';
+  $('#lineage').innerHTML=L.slice().reverse().map(v=>`<div class="ver"><div class="top"><b>v${v.version}</b><span class="chip ${v.status}">${v.status.replace('_',' ')}</span>${v.parent?`<span class="who">from v${v.parent}</span>`:''}
+    <span class="score">${v.scores?.train?`train ${v.scores.train.score} · holdout ${v.scores.holdout?.score} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}`:''}</span></div>
+    <div class="who" style="margin:4px 0">${esc(v.rationale||'')}</div>
+    ${v.patch?`<code>${esc(JSON.stringify(v.patch))}</code>`:''}
+    ${v.problems?.length?`<div style="color:var(--bad);font-size:12px;margin-top:4px">✗ ${esc(v.problems.join(' · '))}</div>`:''}
+    ${v.reject_reason?`<div style="color:var(--warn);font-size:12px;margin-top:4px">↩ ${esc(v.reject_reason)}</div>`:''}
+    <details><summary>config</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div>`).join('')}
+
+function fmt(ev){const k=ev.kind;const rest={...ev};delete rest.kind;delete rest.ts;
+  if(k==='scored')return `v${ev.version} train=${ev.train.score} (pass ${ev.train.pass_rate}, leaks ${ev.train.leaks}) holdout=${ev.holdout.score} · failing: ${ev.failures.map(f=>f.id).join(', ')||'none'}`;
+  if(k==='proposed')return `${ev.diagnosis||''}  →  ${JSON.stringify(ev.patch)}`;
+  if(k==='promoted')return `v${ev.version} train=${ev.train.score} holdout=${ev.holdout.score} (Δ ${ev.delta>0?'+':''}${ev.delta})`;
+  return JSON.stringify(rest)}
+$('#evolve').onclick=async()=>{if(!token)return alert('Sign in first');const role=$('#role').value;$('#evolve').disabled=true;const log=$('#log');log.style.display='block';log.innerHTML='';
+  const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role,generations:3})});
+  const es=new EventSource(`/api/evolve/${run_id}/stream`);
+  es.onmessage=e=>{const ev=JSON.parse(e.data);const d=document.createElement('div');d.innerHTML=`<span class="k ${ev.kind}">${ev.kind}</span> ${esc(fmt(ev))}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','scored','done'].includes(ev.kind))loadLineage()};
+  es.addEventListener('end',()=>{es.close();$('#evolve').disabled=false;loadLineage()});es.onerror=()=>{es.close();$('#evolve').disabled=false}};
+$('#redteam').onclick=async()=>{if(!token)return alert('Sign in first');const r=await api('/api/redteam/'+$('#role').value,{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');d.innerHTML=`<span class="k blocked">${r.status}</span> injected patch v${r.version}: ${esc(r.problems.join(' · '))}`;log.appendChild(d);loadLineage()};
+$('#role').onchange=loadLineage;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;
+status();pickPersona();loadLineage();
+</script>
+</body>
+</html>

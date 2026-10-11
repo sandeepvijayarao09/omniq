@@ -1,0 +1,169 @@
+# Structured records for the Halcyon Labs ontology: what CRM, ITSM, finance and
+# planning connectors would sync in production. People, teams and departments
+# come from org.yaml; documents and their mentions are linked automatically.
+# Every value here is fictional and matches the seed documents.
+
+Customer:
+  - {id: globex-financial, name: Globex Financial, plan: Enterprise, arr: 612000, health: At risk, segment: Fintech, renewal: 2027-02-01,
+     health_note: Still sensitive about the August outage; monthly reliability reviews agreed.,
+     links: {account_owner: emp-1060, csm: emp-1074}}
+  - {id: stark-logistics, name: Stark Logistics, plan: Enterprise, arr: 388000, health: Watch, segment: Logistics, renewal: 2027-04-01,
+     health_note: Muted anomaly alerts after v1 noise; moving to v2 beta., links: {account_owner: emp-1057, csm: emp-1076}}
+  - {id: pinecrest-bank, name: Pinecrest Bank, plan: Business, arr: 214000, health: Healthy, segment: Fintech, renewal: 2027-06-01,
+     links: {account_owner: emp-1059, csm: emp-1075}}
+  - {id: meridian-telecom, name: Meridian Telecom, plan: Business, arr: 196000, health: Healthy, segment: Telecom, renewal: 2027-03-01,
+     links: {account_owner: emp-1058, csm: emp-1077}}
+  - {id: orbit-payments, name: Orbit Payments, plan: Business, arr: 171000, health: Healthy, segment: Fintech, renewal: 2027-05-01,
+     links: {account_owner: emp-1061, csm: emp-1075}}
+  - {id: bluewater-retail, name: Bluewater Retail, plan: Business, arr: 142000, health: Watch, segment: Retail, renewal: 2027-01-15,
+     health_note: Budget freeze; may downgrade to Team., links: {account_owner: emp-1002, csm: emp-1077}}
+  - {id: initech, name: Initech, plan: Business, arr: 96000, health: Healthy, segment: Software, renewal: 2026-11-30,
+     health_note: Procurement asking for 15% off a two-year term., links: {account_owner: emp-1002, csm: emp-1074}}
+  - {id: northpeak-energy, name: Northpeak Energy, plan: Team, arr: 64000, health: Healthy, segment: Energy, renewal: 2027-02-15,
+     links: {account_owner: emp-1058, csm: emp-1076}}
+  - {id: corvid-insurance, name: Corvid Insurance, plan: Business, arr: 118000, health: At risk, segment: Insurance, renewal: 2026-12-15,
+     health_note: Only 3 of 40 teams active; onboarding sprint planned., links: {account_owner: emp-1057, csm: emp-1075}}
+  - {id: lumen-media, name: Lumen Media, plan: Team, arr: 48000, health: Healthy, segment: Media, renewal: 2027-07-01,
+     links: {account_owner: emp-1061, csm: emp-1077}}
+  - {id: umbrella-health, name: Umbrella Health, plan: Prospect, arr: 0, health: Prospect, segment: Healthcare,
+     links: {account_owner: emp-1060}}
+  - {id: kestrel-health, name: Kestrel Health, plan: Prospect, arr: 0, health: Prospect, segment: Healthcare,
+     links: {account_owner: emp-1059}}
+
+Contact:
+  - {id: rachel-torres, name: Rachel Torres, title: VP Platform Engineering, email: rachel.torres@globexfin.example, phone: +1 (212) 555-0193,
+     links: {works_at: globex-financial, champion_of: globex-financial}}
+  - {id: martin-albescu, name: Martin Albescu, title: Head of SRE, email: m.albescu@starklogistics.example, phone: +1 (312) 555-0144,
+     links: {works_at: stark-logistics, champion_of: stark-logistics}}
+  - {id: dana-whitlock, name: Dana Whitlock, title: Director of Infrastructure, email: dana.whitlock@pinecrest.example, phone: +1 (704) 555-0101,
+     links: {works_at: pinecrest-bank, champion_of: pinecrest-bank}}
+  - {id: sunil-bhatt, name: Sunil Bhatt, title: Engineering Manager, email: sunil.bhatt@meridiantel.example, phone: +1 (469) 555-0137,
+     links: {works_at: meridian-telecom, champion_of: meridian-telecom}}
+  - {id: erin-calloway, name: Erin Calloway, title: CTO, email: erin@orbitpay.example, phone: +1 (646) 555-0120,
+     links: {works_at: orbit-payments, champion_of: orbit-payments}}
+  - {id: joaquin-pereira, name: Joaquin Pereira, title: Platform Lead, email: jpereira@bluewater.example, phone: +1 (206) 555-0175,
+     links: {works_at: bluewater-retail, champion_of: bluewater-retail}}
+  - {id: lisette-moreaux, name: Lisette Moreaux, title: Staff Engineer, email: lisette.moreaux@initech.example, phone: +1 (512) 555-0199,
+     links: {works_at: initech, champion_of: initech}}
+  - {id: yolanda-mbeki, name: Yolanda Mbeki, title: Director of IT, email: y.mbeki@corvid.example, phone: +1 (860) 555-0118,
+     links: {works_at: corvid-insurance, champion_of: corvid-insurance}}
+  - {id: carmen-velasquez, name: Carmen Velasquez, title: CISO, links: {works_at: umbrella-health, champion_of: umbrella-health}}
+  - {id: wendell-ashby, name: Wendell Ashby, title: VP Engineering, links: {works_at: kestrel-health, champion_of: kestrel-health}}
+
+Deal:
+  - {id: globex-enterprise-expansion, name: Globex Financial — Enterprise expansion, amount: 310000, stage: Commit, close_quarter: Q4 FY26,
+     next_step: ADR-007 reliability walkthrough with Rachel Torres., links: {deal_for: globex-financial, deal_owner: emp-1060}}
+  - {id: initech-renewal, name: Initech — two-year renewal, amount: 96000, stage: Proposal, close_quarter: Q4 FY26,
+     next_step: Counter at 12% for a two-year prepay., links: {deal_for: initech, deal_owner: emp-1002}}
+  - {id: umbrella-new-logo, name: Umbrella Health — new logo, amount: 140000, stage: Evaluation, close_quarter: Q1 FY27,
+     next_step: Security review; needs BAA and SSO., links: {deal_for: umbrella-health, deal_owner: emp-1060}}
+  - {id: stark-upsell, name: Stark Logistics — 400 host upsell, amount: 124800, stage: Proposal, close_quarter: Q4 FY26,
+     links: {deal_for: stark-logistics, deal_owner: emp-1057}}
+  - {id: kestrel-new-logo, name: Kestrel Health — new logo, amount: 96000, stage: Discovery, close_quarter: Q1 FY27,
+     next_step: Follow up after security review., links: {deal_for: kestrel-health, deal_owner: emp-1059}}
+
+System:
+  - {id: ingest-gateway, name: Ingest gateway, tier: Tier 0, description: "Authenticates tenants, applies quotas and writes telemetry to Kafka.",
+     aliases: [ingest gateway, the gateway], links: {depends_on: [kafka-pipeline, auth-sessions]}}
+  - {id: kafka-pipeline, name: Kafka pipeline, tier: Tier 0, description: "Managed Kafka topics per signal type, partitioned by tenant (ADR-012).",
+     aliases: [kafka], links: {}}
+  - {id: clickhouse, name: ClickHouse log and trace store, tier: Tier 0, description: Stores logs and traces., aliases: [clickhouse],
+     links: {depends_on: [kafka-pipeline]}}
+  - {id: timeline-service, name: Timeline service, tier: Tier 1, description: "Assembles incidents from signals, deploys and config changes.",
+     aliases: [timeline service, timelines], links: {depends_on: [clickhouse, detector-service]}}
+  - {id: detector-service, name: Detector service, tier: Tier 1, description: Threshold rules and anomaly detection v2.,
+     aliases: [detector service, anomaly detection], links: {depends_on: [clickhouse]}}
+  - {id: auth-sessions, name: Auth and sessions, tier: Tier 0, description: Authentication and sessions; Postgres since ADR-007 with Redis as a read-through cache.,
+     aliases: [sessions, session storage, auth and sessions], links: {depends_on: [postgres, redis]}}
+  - {id: postgres, name: Postgres cluster, tier: Tier 0, description: Primary relational store across three zones., aliases: [postgres], links: {}}
+  - {id: redis, name: Redis cluster, tier: Tier 1, description: Read-through cache for sessions., aliases: [redis], links: {}}
+  - {id: web-app, name: Pulse web app, tier: Tier 1, description: The Pulse UI and public API frontends., aliases: [web app],
+     links: {depends_on: [timeline-service, auth-sessions]}}
+  - {id: mobile-apps, name: Pulse mobile apps, tier: Tier 1, description: iOS and Android apps with push alerting., aliases: [mobile apps, push alerting],
+     links: {depends_on: [web-app]}}
+  - {id: deploy-pipeline, name: Deploy pipeline (pulsectl), tier: Tier 1, description: Canary deploys and rollback., aliases: [pulsectl, deploy pipeline],
+     links: {}}
+  - {id: flag-service, name: Feature flag service, tier: Tier 1, description: Flags and kill switches (ADR-015)., aliases: [feature flags, flag service],
+     links: {}}
+  - {id: infrastructure, name: Production infrastructure, tier: Tier 0, description: Kubernetes and Terraform-managed cloud infrastructure.,
+     aliases: [terraform, kubernetes], links: {}}
+
+Team:
+  # owned systems (teams themselves come from org.yaml)
+  - {id: ingest, links: {owns_system: [ingest-gateway, kafka-pipeline, clickhouse]}}
+  - {id: platform, links: {owns_system: [auth-sessions, postgres, redis, deploy-pipeline, flag-service, timeline-service]}}
+  - {id: frontend, links: {owns_system: [web-app]}}
+  - {id: mobile, links: {owns_system: [mobile-apps]}}
+  - {id: data-ml, links: {owns_system: [detector-service]}}
+  - {id: sre, links: {owns_system: [infrastructure]}}
+
+Incident:
+  - {id: inc-2026-08-14, name: August 14 ingest outage, severity: SEV1, date: 2026-08-14, duration: 2h 41m, service_credits: 42000,
+     summary: A gateway connection-limit change overwhelmed the Redis session cluster; failover evicted all sessions and delayed alerting.,
+     aliases: [august outage, august incident, august 14 ingest outage],
+     links: {impacted: [globex-financial, stark-logistics], affected: [ingest-gateway, redis, auth-sessions], commanded_by: emp-1003}}
+
+ActionItem:
+  - {id: ai-load-test-gate, name: Load-test gate for gateway config changes, status: Done, links: {action_for: inc-2026-08-14, assigned_to: emp-1001}}
+  - {id: ai-sessions-postgres, name: Move sessions to Postgres per ADR-007, status: In progress, links: {action_for: inc-2026-08-14, assigned_to: emp-1003}}
+  - {id: ai-oob-alerting, name: Out-of-band alerting path, status: Open, due: End of Q4, links: {action_for: inc-2026-08-14, assigned_to: emp-1008}}
+
+Decision:
+  - {id: adr-007, name: ADR-007 — Sessions from Redis to Postgres, status: Accepted, aliases: [adr-007],
+     summary: Store sessions in Postgres with Redis as a read-through cache so failover no longer logs customers out.,
+     links: {authored_by: emp-1001, concerns: [auth-sessions, postgres, redis]}}
+  - {id: adr-012, name: ADR-012 — Kafka for the ingest pipeline, status: Accepted, aliases: [adr-012],
+     summary: Replace the bespoke ingest queue with managed Kafka for replay and per-tenant quotas.,
+     links: {authored_by: emp-1018, concerns: [kafka-pipeline, ingest-gateway]}}
+  - {id: adr-015, name: ADR-015 — Feature flags and progressive delivery, status: Accepted, aliases: [adr-015],
+     summary: "All user-facing changes ship behind flags with owners, expiry and kill switches.",
+     links: {authored_by: emp-1013, concerns: [flag-service, deploy-pipeline]}}
+
+Project:
+  - {id: project-bluefin, name: Project Bluefin, category: board, status: Diligence, budget: 18000000,
+     summary: Proposed acquisition of a log-analytics startup; recommendation to the board in November.,
+     aliases: [bluefin, project bluefin], links: {project_owner: [emp-1010, emp-1009]}}
+  - {id: project-nimbus, name: Project Nimbus, status: Private beta planned, budget: 650000,
+     summary: AI incident summaries at the top of each timeline; private beta with Globex Financial in Q1.,
+     aliases: [nimbus, project nimbus], links: {project_owner: emp-1051, project_team: data-ml, project_customer: globex-financial}}
+  - {id: project-driftwood, name: Project Driftwood, category: board, status: Awaiting board approval, budget: 1100000,
+     summary: EU data region in Frankfurt for data-residency customers.,
+     aliases: [driftwood, project driftwood], links: {project_owner: [emp-1011, emp-1009], project_customer: globex-financial}}
+  - {id: sso-saml, name: SSO/SAML, status: "Private beta, GA in December", budget: 420000,
+     summary: SAML 2.0 and OIDC for Business and Enterprise plans.,
+     aliases: [sso, saml, sso/saml], links: {project_owner: emp-1048, project_team: platform, project_customer: [umbrella-health, pinecrest-bank]}}
+
+Contract:
+  - {id: globex-msa, name: Globex Financial MSA, annual_value: 612000, renewal: Auto-renews annually from March 2025,
+     key_terms: 99.9% SLA with credits; termination for convenience after a second SEV1 in 12 months.,
+     aliases: [globex msa], links: {contract_with: globex-financial}}
+
+Vendor:
+  - {id: cloud-provider, name: Cloud provider, annual_value: 2900000, renewal: March, links: {vendor_owner: emp-1010}}
+  - {id: managed-kafka, name: Managed Kafka, annual_value: 216000, renewal: June, links: {vendor_owner: emp-1017}}
+  - {id: crm, name: CRM, annual_value: 96000, renewal: August, links: {vendor_owner: emp-1094}}
+  - {id: hris-payroll, name: HRIS and payroll, annual_value: 58000, renewal: January, links: {vendor_owner: emp-1093}}
+  - {id: security-tooling, name: Security tooling, annual_value: 140000, renewal: May, links: {vendor_owner: emp-1044}}
+  - {id: omniq, name: Omniq, annual_value: 42000, renewal: September, links: {vendor_owner: emp-1006}}
+
+Objective:
+  - {id: okr-reliability, name: Make Pulse the most reliable choice in our market,
+     key_results: 99.95% ingest availability monthly; zero config-change SEV1s; out-of-band alerting by end of Q4., links: {objective_owner: emp-1009}}
+  - {id: okr-enterprise, name: Be ready for enterprise and regulated customers,
+     key_results: SSO/SAML GA in December; SOC 2 Type II by January; two healthcare customers live., links: {objective_owner: emp-1047}}
+  - {id: okr-growth, name: Grow efficiently,
+     key_results: $1.1M net new ARR in H2; gross retention at or above 92%; cloud cost per host down 15%., links: {objective_owner: emp-1011}}
+  - {id: okr-people, name: Build a company people want to stay at,
+     key_results: Regretted attrition under 8%; every manager trained; survey participation above 85%., links: {objective_owner: emp-1085}}
+
+Policy:
+  - {id: pto-policy, name: Time off and leave, summary: "25 PTO days, 5 roll over; 16 weeks paid parental leave.", aliases: [pto, parental leave],
+     links: {policy_owner: people}}
+  - {id: expense-policy, name: Expense and travel, summary: "Manager approval from $500; Finance approval over $5,000.", aliases: [expense policy, expenses],
+     links: {policy_owner: finance}}
+  - {id: hybrid-policy, name: Hybrid and remote work, summary: Anchor days Tuesday and Thursday; up to 30 days abroad per year., aliases: [hybrid, remote work, anchor days],
+     links: {policy_owner: people}}
+  - {id: ai-policy, name: Acceptable use of AI tools, summary: Omniq is the sanctioned AI assistant; no customer data in public AI tools., aliases: [ai policy, acceptable use],
+     links: {policy_owner: it}}
+  - {id: security-basics, name: Security basics, summary: SSO with hardware keys; report phishing; customer data stays in approved systems., aliases: [phishing, security basics],
+     links: {policy_owner: security}}
