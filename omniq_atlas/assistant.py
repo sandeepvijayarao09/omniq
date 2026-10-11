@@ -175,10 +175,14 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             query = question
     turns = memory.recent_turns(convo_id, user.id) if source == "chat" else []
     improvement_logged = None
-    if turns and source == "chat" and IMPROVE_RX.search(question):
+    if turns and source == "chat":  # implicit signals: corrections and rephrasings say the last answer missed
         prev = db().episodes.find_one({"user_id": user.id, "convo_id": convo_id, "source": "chat"}, sort=[("ts", -1)])
-        if prev:
+        if prev and IMPROVE_RX.search(question):
             improvement_logged = request_improvement(prev["_id"], user.id, question, source="chat_followup")
+        elif prev:
+            a, b = embed.embed_one(question), embed.embed_one(turns[-1]["q"])
+            if sum(x * y for x, y in zip(a, b)) >= 0.6:  # calibrated on Voyage: rephrasings 0.67-0.75, unrelated 0.12-0.24
+                implicit_signal(prev["_id"], user.id, "rephrased")
     if turns:  # follow-ups ("and their renewal?") retrieve with the previous question for context
         query = f"{turns[-1]['q']} {query}"
 
@@ -313,6 +317,24 @@ def feedback(event_id: str, user_id: str, good: bool, comment: str = "", recomme
     return out
 
 
+IMPLICIT = {"rephrased": False, "regenerated": False, "copied": True, "followup_correction": False}
+
+
+def implicit_signal(event_id: str, user_id: str, kind: str) -> None:
+    """A behavioural signal the user never has to give explicitly. Positive: copied. Negative: rephrased, regenerated."""
+    if kind not in IMPLICIT:
+        raise ValueError(f"unknown signal {kind}")
+    ep = db().episodes.find_one({"_id": event_id}, {"user_id": 1, "agent_id": 1, "role": 1, "harness_version": 1})
+    if not ep or ep["user_id"] != user_id:
+        return
+    db().implicit_signals.update_one(
+        {"event_id": event_id, "kind": kind},
+        {"$setOnInsert": {"event_id": event_id, "kind": kind, "positive": IMPLICIT[kind], "user_id": user_id,
+                          "agent_id": ep.get("agent_id"), "scope": ep["role"], "harness_version": ep["harness_version"],
+                          "ts": dt.datetime.now(dt.timezone.utc)}}, upsert=True)
+    telemetry.signal(event_id, kind, negative=not IMPLICIT[kind])
+
+
 def request_improvement(event_id: str, user_id: str, request: str, source: str = "improve_button") -> dict[str, Any]:
     """Log an explicit improvement request against the answer it is about. It becomes this person's preference
     for the agent right away, a governed recommendation for the agent's development, and a Raindrop signal."""
@@ -330,6 +352,8 @@ def request_improvement(event_id: str, user_id: str, request: str, source: str =
            "harness_version": ep["harness_version"], "request_t": vault.tokenize(request), "source": source,
            "status": "quarantined" if flags else "logged", "ts": dt.datetime.now(dt.timezone.utc)}
     db().improvement_requests.insert_one(doc)
+    if source == "chat_followup":
+        implicit_signal(event_id, user_id, "followup_correction")
     if not flags and ep.get("agent_id"):
         memory.add(ep["agent_id"], user_id, "preference", request, source=event_id)
         memory.recommend(ep["agent_id"], ep["role"], user_id, event_id, vault.detokenize(ep["question_t"]),

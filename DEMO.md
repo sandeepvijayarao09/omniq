@@ -23,7 +23,9 @@
    "0% right… never found the document" → Idea → **Kept** → … → 100%. Mention that a scheduler gives the
    longest-waiting agent a round every 20 minutes.
 
-5. **It learns from you (20 s).** 👎 an agent answer and type what to do differently. The next answer shows
+5. **It learns from behaviour, not from asking (20 s).** Ask something, then rephrase it, or say "make it shorter".
+   Nothing pops up for the user. The system logs a *rephrased* or *correction* signal against the first answer, and the
+   agent's 7-day cycle learns from it. (Old step, kept for reference:) 👎 an agent answer and type what to do differently. The next answer shows
    **✦ Used your preferences**. ↻ Regenerate also counts as a quiet thumbs-down.
 
 5b. **IAM (20 s).** **🔐 Access** tab as Maya: role chain, compiled access, projects with her scope. Simulator:

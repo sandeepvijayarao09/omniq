@@ -37,7 +37,8 @@ ANALYST = (
     "You review one employee's last 7 days with an internal AI assistant and its agents. From their decisions "
     "(what they asked, which agents they used, what they rated, regenerated or asked to change), work out what "
     "they actually need, and how each agent should improve for them. Be specific and evidence-based. Never include "
-    "secrets, salaries, health or HR details; describe working patterns, not private facts. Never suggest weakening "
+    "secrets, salaries, health or HR details; describe working patterns, not private facts. Implicit signals matter "
+    "most: 'rephrased' or 'followup_correction' mean the answer missed; 'copied' means it was useful. Never suggest weakening "
     "access control or privacy."
 )
 
@@ -58,13 +59,17 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
                                  "kind": {"$in": ["harness_approved", "harness_rejected", "harness_frozen",
                                                   "harness_unfrozen", "harness_manual_rollback", "evolve_start"]}}))
     by_event = {f["event_id"]: f for f in fb}
+    imp: dict[str, set[str]] = {}
+    for x in db().implicit_signals.find({"user_id": user_id, "ts": w}):
+        imp.setdefault(x["event_id"], set()).add(x["kind"])
     asks = []
     for e in eps:
         f = by_event.get(e["_id"])
         asks.append({"agent": e.get("agent_id") or "assistant", "question": e["question_t"][:200],
                      "rating": None if not f else ("up" if f["good"] else "down"),
                      "regenerated": bool(f and f.get("comment_t") == "regenerated"),
-                     "not_found": bool(ABSTAIN.search(e.get("answer_t", ""))), "latency": e.get("latency")})
+                     "not_found": bool(ABSTAIN.search(e.get("answer_t", ""))), "latency": e.get("latency"),
+                     "implicit": sorted(imp.get(e["_id"], set()))})
     per_agent: dict[str, dict[str, int]] = {}
     for a in asks:
         s = per_agent.setdefault(a["agent"], {"asks": 0, "up": 0, "down": 0, "regenerated": 0, "not_found": 0})
@@ -73,6 +78,9 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
         s["down"] += a["rating"] == "down"
         s["regenerated"] += a["regenerated"]
         s["not_found"] += a["not_found"]
+        s["rephrased"] = s.get("rephrased", 0) + ("rephrased" in a["implicit"])
+        s["corrected"] = s.get("corrected", 0) + ("followup_correction" in a["implicit"])
+        s["copied"] = s.get("copied", 0) + ("copied" in a["implicit"])
     from . import raindrop_read
 
     rd = raindrop_read.cycle_evidence(user_id, since, until)
@@ -164,9 +172,11 @@ def run(user_id: str, days: int = CYCLE_DAYS, until: dt.datetime | None = None) 
     items = [dict(i, agent=resolve(str(i.get("agent", "")))) for i in (A.get("agents") or []) if isinstance(i, dict)]
     covered = {i["agent"] for i in items}
     for aid, st in L["per_agent"].items():  # every agent with hard negative evidence gets reviewed
-        if aid in allowed_agents and aid not in covered and (st["down"] or st["regenerated"] or st.get("raindrop_flagged")):
+        if aid in allowed_agents and aid not in covered and (st["down"] or st["regenerated"] or st.get("raindrop_flagged")
+                                                             or st.get("rephrased") or st.get("corrected")):
             own = [x["text"] for x in L["suggestions"] if x["agent"] == aid]
             items.append({"agent": aid, "why": f"{st['down']} downvotes, {st['regenerated']} regenerations, "
+                                               f"{st.get('rephrased', 0)} rephrased, {st.get('corrected', 0)} corrected, "
                                                f"{st.get('raindrop_flagged', 0)} Raindrop-flagged in {st['asks']} asks",
                           "rules": own[:2] or ["Lead with the direct answer and the exact numbers, then the steps."]})
     for item in items:
@@ -231,7 +241,10 @@ def agent_ledger(agent_id: str, since: dt.datetime, until: dt.datetime) -> dict[
     regen = [e for e in down if fb[e["_id"]].get("comment_t") == "regenerated"]
     not_found = [e for e in eps if ABSTAIN.search(e.get("answer_t", ""))]
     pending = db().recommendations.count_documents({"scope": f"agent:{agent_id}", "status": "pending"})
+    implicit = Counter(x["kind"] for x in db().implicit_signals.find({"event_id": {"$in": [e["_id"] for e in eps]}}))
     return {"asks": len(eps), "users": len(users), "up": sum(1 for f in fb.values() if f["good"]), "down": len(down),
+            "rephrased": implicit.get("rephrased", 0), "corrected": implicit.get("followup_correction", 0),
+            "copied": implicit.get("copied", 0),
             "regenerated": len(regen), "not_found": len(not_found), "pending_suggestions": pending,
             "satisfaction": round(sum(1 for f in fb.values() if f["good"]) / len(fb), 3) if fb else None,
             "worst_questions": [e["question_t"][:160] for e in (down + not_found)[:6]]}
@@ -255,12 +268,12 @@ def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, 
     # 0) live signals: downvoted / regenerated answers become evidence when 2+ different people were unhappy
     added = _live_signal_recommendations(agent_id, since, until)
     if added:
-        _log(run_id, "cycle_step", step=f"Turning {added} downvoted or regenerated answers from real users into evidence")
+        _log(run_id, "cycle_step", step=f"Found {added} answers that real users rephrased, corrected, regenerated or rated down")
         L["pending_suggestions"] += added
 
     # 1) what people asked for (governed: quorum, blind replay, eval guard, safety gate, approval for templates)
     if L["pending_suggestions"]:
-        _log(run_id, "cycle_step", step="Learning from users' suggestions")
+        _log(run_id, "cycle_step", step="Learning from behaviour patterns (rephrasing, corrections, regenerations, ratings)")
         r = improve.run(scope)
         kinds = [e["kind"] for e in r["events"]]
         last = next((e for e in reversed(r["events"]) if e["kind"] in ("promoted", "rolled_back", "awaiting_approval",
@@ -292,7 +305,7 @@ def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, 
     return db().evolve_runs.find_one({"_id": run_id})
 
 
-LIVE_SIGNAL_TEXT = ("Real users rated this answer down or regenerated it. Give a more direct, complete and actionable "
+LIVE_SIGNAL_TEXT = ("Real users rated this answer down, rephrased the question, corrected it or regenerated it. Give a more direct, complete and actionable "
                     "answer: lead with what to do, fill every section of the output template with specifics from the "
                     "sources (names, numbers, runbook steps), and say plainly what the sources do not cover.")
 
@@ -303,6 +316,8 @@ def _live_signal_recommendations(agent_id: str, since: dt.datetime, until: dt.da
     w = {"$gte": since, "$lt": until}
     eps = {e["_id"]: e for e in db().episodes.find({"agent_id": agent_id, "source": "chat", "ts": w})}
     bad = [f for f in db().feedback.find({"event_id": {"$in": list(eps)}, "good": False})]
+    bad += [{"event_id": x["event_id"], "user_id": x["user_id"]} for x in
+            db().implicit_signals.find({"event_id": {"$in": list(eps)}, "positive": False})]
     if len({f["user_id"] for f in bad}) < 2:  # same quorum as suggestions: one unhappy person stays personal
         return 0
     have = {r["event_id"] for r in db().recommendations.find({"event_id": {"$in": [f["event_id"] for f in bad]}}, {"event_id": 1})}

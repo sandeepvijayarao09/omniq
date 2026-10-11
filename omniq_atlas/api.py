@@ -219,6 +219,18 @@ def improvement_log(agent_id: str = "", uid: str = Depends(current_user)) -> lis
                       for r in rows])
 
 
+class SignalReq(BaseModel):
+    event_id: str
+    kind: str
+
+
+@app.post("/api/signal")
+def signal(body: SignalReq, uid: str = Depends(current_user)) -> dict[str, str]:
+    """Implicit behavioural signals from the UI (copying an answer, regenerating)."""
+    assistant.implicit_signal(body.event_id, uid, body.kind)
+    return {"ok": "noted"}
+
+
 @app.post("/api/remember")
 def remember(body: Remember, uid: str = Depends(current_user)) -> dict[str, str]:
     assistant.remember(uid, body.text, body.agent_id or None)

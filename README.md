@@ -65,6 +65,23 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
          ─► episode (Atlas) + hash-chained audit (Atlas) + Raindrop event
 ```
 
+## It learns from behaviour, not from asking (implicit signals)
+
+Users are never asked for suggestions and never shown recommendation lists. The system watches how people actually work,
+and every signal is logged in Atlas (`implicit_signals`, `improvement_requests`) and sent to Raindrop:
+
+| Signal | Meaning | How it's detected |
+|---|---|---|
+| rephrased | the last answer missed | the next question is semantically the same (Voyage cosine ≥ 0.6, calibrated: rephrasings 0.67–0.75, unrelated 0.12–0.24) |
+| followup_correction | the last answer missed something specific | "shorter", "add the owners", "that's wrong"… right after an answer |
+| regenerated | not good enough | ↻ |
+| copied | useful | copying the answer's text |
+| 👍 / 👎 | explicit, one click | optional |
+
+The 7-day cycles (per person and per agent) turn these patterns into what each person needs and which agents fall short,
+then the governed loop decides what changes for everyone: the same pattern must show up for 2+ people, win a blind replay,
+pass the eval guard and leak nothing.
+
 ## Every improvement request is logged and drives development
 
 Each request is stored in `improvement_requests` against the exact answer and playbook version it was about, whichever

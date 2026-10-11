@@ -174,8 +174,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 
 <div class="view" id="vImprove">
   <section style="max-width:980px;margin:0 auto">
-    <div class="steps3"><div><b>① People use agents</b><span>questions, 👍 👎, ↻, suggestions</span></div><div class="arr">→</div>
-      <div><b>② The data is measured</b><span>graded tests · real ratings · Raindrop signals</span></div><div class="arr">→</div>
+    <div class="steps3"><div><b>① People just use agents</b><span>it watches rephrasing, corrections, ↻, copies, 👍👎</span></div><div class="arr">→</div>
+      <div><b>② Patterns are measured</b><span>per person and per agent · graded tests · Raindrop</span></div><div class="arr">→</div>
       <div><b>③ Kept only if proven better</b><span>unseen tests · blind replay · zero leaks</span></div></div>
     <div class="bar" style="border:0;padding-top:4px"><select id="role" title="Which playbook to look at"></select>
       <button class="primary big" id="cycleBtn" style="display:none" title="Improve this agent from everything people did with it in the last 7 days">Improve from last 7 days ▶</button>
@@ -273,27 +273,16 @@ async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!
 function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
   el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${esc(r.model_label||r.model)} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
     <div class="text">${esc(r.answer)}</div>
-    ${r.preferences_applied?.length?`<div class="prefs">✦ Used your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
-    ${r.improvement_logged?`<div class="prefs">📝 Logged as an improvement request${r.improvement_logged.agent?' for @'+esc(r.improvement_logged.agent)+"'s development":''}</div>`:''}
-    <div class="acts"><button data-imp title="Ask for a better version; the request is logged and shapes how the agent develops">✨ Improve</button><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
-    <div class="imp" style="display:none;margin-top:6px"><textarea placeholder="What should be better? e.g. shorter, add owners and dates, use a table"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-impgo>Improve it</button></div></div>
-    <div class="fb" style="display:none;margin-top:6px"><textarea placeholder="What should ${r.agent?esc(r.agent):'it'} do differently next time?"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send</button><button class="ghost" data-skip>Just 👎</button></div></div>
+    <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
     <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
       <details><summary>Sources (${r.sources.length}, filtered to your access inside $vectorSearch)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
       <details><summary>What the AI model actually saw (names masked)</summary><pre>${esc(r.model_view.system+'\n\n'+r.model_view.user)}</pre></details></div>`;
   const B=el.querySelector('.bubble');
-  const fb=async(good,recommendation='',comment='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation,comment})});
-    B.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);B.querySelector('.fb').style.display='none';
-    toast(out.quarantined?'Set aside: that looked like an attempt to get around the rules':out.queued?`Saved. ${r.agent} will do this for you from now on.`:good?'Thanks! That counts as a positive signal.':'Noted.');return out};
-  B.querySelector('[data-imp]').onclick=()=>{const x=B.querySelector('.imp');x.style.display=x.style.display==='none'?'block':'none';x.querySelector('textarea').focus()};
-  B.querySelector('[data-impgo]').onclick=async()=>{const req=B.querySelector('.imp textarea').value.trim();if(!req)return;B.querySelector('.imp').style.display='none';
-    addTurn('u',`✨ ${esc(req)}`);const pend=addTurn('a','<div class="text mute">Improving…</div>');
-    try{const nr=await api('/api/improve-answer',{method:'POST',body:JSON.stringify({event_id:r.event_id,request:req,convo_id:convo})});renderAnswer(pend,nr,q);
-      toast(nr.improvement_logged?.quarantined?'Set aside: that looked like an attempt to get around the rules':`Logged. ${r.agent?r.agent+' will develop from it':'Saved for your assistant'}.`)}catch(e){pend.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`}};
-  B.querySelector('[data-g="1"]').onclick=()=>fb(true);
-  B.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){fb(false);return}B.querySelector('.fb').style.display='block';B.querySelector('.fb textarea').focus()};
-  B.querySelector('[data-send]').onclick=()=>fb(false,B.querySelector('.fb textarea').value.trim());B.querySelector('[data-skip]').onclick=()=>fb(false);
-  B.querySelector('[data-regen]').onclick=async()=>{await fb(false,'','regenerated');send((r.agent?'@'+(myAgents.find(a=>a.name===r.agent)||{}).id+' ':'')+(q.replace(/@[a-z_\-]+\s*/i,'')))};
+  const fb=async(good,comment='')=>{await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,comment})});
+    B.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);toast(good?'Thanks':'Got it. It will learn from this.')};
+  B.querySelector('[data-g="1"]').onclick=()=>fb(true);B.querySelector('[data-g="0"]').onclick=()=>fb(false);
+  B.querySelector('.text').addEventListener('copy',()=>{api('/api/signal',{method:'POST',body:JSON.stringify({event_id:r.event_id,kind:'copied'})}).catch(()=>{})},{once:true});
+  B.querySelector('[data-regen]').onclick=async()=>{api('/api/signal',{method:'POST',body:JSON.stringify({event_id:r.event_id,kind:'regenerated'})}).catch(()=>{});send((r.agent?'@'+(myAgents.find(a=>a.name===r.agent)||{}).id+' ':'')+(q.replace(/@[a-z_\-]+\s*/i,'')))};
   B.querySelector('[data-ctx]').onclick=()=>{const c=B.querySelector('.ctx');c.style.display=c.style.display==='none'?'block':'none'}}
 async function showMyContext(){const d=$('#ctxDrawer');if(d.classList.contains('on')&&d.dataset.k==='ctx'){d.classList.remove('on');return}d.dataset.k='ctx';const c=await api('/api/me/context');
   d.innerHTML=`<b>Your context layers</b> <span class="mute small">(sent with every message, before any agent's file)</span>
@@ -339,7 +328,7 @@ async function loadLineage(){const role=$('#role').value;if(!role)return;const r
   const L=r.lineage.slice().reverse();const shown=showAll?L:L.slice(0,5);
   try{const g0=await api('/api/governance/'+encodeURIComponent(role));window._canApprove=!!(g0.can||{})['harness:approve']}catch(e){window._canApprove=false}
   if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));const RS={pending:'waiting',adopted:'adopted',rejected:'tried, not better',personal:'kept personal',quarantined:'set aside',awaiting_approval:'needs approval',blocked:'refused',superseded:'replaced'};
-    $('#recs').innerHTML=rs.length?`<div class="card" style="padding:10px 14px"><h3>Users' suggestions</h3>`+rs.slice(0,5).map(x=>`<div class="rec"><span class="chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':'rolled_back'}">${RS[x.status]||x.status}</span> ${esc(x.text)}</div>`).join('')+'</div>':''}else $('#recs').innerHTML='';
+    $('#recs').innerHTML=false?`<div class="card" style="padding:10px 14px"><h3>Users' suggestions</h3>`+rs.slice(0,5).map(x=>`<div class="rec"><span class="chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':'rolled_back'}">${RS[x.status]||x.status}</span> ${esc(x.text)}</div>`).join('')+'</div>':''}else $('#recs').innerHTML='';
   $('#lineage').innerHTML=`<div class="mute small" style="margin:0 0 6px">Versions of this agent's playbook (newest first). Click one to see why.</div>`+shown.map(v=>{const sc=scoreOf(v);return `<div class="ver" data-v="${v.version}">
       <b>v${v.version}</b><span><span class="chip ${v.status}">${STATUS[v.status]||v.status}</span></span>
       <span class="pct">${sc!=null?`<span class="meter"><i style="width:${Math.round(sc*100)}%"></i></span>${pct(sc)}`:v.scores?.replay_win_rate!=null?`won ${pct(v.scores.replay_win_rate)}`:''}</span>
@@ -376,7 +365,7 @@ const STEP={
   triaged:ev=>['⚖️','Decided',`${ev.agent_wide} would help everyone, ${ev.personal} are personal taste.`],repair:ev=>['🔧','Fixing','The safety rules objected. Asking the improver to fix its change.'],
   replaying:ev=>['🔁','Comparing','Asking the same questions with the old and new playbook…'],evaluated:ev=>['🧑‍⚖️','Judged',`New version won ${pct(ev.replay)} of blind comparisons; tests ${pct(ev.evals_before)}→${pct(ev.evals_after)}.`],
   paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],meta_error:ev=>['⚠️','Hiccup','Using a safe built-in fix instead.'],
-  cycle_ledger:ev=>['📒','Last 7 days',`${ev.asks} answers to ${ev.users} people · ${ev.up} 👍 · ${ev.down} 👎 · ${ev.regenerated} regenerated · ${ev.not_found} "not in sources" · ${ev.pending_suggestions} pending suggestions`+(ev.satisfaction!=null?` · satisfaction ${pct(ev.satisfaction)}`:'')+(ev.worst_questions?.length?`\nWeakest: `+ev.worst_questions.map(q=>'“'+q.slice(0,90)+'”').join('; '):'')],
+  cycle_ledger:ev=>['📒','Last 7 days',`${ev.asks} answers to ${ev.users} people · ${ev.rephrased||0} rephrased · ${ev.corrected||0} corrected · ${ev.regenerated} regenerated · ${ev.copied||0} copied · ${ev.up} 👍 · ${ev.down} 👎 · ${ev.not_found} "not in sources"`+(ev.satisfaction!=null?` · satisfaction ${pct(ev.satisfaction)}`:'')+(ev.worst_questions?.length?`\nWeakest: `+ev.worst_questions.map(q=>'“'+q.slice(0,90)+'”').join('; '):'')],
   cycle_step:ev=>['▶️','Step',ev.step+'…'],
   cycle_result:ev=>[{promoted:'✅',rolled_back:'↩️',awaiting_approval:'🙋',converged:'🏁',blocked:'🛑',done:'·',skipped:'⏭️',paused:'⏸️'}[ev.result]||'•',ev.step==='suggestions'?'From suggestions':'From scores',`${({promoted:'kept a change',rolled_back:'tried a change, undone (not better)',awaiting_approval:'better, waiting for a manager',converged:'already perfect on its tests',blocked:'refused by safety rules',done:'no agent-wide change needed',skipped:'skipped',paused:'paused'})[ev.result]||ev.result}${ev.detail?' · '+ev.detail:''}`],
   done:ev=>['🏁','Finished',ev.final_version?`Using v${ev.final_version}.`:(ev.reason||'')]};
@@ -470,7 +459,7 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
     timeline:`<div class="tl">${d.timeline.map(e=>`<div class="ev"><span class="k ${e.kind.split(' ')[0]}">${esc(e.kind)}</span> <b>${esc(e.what)}</b> <span class="mute small">· ${new Date(e.ts).toLocaleString()} · by ${esc(e.by||'')}</span>
         <div class="small">${esc(e.why||'')}</div>${e.change?`<div class="small mute">change: ${esc(plain(e.change))}</div>`:''}${e.reject?`<div class="small" style="color:var(--warn)">${esc(e.reject)}</div>`:''}</div>`).join('')||'<span class="mute">No updates yet.</span>'}</div>`,
     edit:`<div class="editor"><div class="small mute">Applies only to you, immediately. Versioned (you are on v${o.version||0}). Screened for attempts to get around the rules.</div>
-      <label class="small">Notes for this agent (added to its context for you)</label><textarea id="eNotes" placeholder="e.g. I work on the auth service; always mention session impact.">${esc(o.notes||'')}</textarea>
+      <label class="small">Notes for this agent (added to its context for you)</label><textarea id="eNotes" placeholder="Optional: anything you want this agent to always know about you">${esc(o.notes||'')}</textarea>
       <label class="small">Procedure (one step per line, optional)</label><textarea id="eProc" placeholder="1 step per line">${esc((o.procedure||[]).join('\n'))}</textarea>
       <label class="small">Model for me (optional)</label><select id="eModel" style="width:100%"><option value="">Agent default (${esc(d.profile||'')})</option></select>
       <label class="small">Output template (optional)</label><textarea id="eTpl" placeholder="**Verdict** · **Checks** · **Fixes**">${esc(o.template||'')}</textarea>
@@ -496,12 +485,12 @@ async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<span class="mu
       <button class="primary small" id="runCycle" style="margin-left:auto">Run my cycle now</button></div>
     ${c?`<div class="small" style="margin:8px 0">${esc(c.summary||'')}</div>
       <div class="kv"><div>Decisions reviewed</div><div><b>${t.decisions||0}</b> (${t.asks||0} questions, ${t.ratings||0} ratings, ${t.suggestions||0} suggestions, ${t.memories||0} memories, ${t.governance||0} governance actions)</div>
-      <div>Per agent</div><div>${Object.entries(pa).map(([a,x])=>`<span class="badge" title="${x.up} up · ${x.down} down · ${x.regenerated} regenerated">${esc(a)}: ${x.asks} asks${x.down?` · ${x.down}👎`:''}${x.regenerated?` · ${x.regenerated}↻`:''}${x.up?` · ${x.up}👍`:''}</span>`).join('')}</div>
+      <div>Per agent</div><div>${Object.entries(pa).map(([a,x])=>`<span class="badge">${esc(a)}: ${x.asks} asks${x.rephrased?` · ${x.rephrased} rephrased`:''}${x.corrected?` · ${x.corrected} corrected`:''}${x.regenerated?` · ${x.regenerated}↻`:''}${x.copied?` · ${x.copied} copied`:''}${x.down?` · ${x.down}👎`:''}${x.up?` · ${x.up}👍`:''}</span>`).join('')}</div>
       <div>Raindrop evidence</div><div>${c.raindrop?(c.raindrop.status==='ok'?`${c.raindrop.events} events read back · signals ${Object.entries(c.raindrop.signals||{}).map(([k,v])=>`${esc(k)} ×${v}`).join(', ')||'none'} · ${t.raindrop_flagged||0} flagged answers`:`<span class="mute">${esc(c.raindrop.status)}: add RAINDROP_QUERY_API_KEY to read Raindrop back</span>`):'<span class="mute">not read this cycle</span>'}</div>
       <div>Learned about you</div><div>${(c.learned||[]).map(l=>`<div>• ${esc(l)}</div>`).join('')||'<span class="mute">nothing new</span>'}</div>
       <div>Your context</div><div>${c.persona_change?`persona <b>v${c.persona_change.from} → v${c.persona_change.to}</b> in Atlas <code>context_layers</code>`:'<span class="mute">unchanged</span>'}</div>
-      <div>Agent changes proposed</div><div>${(c.agent_recommendations||[]).map(r=>`<div>→ <b>@${esc(r.agent)}</b>: ${esc(r.recommendation)} <span class="mute small">(${esc(r.why)})</span></div>`).join('')||'<span class="mute">none needed</span>'}
-        <div class="mute small">Queued as governed recommendations: they change the agent for everyone only with a second person's agreement, a blind replay win and no leaks.</div></div></div>`:'<div class="mute small" style="margin-top:6px">The cycle reviews every decision you made in the last 7 days, updates your context, and proposes agent improvements.</div>'}
+      <div>Agent changes it is testing</div><div>${(c.agent_recommendations||[]).map(r=>`<div>→ <b>@${esc(r.agent)}</b>: ${esc(r.recommendation)} <span class="mute small">(${esc(r.why)})</span></div>`).join('')||'<span class="mute">none needed</span>'}
+        <div class="mute small">Inferred from behaviour, never asked for. They reach everyone only if the same pattern shows up for 2+ people, the change wins a blind replay and leaks nothing.</div></div></div>`:'<div class="mute small" style="margin-top:6px">The cycle reviews every decision you made in the last 7 days, updates your context, and proposes agent improvements.</div>'}
     <details style="margin-top:8px"><summary>Context versions in Atlas (${hist.length})</summary>${hist.map(h=>`<div class="small">v${h.version} · ${h.status} · ${esc(h.source)} · ${new Date(h.created).toLocaleString()} · ${esc(h.reason||'')}</div>`).join('')}</details>`;
   $('#runCycle').onclick=async()=>{await api('/api/cycles/run',{method:'POST',body:JSON.stringify({})});toast('Cycle started: reviewing your last 7 days…');setTimeout(loadCycle,15000);setTimeout(loadCycle,35000)}}
 
