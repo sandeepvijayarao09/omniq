@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agents, assistant, audit, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agents, assistant, audit, explore, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
@@ -350,6 +350,26 @@ def manual_rollback(scope: str, version: int, uid: str = Depends(current_user)) 
 def freeze(scope: str, body: FreezeReq, uid: str = Depends(current_user)) -> dict[str, Any]:
     governance.freeze(scope, body.frozen, uid, assistant.get_user(uid).role)
     return {"frozen": body.frozen}
+
+
+@app.get("/api/ontology/types")
+def onto_types(uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    return explore.ontology_types(assistant.get_user(uid))
+
+
+@app.get("/api/ontology/objects")
+def onto_objects(type: str = "", q: str = "", uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    return explore.ontology_list(assistant.get_user(uid), type, q)
+
+
+@app.get("/api/ontology/object/{oid}")
+def onto_object(oid: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+    return _jsonable(explore.ontology_object(assistant.get_user(uid), oid))
+
+
+@app.get("/api/datalayer")
+def datalayer(uid: str = Depends(current_user)) -> dict[str, Any]:
+    return _jsonable(explore.data_layer(assistant.get_user(uid)))
 
 
 @app.get("/api/runs")

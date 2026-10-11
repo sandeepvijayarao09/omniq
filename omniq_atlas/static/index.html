@@ -5,227 +5,288 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Omniq Atlas</title>
 <style>
-:root{--bg:#0d1117;--panel:#151b23;--line:#262f3a;--text:#e6edf3;--mute:#8b98a7;--accent:#00ed64;--warn:#f5a524;--bad:#f2555a;--blue:#58a6ff;--r:10px}
-*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-button{font:inherit;color:inherit;background:#1f2732;border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;transition:background .15s,border-color .15s,transform .08s}
-button:hover{border-color:#3a4654}button:active{transform:scale(.97)}button.primary{background:var(--accent);color:#04120a;border-color:var(--accent);font-weight:600}
-button.ghost{background:transparent}button:disabled{opacity:.5;cursor:default}
-header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line)}
-header h1{font-size:16px;margin:0;letter-spacing:.2px}header .tag{color:var(--mute);font-size:12px}
-.pills{margin-left:auto;display:flex;gap:6px}.pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
-.pill.on{color:var(--accent);border-color:#0b5f2d}
-main{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);height:calc(100% - 53px)}
-section{display:flex;flex-direction:column;min-height:0}section+section{border-left:1px solid var(--line)}
+:root{--bg:#0d1117;--panel:#151b23;--panel2:#10151c;--line:#232c37;--text:#e6edf3;--mute:#8b98a7;--accent:#00ed64;--warn:#f5a524;--bad:#f2555a;--blue:#58a6ff;--violet:#c58af9;--r:12px}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;background:#1c242e;border:1px solid var(--line);border-radius:9px;padding:7px 13px;cursor:pointer;transition:background .15s,border-color .15s,transform .08s}
+button:hover{border-color:#3a4654}button:active{transform:scale(.97)}button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--accent);color:#04120a;border-color:var(--accent);font-weight:650}button.ghost{background:transparent}
+select,input,textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)}
+code,pre{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px;color:#c9d4df;max-height:300px;overflow:auto;margin:6px 0 0}
+.mute{color:var(--mute)}.small{font-size:12px}
+header{display:flex;align-items:center;gap:18px;padding:10px 20px;border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;white-space:nowrap}header h1 span{color:var(--accent)}
+nav{display:flex;gap:4px}nav button{background:transparent;border-color:transparent;color:var(--mute)}
+nav button.on{background:#1c242e;border-color:var(--line);color:var(--text)}
+.right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.dots{display:flex;gap:10px;font-size:12px;color:var(--mute)}.dots i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3a4654;margin-right:5px;vertical-align:1px}.dots i.on{background:var(--accent)}
+.me{font-size:13px;color:var(--mute)}.me b{color:var(--text)}
+.view{display:none;height:calc(100% - 55px)}.view.on{display:grid}
+#vAssistant{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+#vAssistant>section{display:flex;flex-direction:column;min-height:0}#vAssistant>section+section{border-left:1px solid var(--line)}
 .bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.bar h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
-select{background:#1f2732;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
+.bar h2{font-size:12px;margin:0;color:var(--mute);font-weight:650;text-transform:uppercase;letter-spacing:.7px}
 .scroll{flex:1;overflow:auto;padding:16px}
-.msg{margin:0 0 14px;max-width:92%}.msg.me{margin-left:auto;background:#1b2a3d;border:1px solid #23405f;padding:9px 12px;border-radius:var(--r)}
-.msg.ai{background:var(--panel);border:1px solid var(--line);padding:11px 13px;border-radius:var(--r)}
-.msg .meta{color:var(--mute);font-size:12px;margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.msg .meta button{padding:2px 8px;font-size:12px}
-details{margin-top:8px}summary{cursor:pointer;color:var(--mute);font-size:12px}
-pre{white-space:pre-wrap;word-break:break-word;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c9d4df;max-height:260px;overflow:auto}
-.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
-.composer input{flex:1;background:#0a0e13;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px 12px;font:inherit}
-.composer input:focus{outline:none;border-color:var(--blue)}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin-top:12px}
+.person{text-align:left;padding:10px 12px;background:var(--panel);border-radius:10px}.person b{display:block;font-size:14px}
+.person small{color:var(--mute);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role{display:inline-block;font-size:11px;padding:0 7px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin-top:4px}
+.msg{margin:0 0 14px;max-width:94%}.msg.me{margin-left:auto;background:#17283b;border:1px solid #23405f;padding:9px 13px;border-radius:var(--r)}
+.msg.ai{background:var(--panel);border:1px solid var(--line);padding:12px 14px;border-radius:var(--r)}
+.meta{color:var(--mute);font-size:12px;margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.meta button{padding:2px 9px;font-size:12px}
+details summary{cursor:pointer;color:var(--mute);font-size:12px}details{margin-top:7px}
+.prefs{font-size:12px;color:var(--violet);margin-top:7px}
+.composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}.composer input{flex:1}
 .mic.rec{background:var(--bad);border-color:var(--bad)}
-.who{color:var(--mute);font-size:12px}
-.persona-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
-.persona{text-align:left;padding:12px;background:var(--panel)}.persona b{display:block}.persona small{color:var(--mute)}
-.ver{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;background:var(--panel)}
-.ver .top{display:flex;gap:8px;align-items:center}.ver code{font-size:12px;color:#c9d4df}
-.chip{font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid}
-.chip.active{color:var(--accent);border-color:#0b5f2d}.chip.rolled_back{color:var(--warn);border-color:#6b4a0e}
-.chip.blocked{color:var(--bad);border-color:#6b1f22}.chip.superseded,.chip.candidate{color:var(--mute);border-color:var(--line)}
-.score{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mute);font-size:12px}
-.log{font:12px/1.5 ui-monospace,Menlo,monospace;background:#0a0e13;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:300px;overflow:auto;margin-bottom:12px}
-.log div{padding:2px 0;border-bottom:1px dashed #1a222c}.k{font-weight:700}
-.k.promoted{color:var(--accent)}.k.meta_overruled{color:#c58af9}.log div{white-space:pre-wrap}.k.rolled_back{color:var(--warn)}.k.blocked{color:var(--bad)}.k.proposed{color:var(--blue)}
-.spark{display:flex;align-items:flex-end;gap:4px;height:46px;margin:6px 0 14px}.spark i{flex:1;background:#24313f;border-radius:3px 3px 0 0;min-height:2px;position:relative}
-.spark i.on{background:var(--accent)}.spark i span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--mute);font-style:normal}
-.empty{color:var(--mute);padding:20px 0}
-.how{border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;background:var(--panel);font-size:13px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{font-size:12px;padding:4px 11px;border-radius:99px;background:transparent}
+.drawer{display:none;border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:10px 12px;margin:10px 16px 0}.drawer.on{display:block}
+.mem{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed #1f2832;font-size:13px}.mem .kind{font-size:11px;color:var(--mute);min-width:84px}.mem button{margin-left:auto;padding:1px 8px;font-size:11px}
+textarea{width:100%;min-height:56px}
+.how{border:1px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--panel);font-size:13px;margin-bottom:12px}
 .how ol{margin:8px 0 2px 18px;padding:0}.how li{margin:4px 0;color:#c9d4df}
-.chip.awaiting_approval{color:#c58af9;border-color:#4b2a6b}.k.awaiting_approval{color:#c58af9}.k.quarantined,.k.paused{color:var(--warn)}
-@media (max-width:900px){main{grid-template-columns:1fr;height:auto}section+section{border-left:0;border-top:1px solid var(--line)}.scroll{max-height:70vh}}
-.agentbar{display:flex;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{font-size:12px;padding:4px 10px;border-radius:99px;background:transparent}
-.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16301f;border:1px solid #0b5f2d;color:var(--text);padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
-.toast.on{opacity:1}
-.drawer{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:10px 12px;margin:0 16px 10px;display:none}
-.drawer.on{display:block}.mem{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed #1f2832;font-size:13px}
-.mem .kind{font-size:11px;color:var(--mute);min-width:74px}.mem button{margin-left:auto;padding:1px 8px;font-size:11px}
-.rec{font-size:12px;padding:5px 0;border-bottom:1px dashed #1f2832}.rec .st{font-size:11px;margin-right:6px}
-.prefs{font-size:12px;color:#c58af9;margin-top:6px}
-textarea{width:100%;background:#0a0e13;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;min-height:56px}
+.state{font-size:13px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.ver{display:grid;grid-template-columns:44px 1fr auto;gap:2px 10px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--panel);cursor:pointer}
+.ver b{font-size:14px}.ver .what{font-size:13px;color:#c9d4df;grid-column:2/4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ver.open .what{white-space:normal}.ver .more{grid-column:1/4;display:none;font-size:12px;color:var(--mute)}.ver.open .more{display:block}
+.pct{font-variant-numeric:tabular-nums;font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.meter{width:60px;height:6px;background:#24303c;border-radius:9px;overflow:hidden}.meter i{display:block;height:100%;background:var(--accent)}
+.chip{font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid;white-space:nowrap}
+.chip.active{color:var(--accent);border-color:#0b5f2d}.chip.rolled_back{color:var(--warn);border-color:#6b4a0e}.chip.blocked{color:var(--bad);border-color:#6b1f22}
+.chip.superseded,.chip.candidate,.chip.abandoned{color:var(--mute);border-color:var(--line)}.chip.awaiting_approval{color:var(--violet);border-color:#4b2a6b}
+.log{font-size:13px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-height:320px;overflow:auto;margin-bottom:12px}
+.log div{padding:5px 0;border-bottom:1px dashed #1a222c;white-space:pre-wrap}.log b{font-weight:650}
+.k-promoted,.k-converged{color:var(--accent)}.k-rolled_back,.k-paused,.k-quarantined{color:var(--warn)}.k-blocked{color:var(--bad)}.k-proposed,.k-triaged{color:var(--blue)}.k-meta_overruled,.k-awaiting_approval,.k-below_quorum{color:var(--violet)}
+.rec{font-size:12px;padding:4px 0}
+#vOntology{grid-template-columns:300px minmax(0,1fr)}
+#vOntology aside{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.types{display:flex;flex-wrap:wrap;gap:5px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.types button{font-size:12px;padding:3px 10px;border-radius:99px}.types button.on{background:var(--accent);color:#04120a;border-color:var(--accent)}
+.olist{flex:1;overflow:auto;padding:6px 8px}.olist button{display:block;width:100%;text-align:left;background:transparent;border-color:transparent;padding:6px 8px}
+.olist button:hover,.olist button.on{background:#1c242e;border-color:var(--line)}.olist small{color:var(--mute);margin-left:6px}
+.odetail{overflow:auto;padding:18px 22px}
+.card{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:14px 16px;margin-bottom:12px}
+.card h3{margin:0 0 8px;font-size:13px;color:var(--mute);font-weight:650;text-transform:uppercase;letter-spacing:.6px}
+.kv{display:grid;grid-template-columns:160px 1fr;gap:4px 12px;font-size:13px}.kv div:nth-child(odd){color:var(--mute)}
+.link{display:inline-flex;gap:6px;align-items:center;margin:3px 6px 3px 0;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:transparent}
+.graph{width:100%;height:340px}.graph text{fill:var(--text);font-size:11px}.graph .lbl{fill:var(--mute);font-size:10px}
+.graph circle{cursor:pointer}
+#vData{display:none;overflow:auto}#vData.on{display:block}
+.wrap{max-width:1150px;margin:0 auto;padding:18px 22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
+.coll .top{display:flex;align-items:baseline;gap:8px}.coll .top b{font-size:15px;font-family:ui-monospace,Menlo,monospace}.coll .n{margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums}
+.badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);margin:4px 4px 0 0}
+.badge.vec{color:var(--blue);border-color:#1f3b5c}.badge.ttl{color:var(--warn);border-color:#6b4a0e}
+.layer{font-size:11px;color:var(--violet);text-transform:uppercase;letter-spacing:.6px}
+.empty{color:var(--mute);padding:24px 0}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16301f;border:1px solid #0b5f2d;padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}.toast.on{opacity:1}
+@media (max-width:900px){#vAssistant,#vOntology{grid-template-columns:1fr;height:auto}#vAssistant>section+section{border-left:0;border-top:1px solid var(--line)}.scroll{max-height:70vh}header{flex-wrap:wrap}}
 </style>
 </head>
 <body>
 <header>
-  <h1>Omniq <span style="color:var(--accent)">Atlas</span></h1>
-  <span class="tag">A governed org assistant with a harness that improves itself, on MongoDB Atlas</span>
-  <div class="pills" id="pills"></div>
+  <h1>Omniq <span>Atlas</span></h1>
+  <nav><button class="on" data-v="vAssistant">💬 Assistant</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
+  <div class="right"><div class="dots" id="dots"></div><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
-<main>
+
+<div class="view on" id="vAssistant">
   <section>
-    <div class="bar"><h2>Assistant</h2><span class="who" id="who">not signed in</span>
-      <button class="ghost" id="memBtn" style="margin-left:auto">My memory</button>
-      <button class="ghost" id="switch">Switch person</button></div>
-    <div class="agentbar"><select id="agent"><option value="">General assistant</option></select>
-      <span class="who" id="agentDesc"></span><div class="chips" id="starters"></div></div>
+    <div class="bar"><select id="agent"><option value="">General assistant</option></select><span class="mute small" id="agentDesc"></span>
+      <button class="ghost" id="memBtn" style="margin-left:auto">My memory</button></div>
     <div class="drawer" id="memDrawer"></div>
     <div class="scroll" id="chat"></div>
-    <div class="composer">
-      <button class="mic" id="mic" title="Hold to talk (ElevenLabs)">🎙</button>
-      <input id="q" placeholder="Ask… or /remember something about how you work" autocomplete="off">
-      <button class="primary" id="send">Ask</button>
-    </div>
+    <div class="bar" style="border-top:1px solid var(--line);border-bottom:0"><div class="chips" id="starters"></div></div>
+    <div class="composer"><button class="mic" id="mic" title="Hold to talk">🎙</button>
+      <input id="q" placeholder="Ask anything…  (or /remember something about how you work)" autocomplete="off"><button class="primary" id="send">Ask</button></div>
   </section>
   <section>
-    <div class="bar"><h2>How it improves</h2>
-      <select id="role"></select>
-      <span class="who" id="activeVer"></span>
+    <div class="bar"><h2>How it improves</h2><select id="role"></select>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-        <button id="redteam" title="Try to sneak in a dangerous change; the safety rules should refuse it">Try to break it</button>
-        <button id="improve" title="Learn from users' 👎 suggestions" style="display:none">Learn from feedback</button>
-        <button class="primary" id="evolve" title="Test, find mistakes, fix them, keep only what's better">Improve itself ▶</button></span></div>
+        <button id="redteam" title="Try to sneak in a dangerous change">Try to break it</button>
+        <button id="improve" style="display:none" title="Learn from users' 👎 suggestions">Learn from feedback</button>
+        <button class="primary" id="evolve" title="Test, find mistakes, fix, keep only what's better">Improve itself ▶</button></span></div>
     <div class="scroll">
-      <details class="how" open><summary><b>How it works</b> (30-second version)</summary>
-        <ol>
-          <li><b>Every team and every agent has a "playbook"</b>: how many documents to read, rules to follow, what to refuse. Each version is saved in MongoDB Atlas.</li>
-          <li><b>It tests itself.</b> Practice questions with known answers give it a score. Wrong answers show what to fix.</li>
-          <li><b>It learns from you.</b> 👎 + "do this instead" applies to <i>you</i> right away. If two or more people ask for the same thing, the agent tries it for everyone.</li>
-          <li><b>It keeps a change only if it's proven better</b> on questions it has never seen, with zero privacy leaks. Otherwise the change is undone.</li>
-          <li><b>It can never unlock itself.</b> Access rules, privacy masking and the audit log are locked. Suspicious suggestions are set aside, and big changes wait for a manager.</li>
-        </ol></details>
-      <div id="gov" style="margin:0 0 10px"></div>
-      <div id="sparkWrap"></div>
-      <div id="log" class="log" style="display:none"></div>
+      <details class="how"><summary><b>How it works</b> (30 seconds)</summary><ol>
+        <li><b>Every team and agent has a playbook</b>: how much to read, which rules to follow, when to say "I don't know". Every version is saved in MongoDB Atlas.</li>
+        <li><b>It tests itself</b> on practice questions with known answers.</li>
+        <li><b>It learns from you.</b> 👎 + "do this instead" changes your answers at once. If 2+ people ask for the same thing, it tries it for everyone.</li>
+        <li><b>It keeps a change only if it's proven better</b> on unseen questions with zero privacy leaks. Otherwise the change is undone.</li>
+        <li><b>It can't unlock itself.</b> Access rules, privacy masking and the audit log are locked. Big changes wait for a manager.</li></ol></details>
+      <div class="state" id="gov"></div>
+      <div class="log" id="log" style="display:none"></div>
       <div id="recs"></div>
       <div id="lineage"></div>
     </div>
   </section>
-</main>
+</div>
+
+<div class="view" id="vOntology">
+  <aside><div style="padding:12px 14px 0"><input id="oq" placeholder="Search customers, systems, people…" style="width:100%"></div>
+    <div class="types" id="otypes"></div><div class="olist" id="olist"></div></aside>
+  <div class="odetail" id="odetail"><p class="empty">Pick a person first, then anything on the left. You only see the parts of the company graph your role allows.</p></div>
+</div>
+
+<div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
+
 <div class="toast" id="toast"></div>
 <script>
-const $=s=>document.querySelector(s);let token=null,me=null,convo=null,myAgents=[];
+const $=s=>document.querySelector(s);let token=null,me=null,convo=null,myAgents=[],otype='Customer',oid=null;
 const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:{...(o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(o.headers||{})}});if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(e){}throw new Error(m||r.status)}return r.headers.get('content-type')?.includes('json')?r.json():r};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3200)};
-const newConvo=()=>convo=Math.random().toString(36).slice(2,12);
-
-async function status(){const s=await api('/api/status');$('#pills').innerHTML=`<span class="pill ${s.llm!=='offline'?'on':''}">${esc(s.model)}</span>`+['voyage','raindrop','elevenlabs'].map(k=>`<span class="pill ${s[k]?'on':''}">${k}</span>`).join('')+`<span class="pill on">atlas · ${s.chunks} chunks</span>`}
-async function loadScopes(sel){const s=await api('/api/scopes');const cur=sel||$('#role').value||'pro';
-  $('#role').innerHTML=`<optgroup label="Role harnesses">${s.roles.map(r=>`<option value="${r}">${r}</option>`).join('')}</optgroup><optgroup label="Agent harnesses">${s.agents.map(a=>`<option value="${a.scope}">${esc(a.name)}${a.pending?` · ${a.pending} pending`:''}</option>`).join('')}</optgroup>`;
-  $('#role').value=cur;if(!$('#role').value)$('#role').value='pro'}
-async function pickPersona(){const ps=await api('/api/personas');token=null;$('#agent').innerHTML='<option value="">General assistant</option>';$('#starters').innerHTML='';$('#agentDesc').textContent='';$('#memDrawer').classList.remove('on');
-  $('#chat').innerHTML=`<p class="empty">Sign in as someone. Each person sees only what their role allows, and gets the agents built for their job. Every agent keeps its own memory and improves from its users' recommendations.</p><div class="persona-grid">${ps.map(p=>`<button class="persona" data-id="${p.id}"><b>${esc(p.name)}</b><small>${esc(p.title)} · ${p.role}</small><br><small>sees: ${esc(p.access)}</small></button>`).join('')}</div>`;
-  document.querySelectorAll('.persona').forEach(b=>b.onclick=()=>login(b.dataset.id))}
-async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;newConvo();
-  $('#who').textContent=`${me.name} · ${me.title} · ${me.role}`;$('#chat').innerHTML='';
-  myAgents=await api('/api/agents');$('#agent').innerHTML='<option value="">General assistant</option>'+myAgents.map(a=>`<option value="${a.id}">${esc(a.name)} (v${a.version})</option>`).join('');
-  onAgent();}
-function onAgent(){const a=myAgents.find(x=>x.id===$('#agent').value);newConvo();$('#memDrawer').classList.remove('on');
-  $('#agentDesc').textContent=a?a.description:`${myAgents.length} agents available for your role`;
-  $('#starters').innerHTML=(a?a.starter_questions:[]).map(q=>`<button>${esc(q)}</button>`).join('');
-  $('#starters').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#q').value=b.textContent;ask()});
-  loadScopes(a?'agent:'+a.id:me.role).then(loadLineage)}
-function add(html,cls){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;$('#chat').appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'});return d}
-async function ask(){const q=$('#q').value.trim();if(!q||!token)return;$('#q').value='';add(esc(q),'me');const agent_id=$('#agent').value;
-  if(q.startsWith('/remember ')){await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10),agent_id})});add(`Saved to ${agent_id?'this agent\'s':'your'} memory in Atlas. It's tokenized before any model call.`,'ai');return}
-  const d=add('<span class="who">thinking…</span>','ai');
-  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo,agent_id})});
-    const pii=Object.entries(r.pii||{}).map(([k,v])=>`${v} ${k}`).join(', ')||'none';
-    d.innerHTML=`<div>${esc(r.answer).replace(/\n/g,'<br>')}</div>
-    ${r.preferences_applied?.length?`<div class="prefs">✦ applied your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
-    <div class="meta">${r.agent?esc(r.agent)+' · ':''}harness v${r.harness_version} · ${esc(r.model)} · ${r.latency}s · tokenized: ${pii}${r.blocked?' · <b style="color:var(--bad)">blocked by guard</b>':''}
-      <button data-g="1">👍</button><button data-g="0">👎</button><button data-say>🔊</button></div>
-    <details><summary>Sources (${r.sources.length}): ACL-filtered in $vectorSearch</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
-    <details><summary>What the model saw</summary><pre>${esc(r.model_view.system)}\n\n${esc(r.model_view.user)}</pre></details>
-    <div class="fb" style="display:none;margin-top:8px"><textarea placeholder="What should ${r.agent?esc(r.agent):'it'} do differently next time? It applies to you right away, and the agent learns it for everyone if it holds up."></textarea>
-      <div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send recommendation</button><button class="ghost" data-skip>Just 👎</button></div></div>`;
-    const sendFb=async(good,recommendation='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation})});
-      d.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);d.querySelector('.fb').style.display='none';
-      toast(out.queued?`Saved as your preference for ${r.agent}. Queued for the agent's improvement loop.`:good?'Thanks: recorded as a positive signal':'Recorded: Raindrop signal + Atlas episode');loadScopes()};
-    d.querySelector('[data-g="1"]').onclick=()=>sendFb(true);
-    d.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){sendFb(false);return}d.querySelector('.fb').style.display='block';d.querySelector('textarea').focus()};
-    d.querySelector('[data-send]').onclick=()=>sendFb(false,d.querySelector('textarea').value.trim());
-    d.querySelector('[data-skip]').onclick=()=>sendFb(false);
-    d.querySelector('[data-say]').onclick=()=>say(r.answer);
-    if(r.scope===$('#role').value)loadLineage();
-  }catch(e){d.innerHTML=`<span style="color:var(--bad)">${esc(e.message)}</span>`}}
-async function showMemory(){const dr=$('#memDrawer');if(dr.classList.contains('on')){dr.classList.remove('on');return}
-  const agent_id=$('#agent').value;if(!token)return;if(!agent_id){dr.innerHTML='<span class="who">Pick an agent to see its memory of you.</span>';dr.classList.add('on');return}
-  const ms=await api('/api/memory?agent_id='+agent_id);
-  dr.innerHTML=`<div class="who" style="margin-bottom:6px">What ${esc(myAgents.find(a=>a.id===agent_id)?.name)} remembers (Atlas · vector-recalled per question)</div>`+(ms.length?ms.map(m=>`<div class="mem"><span class="kind">${m.mine?m.kind:'agent lesson'}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:''}</div>`).join(''):'<span class="who">Nothing yet. Leave a recommendation on an answer, or type /remember …</span>');
-  dr.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{await api('/api/memory/'+b.dataset.id,{method:'DELETE'});dr.classList.remove('on');showMemory()});dr.classList.add('on')}
-async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){toast('Voice unavailable: '+e.message)}}
-let rec=null,chunks=[];
-$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;ask()}catch(e){toast('Voice unavailable: '+e.message)}};rec.start();$('#mic').classList.add('rec')};
-$('#mic').onmouseup=$('#mic').onmouseleave=()=>{if(rec&&rec.state==='recording'){rec.stop();$('#mic').classList.remove('rec')}};
-
-async function loadLineage(){const role=$('#role').value;if(!role)return;const r=await api('/api/harness/'+encodeURIComponent(role));const L=r.lineage;$('#activeVer').textContent=`active v${r.active.version}`;
-  const isAgent=role.startsWith('agent:');$('#improve').style.display=isAgent?'':'none';
-  const scored=L.filter(v=>v.scores&&(v.scores.train||v.scores.evals));
-  const val=v=>v.scores.train?v.scores.train.score:(v.scores.evals?.score??0);
-  $('#sparkWrap').innerHTML=scored.length?`<div class="who">score of each version (green = kept)</div><div class="spark">${scored.map(v=>{const s=Math.max(0,val(v));return `<i class="${['active','superseded'].includes(v.status)?'on':''}" style="height:${Math.max(4,s*100)}%"><span>v${v.version} ${s.toFixed(2)}</span></i>`}).join('')}</div>`:'';
-  if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));
-    $('#recs').innerHTML=rs.length?`<div class="who" style="margin:4px 0">User recommendations for this agent</div>`+rs.slice(0,8).map(x=>`<div class="rec"><span class="st chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':x.status==='rejected'?'rolled_back':'superseded'}">${x.status}${x.handled_by?' → v'+x.handled_by:''}</span>${esc(x.text)}</div>`).join('')+'<div style="height:10px"></div>':''}else $('#recs').innerHTML='';
-  $('#lineage').innerHTML=L.slice().reverse().map(v=>`<div class="ver"><div class="top"><b>v${v.version}</b><span class="chip ${v.status}">${STATUS[v.status]||v.status}</span>${v.parent?`<span class="who">from v${v.parent}</span>`:''}
-    <span class="score">${v.scores?.train?`practice ${pct(v.scores.train.pass_rate)} · unseen ${pct(v.scores.holdout?.pass_rate)} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}`:v.scores?.replay_win_rate!=null?`won ${pct(v.scores.replay_win_rate)} of comparisons · tests ${pct(v.scores.evals_before?.pass_rate)}→${pct(v.scores.evals?.pass_rate)}`:''}</span></div>
-    <div class="who" style="margin:4px 0">${esc((v.rationale||'').length>180?(v.rationale||'').slice(0,180)+'…':(v.rationale||''))}</div>
-    ${v.patch?`<div style="font-size:13px">Change: ${esc(plain(v.patch))}</div>`:''}
-    ${v.status==='awaiting_approval'&&canApprove()?`<div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-approve="${v.version}">Approve</button><button data-reject="${v.version}">Reject</button></div>`:''}
-    ${v.problems?.length?`<div style="color:var(--bad);font-size:12px;margin-top:4px">✗ ${esc(v.problems.join(' · '))}</div>`:''}
-    ${v.reject_reason?`<div style="color:var(--warn);font-size:12px;margin-top:4px">↩ Undone because it wasn't better: ${esc(v.reject_reason)}</div>`:''}
-    ${v.risk_reasons?.length?`<div style="color:#c58af9;font-size:12px;margin-top:4px">🙋 Needs approval: ${esc(v.risk_reasons.join('; '))}</div>`:''}
-    <details><summary>full settings</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div>`).join('')
-  $('#lineage').querySelectorAll('[data-approve]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/approve/${b.dataset.approve}`,{method:'POST'});toast('Approved: now in use');loadLineage()});
-  $('#lineage').querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/reject/${b.dataset.reject}`,{method:'POST',body:JSON.stringify({reason:'rejected in review'})});toast('Rejected');loadLineage()});
-  const gv=await api('/api/governance/'+encodeURIComponent(role));
-  $('#gov').innerHTML=(gv.frozen?'<b style="color:var(--warn)">❄️ Frozen: no automatic changes</b>':gv.paused_until?'<b style="color:var(--warn)">⏸️ Auto-paused after repeated failed attempts</b>':'<span class="who">🟢 Improving automatically (safety rules locked)</span>')+(canApprove()?` <button class="ghost" id="freezeBtn">${gv.frozen?'Unfreeze':'Freeze changes'}</button>`:'');
-  const fb=$('#freezeBtn');if(fb)fb.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/freeze`,{method:'POST',body:JSON.stringify({frozen:!gv.frozen})});toast(gv.frozen?'Unfrozen':'Frozen: no automatic changes');loadLineage()}}
+const pct=x=>x==null?'–':Math.round(x*100)+'%';const newConvo=()=>convo=Math.random().toString(36).slice(2,12);
 const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
-const STATUS={active:'in use',superseded:'replaced by a newer version',rolled_back:'tried, then undone',blocked:'refused by safety rules',candidate:'being tested',awaiting_approval:'waiting for a manager',abandoned:'abandoned'};
-const pct=x=>x==null?'–':Math.round(x*100)+'%';
-const STEP={
-  evaluating:ev=>['🧪','Testing',`Running the test questions on version ${ev.version}…`],
-  scored:ev=>['📊','Score',`Version ${ev.version} got ${pct(ev.train.pass_rate)} of practice questions right (${pct(ev.holdout.pass_rate)} on unseen ones), ${ev.train.leaks} leaks.`+(ev.failures.length?`\nWrong: `+ev.failures.map(f=>f.id+(f.why.includes('retrieval_miss')?' (it never found the right document)':f.why.includes('reasoning_miss')?' (it had the document but missed the fact)':'')).join('; '):'')],
-  proposed:ev=>['💡','Idea',`${ev.diagnosis||'Proposed a change'}\nChange: ${plain(ev.patch)}`],
-  meta_overruled:ev=>['✋','Overruled',`The improver suggested ${plain(ev.patch)}, but ${ev.reason}. Trying a different fix.`],
-  promoted:ev=>['✅','Kept',`Version ${ev.version} is better, so it's now in use`+(ev.train?` (practice ${pct(ev.train.pass_rate)}, unseen ${pct(ev.holdout.pass_rate)})`:` (won ${pct(ev.replay)} of side-by-side comparisons)`)+'. Passed every privacy check.'],
-  rolled_back:ev=>['↩️','Undone',`Version ${ev.version} wasn't better, so it was undone: ${ev.reason}`],
-  blocked:ev=>['🛑','Refused',`The safety rules refused version ${ev.version}: ${(ev.problems||[]).join('; ')}`],
-  awaiting_approval:ev=>['🙋','Needs a manager',`Version ${ev.version} tested well but is a bigger change (${ev.reasons}). A manager must approve it.`],
-  converged:ev=>['🏁','Done',`Version ${ev.version} answers every practice question correctly. Nothing left to fix.`],
-  recommendations:ev=>['📬','Feedback',`${ev.count} suggestion(s) from users`+(ev.items?.length?`: ${ev.items.map(t=>'“'+t+'”').join(' ')}`:'')],
-  quarantined:ev=>['🚫','Quarantined',`${ev.count} suggestion(s) looked like attempts to get around the rules and were set aside.`],
-  themes:ev=>['🗂️','Grouped',ev.themes.map(t=>`${t.n} similar: “${t.example}”`).join('\n')],
-  below_quorum:ev=>['👤','Kept personal',`Only one person asked for this, so it stays their personal preference: ${ev.themes.map(t=>'“'+t+'”').join(' ')}`],
-  triaged:ev=>['⚖️','Decided',`${ev.agent_wide} suggestion(s) would help everyone, ${ev.personal} are personal taste.`+(ev.patch&&Object.keys(ev.patch).length?`\nChange: ${plain(ev.patch)}`:'')],
-  repair:ev=>['🔧','Fixing',`The safety rules objected (${ev.problems.join('; ')}). Asking the improver to fix its change.`],
-  replaying:ev=>['🔁','Comparing',`Re-asking the users' questions with the old and new version, without their personal preferences…`],
-  evaluated:ev=>['🧑‍⚖️','Judged',`The new version won ${pct(ev.replay)} of blind comparisons. Test score ${pct(ev.evals_before)} → ${pct(ev.evals_after)}, leaks ${ev.leaks??0}.`],
-  paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],
-  meta_error:ev=>['⚠️','Hiccup','The improver gave an unreadable answer. Falling back to a safe built-in fix.'],
-  done:ev=>['🏁','Finished',ev.final_version?`Version ${ev.final_version} is in use.`:(ev.reason||'Finished.')],
-};
-function plain(p){if(!p||!Object.keys(p).length)return 'nothing';const out=[];const r=p.retrieval||{},c=p.context||{},g=p.guardrails||{};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData()});
+
+async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['ElevenLabs',s.elevenlabs],['Atlas',true]];
+  $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
+
+async function pickPersona(){const ps=await api('/api/personas');token=null;me=null;$('#who').textContent='not signed in';$('#agent').innerHTML='<option value="">General assistant</option>';$('#starters').innerHTML='';$('#agentDesc').textContent='';
+  $('#chat').innerHTML=`<p class="mute" style="margin:0">Pick a person. Each sees only what their job allows and gets agents built for their work.</p><div class="people">${ps.map(p=>`<button class="person" data-id="${p.id}" title="Can read: ${esc(p.access)}"><b>${esc(p.name)}</b><small>${esc(p.title)}</small><span class="role">${p.role}</span></button>`).join('')}</div>`;
+  document.querySelectorAll('.person').forEach(b=>b.onclick=()=>login(b.dataset.id))}
+async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;newConvo();oid=null;
+  $('#who').innerHTML=`<b>${esc(me.name)}</b> · ${esc(me.title)}`;$('#chat').innerHTML='';
+  myAgents=await api('/api/agents');$('#agent').innerHTML='<option value="">General assistant</option>'+myAgents.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');onAgent();
+  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData()}
+function onAgent(){const a=myAgents.find(x=>x.id===$('#agent').value);newConvo();$('#memDrawer').classList.remove('on');
+  $('#agentDesc').textContent=a?a.description:`${myAgents.length} agents for your job`;
+  $('#starters').innerHTML=(a?a.starter_questions:['What is our PTO policy?','What happened in the August outage?']).map(q=>`<button>${esc(q)}</button>`).join('');
+  $('#starters').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#q').value=b.textContent;ask()});
+  loadScopes(a?'agent:'+a.id:me.role).then(loadLineage)}
+
+function add(html,cls){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;$('#chat').appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'});return d}
+async function ask(){const q=$('#q').value.trim();if(!q)return;if(!token)return toast('Pick a person first');$('#q').value='';add(esc(q),'me');const agent_id=$('#agent').value;
+  if(q.startsWith('/remember ')){await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10),agent_id})});add('Got it. Saved to your memory.','ai');return}
+  const d=add('<span class="mute">Thinking…</span>','ai');
+  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo,agent_id})});
+    const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
+    d.innerHTML=`<div>${esc(r.answer).replace(/\n/g,'<br>')}</div>
+    ${r.preferences_applied?.length?`<div class="prefs">✦ Used your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
+    <div class="meta"><span>${r.agent?esc(r.agent)+' · ':''}playbook v${r.harness_version} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}${r.blocked?' · <b style="color:var(--bad)">blocked</b>':''}</span>
+      <button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-say title="Read aloud">🔊</button></div>
+    <details><summary>Where this came from (${r.sources.length} sources you're allowed to see)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
+    <details><summary>What the AI model actually saw (names masked)</summary><pre>${esc(r.model_view.user)}</pre></details>
+    <div class="fb" style="display:none;margin-top:8px"><textarea placeholder="What should it do differently next time?"></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send</button><button class="ghost" data-skip>Just 👎</button></div></div>`;
+    const sendFb=async(good,recommendation='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation})});
+      d.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);d.querySelector('.fb').style.display='none';
+      toast(out.quarantined?'Set aside: that looked like an attempt to get around the rules':out.queued?`Saved. ${r.agent} will do this for you from now on.`:good?'Thanks!':'Noted');loadScopes()};
+    d.querySelector('[data-g="1"]').onclick=()=>sendFb(true);
+    d.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){sendFb(false);return}d.querySelector('.fb').style.display='block';d.querySelector('textarea').focus()};
+    d.querySelector('[data-send]').onclick=()=>sendFb(false,d.querySelector('textarea').value.trim());d.querySelector('[data-skip]').onclick=()=>sendFb(false);
+    d.querySelector('[data-say]').onclick=()=>say(r.answer);if(r.scope===$('#role').value)loadLineage();
+  }catch(e){d.innerHTML=`<span style="color:var(--bad)">${esc(e.message)}</span>`}}
+async function showMemory(){const dr=$('#memDrawer');if(dr.classList.contains('on')){dr.classList.remove('on');return}if(!token)return toast('Pick a person first');
+  const agent_id=$('#agent').value;if(!agent_id){dr.innerHTML='<span class="mute">Pick an agent to see what it remembers about you.</span>';dr.classList.add('on');return}
+  const ms=await api('/api/memory?agent_id='+agent_id);
+  dr.innerHTML=`<div class="mute small" style="margin-bottom:6px">What this agent remembers (stored in Atlas)</div>`+(ms.length?ms.map(m=>`<div class="mem"><span class="kind">${m.mine?(m.kind==='preference'?'your preference':m.kind):'agent lesson'}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:''}</div>`).join(''):'<span class="mute">Nothing yet. Give 👎 with a suggestion, or type /remember …</span>');
+  dr.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{await api('/api/memory/'+b.dataset.id,{method:'DELETE'});dr.classList.remove('on');showMemory()});dr.classList.add('on')}
+async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){toast('Voice not set up')}}
+let rec=null,chunks=[];
+$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;ask()}catch(e){toast('Voice not set up')}};rec.start();$('#mic').classList.add('rec')};
+$('#mic').onmouseup=$('#mic').onmouseleave=()=>{if(rec&&rec.state==='recording'){rec.stop();$('#mic').classList.remove('rec')}};
+
+const STATUS={active:'in use',superseded:'replaced',rolled_back:'tried, undone',blocked:'refused',candidate:'testing',awaiting_approval:'needs approval',abandoned:'abandoned'};
+function plain(p){if(!p||!Object.keys(p).length)return 'starting playbook';const out=[];const r=p.retrieval||{},c=p.context||{},g=p.guardrails||{};
   if(r.top_k!=null)out.push(`read ${r.top_k} passages per question`);if(r.rerank)out.push('re-rank passages by relevance');if(r.graph_context)out.push('add company-graph facts');if(r.query_rewrite)out.push('rewrite the question before searching');
-  if(c.max_chunk_chars)out.push(`keep ${c.max_chunk_chars} characters of each passage`);if(g.abstain_when_unsupported)out.push('say "not found" instead of guessing');if(g.cite_sources)out.push('cite sources');
-  if(p.rules)out.push(`rules: ${p.rules.map(x=>'“'+x.slice(0,110)+(x.length>110?'…':'')+'”').join(' ')}`);if(p.tools)out.push(`tools: ${p.tools.join(', ')}`);
-  return out.join('; ')||JSON.stringify(p)}
-function fmt(ev){const f=STEP[ev.kind];return f?f(ev):[ '•',ev.kind,JSON.stringify(Object.fromEntries(Object.entries(ev).filter(([k])=>!['kind','ts'].includes(k))))]}
-function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;
-  const es=new EventSource(`/api/evolve/${run_id}/stream`);
-  es.onmessage=e=>{const ev=JSON.parse(e.data);const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <span class="k ${ev.kind}">${esc(label)}</span> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','scored','done','evaluated'].includes(ev.kind))loadLineage()};
+  if(c.max_chunk_chars)out.push(`keep ${c.max_chunk_chars} characters per passage`);if(g.abstain_when_unsupported)out.push('say "not found" instead of guessing');if(g.cite_sources)out.push('cite sources');
+  if(p.rules){const last=p.rules.slice(-1)[0]||'';out.push(`new rule: “${last.slice(0,140)}${last.length>140?'…':''}”`)}if(p.tools)out.push(`tools: ${p.tools.join(', ')}`);if(p.invariants)out.push('switch off locked safety rules');
+  return out.join(' · ')||'change'}
+const scoreOf=v=>v.scores?.train?v.scores.train.pass_rate:v.scores?.evals?v.scores.evals.pass_rate:null;
+async function loadScopes(sel){const s=await api('/api/scopes');const cur=sel||$('#role').value||'pro';
+  $('#role').innerHTML=`<optgroup label="Team playbooks">${s.roles.map(r=>`<option value="${r}">${r[0].toUpperCase()+r.slice(1)} employees</option>`).join('')}</optgroup><optgroup label="Agent playbooks">${s.agents.map(a=>`<option value="${a.scope}">${esc(a.name)}${a.pending?` (${a.pending} new suggestion${a.pending>1?'s':''})`:''}</option>`).join('')}</optgroup>`;
+  $('#role').value=cur;if(!$('#role').value)$('#role').value='pro'}
+let showAll=false;
+async function loadLineage(){const role=$('#role').value;if(!role)return;const r=await api('/api/harness/'+encodeURIComponent(role));const isAgent=role.startsWith('agent:');$('#improve').style.display=isAgent?'':'none';
+  const L=r.lineage.slice().reverse();const shown=showAll?L:L.slice(0,5);
+  if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));const RS={pending:'waiting',adopted:'adopted',rejected:'tried, not better',personal:'kept personal',quarantined:'set aside',awaiting_approval:'needs approval',blocked:'refused',superseded:'replaced'};
+    $('#recs').innerHTML=rs.length?`<div class="card" style="padding:10px 14px"><h3>Users' suggestions</h3>`+rs.slice(0,5).map(x=>`<div class="rec"><span class="chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':'rolled_back'}">${RS[x.status]||x.status}</span> ${esc(x.text)}</div>`).join('')+'</div>':''}else $('#recs').innerHTML='';
+  $('#lineage').innerHTML=`<div class="mute small" style="margin:0 0 6px">Playbook versions (newest first). Click one for details.</div>`+shown.map(v=>{const sc=scoreOf(v);return `<div class="ver" data-v="${v.version}">
+      <b>v${v.version}</b><span><span class="chip ${v.status}">${STATUS[v.status]||v.status}</span></span>
+      <span class="pct">${sc!=null?`<span class="meter"><i style="width:${Math.round(sc*100)}%"></i></span>${pct(sc)}`:v.scores?.replay_win_rate!=null?`won ${pct(v.scores.replay_win_rate)}`:''}</span>
+      <div class="what">${esc(plain(v.patch))}</div>
+      <div class="more">${v.rationale&&v.rationale!=='default harness'?`<div><b>Why:</b> ${esc(v.rationale.slice(0,300))}</div>`:''}
+        ${v.scores?.train?`<div>Practice ${pct(v.scores.train.pass_rate)} · unseen ${pct(v.scores.holdout?.pass_rate)} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}</div>`:''}
+        ${v.reject_reason?`<div style="color:var(--warn)">Undone: ${esc(v.reject_reason)}</div>`:''}${v.problems?.length?`<div style="color:var(--bad)">Refused: ${esc(v.problems.join('; '))}</div>`:''}
+        ${v.risk_reasons?.length?`<div style="color:var(--violet)">Needs approval: ${esc(v.risk_reasons.join('; '))}</div>`:''}
+        ${v.status==='awaiting_approval'&&canApprove()?`<div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-approve="${v.version}">Approve</button><button data-reject="${v.version}">Reject</button></div>`:''}
+        <details><summary>full settings</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div></div>`}).join('')+(L.length>5?`<button class="ghost small" id="allBtn">${showAll?'Show fewer':`Show all ${L.length} versions`}</button>`:'');
+  $('#lineage').querySelectorAll('.ver').forEach(el=>el.onclick=e=>{if(e.target.closest('button,details'))return;el.classList.toggle('open')});
+  const ab=$('#allBtn');if(ab)ab.onclick=()=>{showAll=!showAll;loadLineage()};
+  $('#lineage').querySelectorAll('[data-approve]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/approve/${b.dataset.approve}`,{method:'POST'});toast('Approved, now in use');loadLineage()});
+  $('#lineage').querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/reject/${b.dataset.reject}`,{method:'POST',body:JSON.stringify({reason:'rejected in review'})});toast('Rejected');loadLineage()});
+  const gv=await api('/api/governance/'+encodeURIComponent(role));
+  $('#gov').innerHTML=(gv.frozen?'❄️ <b>Frozen.</b> <span class="mute">No automatic changes.</span>':gv.paused_until?'⏸️ <b>Paused</b> <span class="mute">after repeated failed attempts</span>':`🟢 <span>Using <b>v${r.active.version}</b>. Improving automatically; safety rules locked.</span>`)+(canApprove()?` <button class="ghost small" id="freezeBtn">${gv.frozen?'Unfreeze':'Freeze'}</button>`:'');
+  const fb=$('#freezeBtn');if(fb)fb.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/freeze`,{method:'POST',body:JSON.stringify({frozen:!gv.frozen})});loadLineage()}}
+const STEP={
+  evaluating:ev=>['🧪','Testing',`Running practice questions on v${ev.version}…`],
+  scored:ev=>['📊','Score',`v${ev.version}: ${pct(ev.train.pass_rate)} right on practice, ${pct(ev.holdout.pass_rate)} on unseen, ${ev.train.leaks} leaks.`+(ev.failures.length?`\nMissed: `+ev.failures.map(f=>f.id.replace(/-/g,' ')+(f.why.includes('retrieval_miss')?' (never found the document)':f.why.includes('reasoning_miss')?' (had it, missed the fact)':'')).join('; '):'')],
+  proposed:ev=>['💡','Idea',`${plain(ev.patch)}`],
+  meta_overruled:ev=>['✋','Overruled',`Ignored the improver's idea (${ev.reason}).`],
+  promoted:ev=>['✅','Kept',`v${ev.version} is better, now in use`+(ev.train?` (${pct(ev.train.pass_rate)} practice, ${pct(ev.holdout.pass_rate)} unseen)`:` (won ${pct(ev.replay)} of comparisons)`)+'. No leaks.'],
+  rolled_back:ev=>['↩️','Undone',`v${ev.version} wasn't better.`],
+  blocked:ev=>['🛑','Refused',`v${ev.version} broke a safety rule: ${(ev.problems||[]).join('; ')}`],
+  awaiting_approval:ev=>['🙋','Needs approval',`v${ev.version} tested well but is a bigger change (${ev.reasons}).`],
+  converged:ev=>['🏁','Perfect',`v${ev.version} gets every practice question right.`],
+  recommendations:ev=>['📬','Suggestions',`${ev.count} from users`],quarantined:ev=>['🚫','Set aside',`${ev.count} suggestion(s) looked like attempts to get around the rules.`],
+  themes:ev=>['🗂️','Grouped',ev.themes.map(t=>`${t.n}× “${t.example}”`).join('\n')],below_quorum:ev=>['👤','Kept personal','Only one person asked, so it stays their preference.'],
+  triaged:ev=>['⚖️','Decided',`${ev.agent_wide} would help everyone, ${ev.personal} are personal taste.`],repair:ev=>['🔧','Fixing','The safety rules objected. Asking the improver to fix its change.'],
+  replaying:ev=>['🔁','Comparing','Asking the same questions with the old and new playbook…'],evaluated:ev=>['🧑‍⚖️','Judged',`New version won ${pct(ev.replay)} of blind comparisons; tests ${pct(ev.evals_before)}→${pct(ev.evals_after)}.`],
+  paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],meta_error:ev=>['⚠️','Hiccup','Using a safe built-in fix instead.'],
+  done:ev=>['🏁','Finished',ev.final_version?`Using v${ev.final_version}.`:(ev.reason||'')]};
+const fmt=ev=>(STEP[ev.kind]||(e=>['•',e.kind,'']))(ev);
+function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;const es=new EventSource(`/api/evolve/${run_id}/stream`);
+  es.onmessage=e=>{const ev=JSON.parse(e.data);const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <b class="k-${ev.kind}">${esc(label)}</b> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','done','evaluated','awaiting_approval'].includes(ev.kind))loadLineage()};
   es.addEventListener('end',()=>{es.close();btn.disabled=false;loadScopes().then(loadLineage)});es.onerror=()=>{es.close();btn.disabled=false}}
-$('#evolve').onclick=async()=>{if(!token)return toast('Sign in first');const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})});stream(run_id,$('#evolve'))};
-$('#improve').onclick=async()=>{if(!token)return toast('Sign in first');const {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})});stream(run_id,$('#improve'))};
-$('#redteam').onclick=async()=>{if(!token)return toast('Sign in first');const r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');d.innerHTML=`🛑 <span class="k blocked">Refused</span> A change that tried to switch off access rules and add an "export all data" tool was refused: ${esc(r.problems.join('; '))}`;log.appendChild(d);loadLineage()};
-$('#role').onchange=loadLineage;$('#agent').onchange=onAgent;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;$('#memBtn').onclick=showMemory;
+$('#evolve').onclick=async()=>{if(!token)return toast('Pick a person first');const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})});stream(run_id,$('#evolve'))};
+$('#improve').onclick=async()=>{if(!token)return toast('Pick a person first');const {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})});stream(run_id,$('#improve'))};
+$('#redteam').onclick=async()=>{if(!token)return toast('Pick a person first');const r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');
+  d.innerHTML=`🛑 <b class="k-blocked">Refused</b> We tried to sneak in a change that switches off access rules and adds an "export all data" tool. Refused: ${esc(r.problems.join('; '))}`;log.appendChild(d);loadLineage()};
+
+const TYPE_ICON={Person:'🧑',Team:'👥',Customer:'🏢',Contact:'📇',Deal:'💼',System:'⚙️',Incident:'🚨',ActionItem:'✅',Decision:'📐',Project:'🗂️',Contract:'📜',Vendor:'🏷️',Objective:'🎯',Policy:'📘'};
+async function loadOntology(){if(!token){$('#otypes').innerHTML='';$('#olist').innerHTML='';$('#odetail').innerHTML='<p class="empty">Pick a person first (Assistant tab). You only see the parts of the company graph their role allows.</p>';return}
+  const ts=await api('/api/ontology/types');$('#otypes').innerHTML=[{type:'',count:ts.reduce((a,b)=>a+b.count,0)},...ts].map(t=>`<button class="${t.type===otype?'on':''}" data-t="${t.type}">${t.type?(TYPE_ICON[t.type]||'')+' '+t.type:'All'} ${t.count}</button>`).join('');
+  $('#otypes').querySelectorAll('button').forEach(b=>b.onclick=()=>{otype=b.dataset.t;loadOntology()});
+  const list=await api(`/api/ontology/objects?type=${encodeURIComponent(otype)}&q=${encodeURIComponent($('#oq').value)}`);
+  $('#olist').innerHTML=list.map(o=>`<button data-id="${o.id}" class="${o.id===oid?'on':''}">${TYPE_ICON[o.type]||'•'} ${esc(o.name)}<small>${o.type}</small></button>`).join('')||'<p class="empty">Nothing matches.</p>';
+  $('#olist').querySelectorAll('button').forEach(b=>b.onclick=()=>openObject(b.dataset.id));
+  if(!oid&&list.length)openObject((list.find(o=>o.type==='Customer')||list[0]).id)}
+$('#oq').oninput=()=>{clearTimeout($('#oq')._t);$('#oq')._t=setTimeout(loadOntology,250)};
+async function openObject(id){oid=id;$('#olist').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+  let o;try{o=await api('/api/ontology/object/'+encodeURIComponent(id))}catch(e){$('#odetail').innerHTML=`<p class="empty">🔒 Not visible to ${esc(me?.name||'you')}.</p>`;return}
+  const groups={};o.links.forEach(l=>{const k=(l.dir==='out'?'':'← ')+l.type.replace(/_/g,' ');(groups[k]=groups[k]||[]).push(l)});
+  $('#odetail').innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span style="font-size:26px">${TYPE_ICON[o.type]||'•'}</span><h2 style="margin:0;font-size:22px">${esc(o.name)}</h2><span class="role">${o.type}</span><span class="role">${o.category} data</span></div>
+    <div class="card"><h3>Connections</h3>${graphSVG(o)}
+      ${o.hidden_links?`<div class="mute small">🔒 ${o.hidden_links} more connection(s) exist that ${esc(me.name)} isn't allowed to see.</div>`:''}</div>
+    ${Object.keys(o.props).length?`<div class="card"><h3>Properties</h3><div class="kv">${Object.entries(o.props).map(([k,v])=>`<div>${esc(k.replace(/_/g,' '))}</div><div>${esc(v)}</div>`).join('')}</div></div>`:''}
+    <div class="card"><h3>Linked to</h3>${Object.entries(groups).map(([k,ls])=>`<div style="margin:4px 0"><span class="mute small" style="display:inline-block;min-width:130px">${esc(k)}</span>${ls.map(l=>`<button class="link" data-id="${l.id}">${TYPE_ICON[l.otype]||'•'} ${esc(l.name)}</button>`).join('')}</div>`).join('')||'<span class="mute">No connections you can see.</span>'}</div>
+    <div class="card"><h3>Documents that mention it</h3>${o.documents.map(d=>`<div class="small">📄 ${esc(d.title)} <span class="mute">· ${d.category}</span></div>`).join('')||'<span class="mute">None you can read.</span>'}</div>
+    <details class="card"><summary>How this was fetched from Atlas</summary><pre>db.objects.aggregate([\n  { $match: { id: "${esc(o.id)}" } },\n  { $graphLookup: { from: "links", startWith: "$id",\n      connectFromField: "dst", connectToField: "src", as: "out", maxDepth: 0 } },\n  { $graphLookup: { from: "links", startWith: "$id",\n      connectFromField: "src", connectToField: "dst", as: "in", maxDepth: 0 } }\n])\n// then every linked object is checked against ${esc(me.name)}'s access rules</pre></details>`;
+  $('#odetail').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openObject(b.dataset.id))}
+function graphSVG(o){const W=760,H=340,cx=W/2,cy=H/2,ls=o.links.slice(0,18),R=Math.min(140,60+ls.length*7);
+  const nodes=ls.map((l,i)=>{const a=(i/Math.max(1,ls.length))*Math.PI*2-Math.PI/2;return {...l,x:cx+Math.cos(a)*R*1.6,y:cy+Math.sin(a)*R}});
+  return `<svg class="graph" viewBox="0 0 ${W} ${H}">${nodes.map(n=>`<line x1="${cx}" y1="${cy}" x2="${n.x}" y2="${n.y}" stroke="#2c3946"/><text class="lbl" x="${(cx+n.x)/2}" y="${(cy+n.y)/2-3}" text-anchor="middle">${esc(n.type.replace(/_/g,' '))}</text>`).join('')}
+    ${nodes.map(n=>`<g onclick="openObject('${n.id}')"><circle cx="${n.x}" cy="${n.y}" r="17" fill="#1c242e" stroke="#3a4654"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle">${TYPE_ICON[n.otype]||'•'}</text><text x="${n.x}" y="${n.y+32}" text-anchor="middle">${esc(n.name.length>22?n.name.slice(0,21)+'…':n.name)}</text></g>`).join('')}
+    <circle cx="${cx}" cy="${cy}" r="26" fill="#0b3d20" stroke="#00ed64"/><text x="${cx}" y="${cy+5}" text-anchor="middle" style="font-size:16px">${TYPE_ICON[o.type]||'•'}</text><text x="${cx}" y="${cy+44}" text-anchor="middle" style="font-weight:650">${esc(o.name)}</text></svg>`}
+
+async function loadData(){if(!token){$('#dwrap').innerHTML='<p class="empty">Pick a person first (Assistant tab). The data layer is shown as that person.</p>';return}
+  $('#dwrap').innerHTML='<p class="empty">Reading MongoDB Atlas…</p>';const d=await api('/api/datalayer');const layers=[...new Set(d.collections.map(c=>c.layer))];
+  $('#dwrap').innerHTML=`<div class="card"><h3>Your access, enforced inside the database</h3>
+      <div>Signed in as <b>${esc(d.you.name)}</b> (${d.you.role}). May read: ${esc(d.you.may_read)}.</div>
+      <div class="mute small" style="margin-top:6px">Every document search runs <code>$vectorSearch</code> with this filter, so Atlas never returns anything outside it:</div>
+      <pre>${esc(JSON.stringify(d.your_vector_filter,null,2))}</pre></div>
+    <div class="mute small" style="margin:0 0 10px">Database <code>${esc(d.database)}</code> on the MongoDB Atlas Hackathon Sandbox · ${d.collections.length} collections · open a card for a sample document</div>
+    ${layers.map(L=>`<h3 class="layer" style="margin:16px 0 8px">${esc(L)}</h3><div class="grid">${d.collections.filter(c=>c.layer===L).map(c=>`<div class="card coll" style="margin:0">
+      <div class="top"><b>${esc(c.name)}</b><span class="n">${c.count.toLocaleString()} docs</span></div>
+      <div class="small" style="margin:4px 0 2px">${esc(c.purpose)}</div>
+      <div>${c.search_indexes.map(s=>`<span class="badge vec">🔎 ${s.type==='vectorSearch'?'vector':'search'} index · ${s.fields.filter(f=>f.type==='vector').map(f=>f.dims+'d '+f.similarity).join('')} · filters: ${s.fields.filter(f=>f.type==='filter').map(f=>f.path).join(', ')||'–'}${s.queryable?'':' · building'}</span>`).join('')}
+        ${c.indexes.filter(i=>i.name!=='_id_').map(i=>`<span class="badge ${i.ttl_seconds!=null?'ttl':''}">${i.ttl_seconds!=null?'⏱ TTL ':''}${Object.keys(i.keys).join(' + ')}${i.unique?' · unique':''}</span>`).join('')}</div>
+      ${c.sample?`<details><summary>sample document</summary><pre>${esc(JSON.stringify(c.sample,null,1))}</pre></details>`:'<div class="mute small" style="margin-top:6px">empty for now</div>'}</div>`).join('')}</div>`).join('')}`}
+
+$('#role').onchange=()=>{showAll=false;loadLineage()};$('#agent').onchange=onAgent;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;$('#memBtn').onclick=showMemory;
 status();pickPersona();loadScopes('pro').then(loadLineage);
 </script>
 </body>
