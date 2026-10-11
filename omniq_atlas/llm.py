@@ -78,6 +78,9 @@ def _compat(system: str, user: str, model: str, max_tokens: int, temperature: fl
 
 def complete(system: str, user: str, *, model: str | None = None, max_tokens: int = 500,
              temperature: float = 0.2, json_mode: bool = False) -> tuple[str, dict[str, Any]]:
+    from . import usage
+
+    usage.bump("llm_calls")
     c = _client()
     if c is None:
         if _compat_up():

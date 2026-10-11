@@ -12,6 +12,9 @@ from .policy import User, can_read, vector_filter
 
 
 def _vsearch(user: User, qvec: list[float], cfg: dict[str, Any], limit: int, focus: list[str] | None):
+    from . import usage
+
+    usage.bump("atlas_vector_searches")
     pipeline = [
         {"$vectorSearch": {"index": VECTOR_INDEX, "path": "embedding", "queryVector": qvec,
                            "numCandidates": max(int(cfg["retrieval"]["num_candidates"]), limit * 10),
@@ -55,7 +58,10 @@ def link_entities(text: str) -> list[dict[str, Any]]:
 
 def graph_context(user: User, query: str) -> list[dict[str, Any]]:
     """One hop around linked entities with $graphLookup, filtered by object category."""
+    from . import usage
+
     seeds = [o for o in link_entities(query) if can_read(user, o)]
+    usage.bump("atlas_graphlookups", 2 * len(seeds))
     out = []
     for o in seeds:
         res = list(db().objects.aggregate([

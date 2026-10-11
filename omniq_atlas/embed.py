@@ -38,6 +38,10 @@ def embed(texts: list[str], kind: str = "document") -> list[list[float]]:
     vo = _voyage()
     if vo is None:
         return [_hash_embed(t) for t in texts]
+    from . import usage
+
+    usage.bump("voyage_embed_calls")
+    usage.bump("voyage_texts_embedded", len(texts))
     out: list[list[float]] = []
     for i in range(0, len(texts), 64):
         res = vo.embed(texts[i : i + 64], model=settings.embed_model, input_type=kind,
@@ -60,5 +64,8 @@ def rerank(query: str, docs: list[str], top_k: int) -> list[tuple[int, float]]:
     vo = _voyage()
     if vo is None or not docs:
         return [(i, 1.0 - i * 0.01) for i in range(min(top_k, len(docs)))]
+    from . import usage
+
+    usage.bump("voyage_rerank_calls")
     res = vo.rerank(query, docs, model=settings.rerank_model, top_k=top_k)
     return [(r.index, r.relevance_score) for r in res.results]

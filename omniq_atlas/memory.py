@@ -43,6 +43,10 @@ def add(agent_id: str, user_id: str, kind: str, text: str, source: str = "", **e
 
 def recall(agent_id: str, user_id: str, query: str, k: int = 6) -> list[dict[str, Any]]:
     """Most relevant active memories for this agent: the user's own plus agent-wide lessons."""
+    from . import usage
+
+    usage.bump("atlas_vector_searches")
+    usage.bump("atlas_memory_recalls")
     try:
         rows = list(db().agent_memory.aggregate([
             {"$vectorSearch": {"index": MEMORY_INDEX, "path": "embedding", "queryVector": embed.embed_one(query),

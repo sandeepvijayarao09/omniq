@@ -29,6 +29,9 @@ def track_answer(event_id: str, user_id: str, question: str, answer: str, model:
     rd = _rd()
     if rd is None:
         return
+    from . import usage
+
+    usage.bump("raindrop_events")
     try:
         rd.track_ai(user_id=user_id, event="assistant_answer", model=model, input=question, output=answer,
                     convo_id=convo_id, event_id=event_id, properties=properties)
@@ -40,6 +43,9 @@ def signal(event_id: str, name: str, negative: bool, comment: str = "") -> None:
     rd = _rd()
     if rd is None:
         return
+    from . import usage
+
+    usage.bump("raindrop_signals")
     try:
         kwargs: dict[str, Any] = {"event_id": event_id, "name": name,
                                   "sentiment": "NEGATIVE" if negative else "POSITIVE"}

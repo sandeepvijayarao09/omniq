@@ -80,7 +80,13 @@ textarea{width:100%;min-height:56px}
 .link{display:inline-flex;gap:6px;align-items:center;margin:3px 6px 3px 0;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:transparent}
 .graph{width:100%;height:340px}.graph text{fill:var(--text);font-size:11px}.graph .lbl{fill:var(--mute);font-size:10px}
 .graph circle{cursor:pointer}
-#vData,#vAccess{display:none;overflow:auto}#vData.on,#vAccess.on{display:block}
+#vData,#vAccess,#vImpact{display:none;overflow:auto}#vData.on,#vAccess.on,#vImpact.on{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.kpi{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px}.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--mute)}
+.flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:4px 0 10px}.flow span{border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--panel)}
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-align:left;color:var(--mute);font-weight:600;border-bottom:1px solid var(--line);padding:6px}table.dt td{border-bottom:1px solid var(--line);padding:6px;vertical-align:top}
+.trend{display:flex;align-items:flex-end;gap:3px;height:34px}.trend i{width:10px;background:var(--line);border-radius:2px 2px 0 0}.trend i.on{background:var(--accent)}
+.pcard .hdr{display:flex;gap:8px;align-items:baseline}.pcard .hdr b{font-size:15px}.ok{color:var(--accent)}.no{color:var(--warn)}
 .st{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--panel);font-size:13px}
 .st .eff{font-weight:700}.st .eff.Allow{color:var(--accent)}.st .eff.Deny{color:var(--bad)}
 .st code{background:var(--panel2);padding:1px 6px;border-radius:6px}
@@ -135,7 +141,7 @@ textarea{width:100%;min-height:56px}
 <body>
 <header>
   <h1>Omniq <span>Atlas</span></h1>
-  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vAccess">🔐 Access</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
+  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vImpact">📊 Impact</button><button data-v="vAccess">🔐 Access</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
   <div class="right"><div class="dots" id="dots"></div><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
 
@@ -192,6 +198,8 @@ textarea{width:100%;min-height:56px}
   <div class="odetail" id="adetail"><p class="empty">Pick a person first, then one of your agents.</p></div>
 </div>
 
+<div class="view" id="vImpact"><div class="wrap" id="iwrap"><p class="empty">Pick a person first.</p></div></div>
+
 <div class="view" id="vAccess"><div class="wrap" id="awrap"><p class="empty">Pick a person first.</p></div></div>
 
 <div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
@@ -206,7 +214,7 @@ const pct=x=>x==null?'–':Math.round(x*100)+'%';const newConvo=()=>convo=Math.r
 const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents()});
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact()});
 
 async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['ElevenLabs',s.elevenlabs],['Atlas',true]];
   $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
@@ -382,6 +390,30 @@ function graphSVG(o){const W=760,H=340,cx=W/2,cy=H/2,ls=o.links.slice(0,18),R=Ma
 
 
 
+
+
+/* ---------- impact: data-driven decisions + partners ---------- */
+async function loadImpact(){if(!token){$('#iwrap').innerHTML='<p class="empty">Pick a person first.</p>';return}
+  $('#iwrap').innerHTML='<p class="empty">Reading Atlas…</p>';const {decisions:D,partners:P}=await api('/api/impact');const o=D.outcomes,S=D.signals;
+  const kept=(o.active||0)+(o.superseded||0),undone=o.rolled_back||0,refused=o.blocked||0,waiting=o.awaiting_approval||0;
+  const DEC={active:'✅ kept',superseded:'✅ kept, later improved',rolled_back:'↩️ undone',blocked:'🛑 refused',awaiting_approval:'🙋 needs approval',candidate:'🧪 testing',abandoned:'· abandoned'};
+  $('#iwrap').innerHTML=`<div class="card"><h3>Data-driven decisions</h3>
+      <div class="flow"><span>📥 ${S.answers} answers</span>→<span>👍👎 ${S.ratings} ratings</span>→<span>💬 ${S.suggestions} suggestions</span>→<span>🔁 ${S.cycles} 7-day cycles reviewing ${S.decisions_reviewed_in_cycles} decisions</span>→<span>🧪 ${S.graded_eval_cases} graded test cases</span>→<span>⚖️ ${D.total} decisions</span></div>
+      <div class="kpis"><div class="kpi"><b>${D.total}</b><span>automatic decisions</span></div><div class="kpi"><b class="ok">${kept}</b><span>kept (proven better)</span></div>
+        <div class="kpi"><b class="no">${undone}</b><span>undone (not better)</span></div><div class="kpi"><b>${refused}</b><span>refused by safety rules</span></div>
+        <div class="kpi"><b>${waiting}</b><span>waiting for a manager</span></div><div class="kpi"><b class="ok">${D.avg_uplift_kept!=null?'+'+Math.round(D.avg_uplift_kept*100)+' pts':'–'}</b><span>avg score gain of kept changes</span></div></div>
+      <div class="mute small">Nothing changes on opinion. A change is kept only when the numbers say it's better: practice + unseen questions, blind side-by-side replays, zero leaks. Everything else is undone, and that is a decision too.</div></div>
+    <div class="card"><h3>Scores over time</h3><table class="dt"><tr><th>Playbook</th><th>Versions</th><th>Start</th><th>Now</th></tr>
+      ${D.trend.filter(t=>t.points.length).slice(0,14).map(t=>`<tr><td>${esc(t.name)}</td><td><div class="trend">${t.points.map(p=>`<i class="${['active','superseded'].includes(p.status)?'on':''}" title="v${p.v} ${Math.round(p.score*100)}% ${p.status}" style="height:${Math.max(3,p.score*34)}px"></i>`).join('')}</div></td><td>${pct(t.start)}</td><td><b>${pct(t.now)}</b></td></tr>`).join('')}</table></div>
+    <div class="card"><h3>Every decision and its evidence</h3><table class="dt"><tr><th>When</th><th>Playbook</th><th>Decision</th><th>Before → after</th><th>Evidence</th><th>Why</th></tr>
+      ${D.decisions.map(r=>`<tr><td class="mute">${new Date(r.created).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td><td>${esc(r.name)} <span class="mute">v${r.version}</span></td><td>${DEC[r.decision]||r.decision}</td>
+        <td>${r.before!=null||r.after!=null?`${pct(r.before)} → <b>${pct(r.after)}</b>`:''}${r.replay!=null?`<div class="mute">replay won ${pct(r.replay)}</div>`:''}</td>
+        <td class="mute">${r.sample?`${r.sample} graded cases`:''}${r.evidence?` · ${r.evidence} signals`:''}${r.leak_checks?` · ${r.leak_checks} leak checks`:''}<div>${esc(r.source)}</div></td><td class="small">${esc(r.why)}</td></tr>`).join('')}</table></div>
+    <div class="card"><h3>How well each partner is used</h3><div class="grid">${P.map(p=>`<div class="card pcard" style="margin:0"><div class="hdr"><b>${esc(p.partner)}</b><span class="role">${esc(p.depth)}</span><span class="${p.status.startsWith('not')?'no':'ok'} small" style="margin-left:auto">● ${esc(p.status)}</span></div>
+      <div class="small" style="margin:4px 0">${esc(p.how)}</div>${(p.features||[]).map(f=>`<span class="badge">${esc(f)}</span>`).join('')}
+      <div class="kv" style="margin-top:6px">${Object.entries(p.counts).map(([k,v])=>`<div>${esc(k)}</div><div><b>${Number(v).toLocaleString()}</b></div>`).join('')}</div>
+      ${p.gaps.length?`<div class="small no" style="margin-top:6px">Gaps: ${p.gaps.map(esc).join(' · ')}</div>`:''}</div>`).join('')}</div>
+      <div class="mute small" style="margin-top:6px">Live counters are stored in Atlas (<code>usage</code>, one document per day) and bumped on every external call.</div></div>`}
 
 /* ---------- my agents ---------- */
 let curAgent=null,agentTab='context';

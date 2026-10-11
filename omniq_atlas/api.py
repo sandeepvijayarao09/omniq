@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agentedit, agents, assistant, audit, context, contextdb, cycles, explore, iam, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agentedit, agents, assistant, audit, impact, context, contextdb, cycles, explore, iam, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
@@ -351,6 +351,11 @@ def agent_publish(agent_id: str, body: PublishReq, uid: str = Depends(current_us
     return agentedit.publish(user, agent_id, body.markdown, body.reason)
 
 
+@app.get("/api/impact")
+def impact_view(uid: str = Depends(current_user)) -> dict[str, Any]:
+    return _jsonable({"decisions": impact.decisions(), "partners": impact.partners()})
+
+
 @app.get("/api/org")
 def org_chart(uid: str = Depends(current_user)) -> dict[str, Any]:
     """The four-role hierarchy with the people in each role and how many agents each can use."""
@@ -482,6 +487,9 @@ async def evolve_stream(run_id: str) -> StreamingResponse:
             yield "event: end\ndata: {}\n\n"
             return
         loop = asyncio.get_running_loop()
+        from . import usage
+
+        usage.bump("atlas_change_streams")
         try:
             stream = db().evolve_runs.watch([{"$match": {"documentKey._id": run_id}}], full_document="updateLookup",
                                             max_await_time_ms=1000)

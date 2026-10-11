@@ -97,7 +97,7 @@ class Locked(RuntimeError):
     pass
 
 
-def acquire(name: str, ttl_seconds: int = 900) -> None:
+def acquire(name: str, ttl_seconds: int = 420) -> None:
     """Best-effort distributed lock (expires via TTL so a crashed run can't hold it forever)."""
     import datetime as dt
 

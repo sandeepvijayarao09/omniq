@@ -25,6 +25,9 @@ def transcribe(audio: bytes) -> str:
     el = _el()
     if el is None:
         raise RuntimeError("ElevenLabs is not configured")
+    from . import usage
+
+    usage.bump("elevenlabs_stt")
     res = el.speech_to_text.convert(file=BytesIO(audio), model_id="scribe_v2")
     return res.text
 
@@ -33,6 +36,9 @@ def speak(text: str) -> bytes:
     el = _el()
     if el is None:
         raise RuntimeError("ElevenLabs is not configured")
+    from . import usage
+
+    usage.bump("elevenlabs_tts")
     audio = el.text_to_speech.convert(text=text[:2500], voice_id=settings.elevenlabs_voice,
                                       model_id="eleven_flash_v2_5", output_format="mp3_44100_128")
     return b"".join(audio)
