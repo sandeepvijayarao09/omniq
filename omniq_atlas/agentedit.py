@@ -41,17 +41,22 @@ def _validate(notes: str, procedure: list[str], template: str) -> list[str]:
     return problems
 
 
-def save_override(user, agent_id: str, notes: str, procedure: list[str], template: str) -> dict[str, Any]:
+def save_override(user, agent_id: str, notes: str, procedure: list[str], template: str, profile: str = "") -> dict[str, Any]:
     notes, template = (notes or "").strip(), (template or "").strip()
     procedure = [p.strip() for p in procedure or [] if p.strip()]
     problems = _validate(notes, procedure, template)
+    from . import llm
+
+    if profile and profile not in llm.registry()["profiles"]:
+        problems.append(f"unknown model profile '{profile}'")
     if problems:
         audit.record("agent_edit_refused", user.id, agent=agent_id, problems=problems)
         raise ValueError("; ".join(problems))
     cur = get_override(user.id, agent_id) or {"version": 0, "history": []}
-    entry = {"version": cur["version"] + 1, "notes": notes, "procedure": procedure, "template": template, "ts": _now()}
+    entry = {"version": cur["version"] + 1, "notes": notes, "procedure": procedure, "template": template,
+             "profile": profile, "ts": _now()}
     db().agent_overrides.update_one({"user_id": user.id, "agent_id": agent_id},
-                                    {"$set": {"notes": notes, "procedure": procedure, "template": template,
+                                    {"$set": {"notes": notes, "procedure": procedure, "template": template, "profile": profile,
                                               "version": entry["version"], "updated": _now()},
                                      "$push": {"history": {"$each": [entry], "$slice": -20}}}, upsert=True)
     audit.record("agent_personal_edit", user.id, agent=agent_id, version=entry["version"])
@@ -78,6 +83,8 @@ def apply_override(cfg: dict[str, Any], user_id: str, agent_id: str) -> tuple[di
         wf["template"] = o["template"]
     if wf:
         cfg["workflow"] = wf
+    if o.get("profile"):  # this person's model choice for this agent
+        cfg["agent"]["llm_model"] = o["profile"]
     return cfg, o["version"]
 
 
@@ -138,6 +145,10 @@ def timeline(user, agent_id: str) -> list[dict[str, Any]]:
         rows.append({"ts": r["ts"], "kind": "7-day cycle" if r.get("source") == "weekly_cycle" else "suggestion",
                      "what": f"suggestion {r.get('status')}" + (f" → v{r['handled_by']}" if r.get("handled_by") else ""),
                      "why": r["text"], "by": r["user_id"] if r["user_id"] == user.id else "a colleague"})
+    for r in db().improvement_requests.find({"agent_id": agent_id}).sort("ts", -1).limit(20):
+        rows.append({"ts": r["ts"], "kind": "improvement request",
+                     "what": f"{r['source'].replace('_', ' ')} · {r['status']} · on v{r['harness_version']}",
+                     "why": r["request_t"], "by": r["user_id"] if r["user_id"] == user.id else "a colleague"})
     o = get_override(user.id, agent_id)
     for h in (o or {}).get("history", []):
         rows.append({"ts": h["ts"], "kind": "my edit", "what": f"personal edit v{h['version']}",

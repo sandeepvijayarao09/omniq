@@ -101,6 +101,12 @@ class Feedback(BaseModel):
     recommendation: str = ""
 
 
+class ImproveAnswer(BaseModel):
+    event_id: str
+    request: str
+    convo_id: str = ""
+
+
 class Remember(BaseModel):
     text: str
     agent_id: str = ""
@@ -126,8 +132,15 @@ def index() -> FileResponse:
 
 @app.get("/api/status")
 def status() -> dict[str, Any]:
-    return {"voyage": embed.available(), "llm": llm.provider(), "model": settings.assistant_model, "raindrop": telemetry.available(),
+    return {"voyage": embed.available(), "llm": llm.provider(), "model": llm.default_profile(), "raindrop": telemetry.available(),
             "elevenlabs": voice.available(), "chunks": db().chunks.estimated_document_count()}
+
+
+@app.get("/api/models")
+def models() -> dict[str, Any]:
+    reg = llm.registry()
+    return {"default": llm.default_profile(), "fallback": reg.get("fallback", []), "policy": reg.get("policy", {}),
+            "profiles": llm.profiles()}
 
 
 @app.get("/api/personas")
@@ -175,6 +188,35 @@ def ask(body: Ask, uid: str = Depends(current_user)) -> dict[str, Any]:
 @app.post("/api/feedback")
 def feedback(body: Feedback, uid: str = Depends(current_user)) -> dict[str, Any]:
     return assistant.feedback(body.event_id, uid, body.good, body.comment, body.recommendation)
+
+
+@app.post("/api/improve-answer")
+def improve_answer(body: ImproveAnswer, uid: str = Depends(current_user)) -> dict[str, Any]:
+    """'✨ Improve this answer': log the request (drives the agent's development), then answer again applying it."""
+    _rate_limit(uid)
+    ep = db().episodes.find_one({"_id": body.event_id, "user_id": uid})
+    if not ep:
+        raise HTTPException(404, "no such answer")
+    logged = assistant.request_improvement(body.event_id, uid, body.request, source="improve_button")
+    from .pii import Vault
+
+    q = Vault(assistant.name_registry()).detokenize(ep["question_t"])
+    res = assistant.ask(uid, f"{q}\n\n(Improve your previous answer: {body.request})", agent_id=ep.get("agent_id"),
+                        convo_id=body.convo_id)
+    res.pop("_context", None)
+    res["improvement_logged"] = logged
+    return _jsonable(res)
+
+
+@app.get("/api/improvement-log")
+def improvement_log(agent_id: str = "", uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    """Every improvement request for an agent you can use (or your own, without agent_id)."""
+    flt: dict[str, Any] = {"agent_id": agent_id} if agent_id else {"user_id": uid}
+    if agent_id:
+        _my_agent(uid, agent_id)
+    rows = db().improvement_requests.find(flt, {"_id": 0}).sort("ts", -1).limit(50)
+    return _jsonable([{**r, "mine": r["user_id"] == uid, "user_id": r["user_id"] if r["user_id"] == uid else "a colleague"}
+                      for r in rows])
 
 
 @app.post("/api/remember")
@@ -303,6 +345,7 @@ class OverrideReq(BaseModel):
     notes: str = ""
     procedure: list[str] = []
     template: str = ""
+    profile: str = ""
 
 
 class PublishReq(BaseModel):
@@ -325,6 +368,7 @@ def agent_detail(agent_id: str, uid: str = Depends(current_user)) -> dict[str, A
     ctx = contextdb.active("agent", agent_id) or {}
     return _jsonable({"id": agent_id, "name": tpl["name"], "org_role": tpl.get("org_role"), "description": tpl.get("description"),
                       "llm": tpl.get("llm"), "file": tpl.get("context_file"),
+                      "profile": (agentedit.get_override(uid, agent_id) or {}).get("profile") or h["config"]["agent"].get("llm_model"),
                       "context_version": ctx.get("version"), "markdown": h["config"]["agent"]["instructions"],
                       "playbook_version": h["version"], "rules": h["config"].get("rules", []),
                       "workflow": h["config"].get("workflow"), "retrieval": h["config"]["retrieval"],
@@ -335,7 +379,7 @@ def agent_detail(agent_id: str, uid: str = Depends(current_user)) -> dict[str, A
 @app.put("/api/agents/{agent_id}/override")
 def agent_override(agent_id: str, body: OverrideReq, uid: str = Depends(current_user)) -> dict[str, Any]:
     user, _ = _my_agent(uid, agent_id)
-    return _jsonable(agentedit.save_override(user, agent_id, body.notes, body.procedure, body.template))
+    return _jsonable(agentedit.save_override(user, agent_id, body.notes, body.procedure, body.template, body.profile))
 
 
 @app.delete("/api/agents/{agent_id}/override")

@@ -1,0 +1,62 @@
+# Model profiles. The whole system is model-agnostic: answers, the improver, the judge and the 7-day
+# analyst all call a *profile*, never a vendor SDK directly. Add a model here; no code change needed.
+#
+# provider: ollama | openai (any OpenAI-compatible /chat/completions) | anthropic
+# trust:    private (runs on our machines) | external (third-party API)
+# Values ending in _env are read from the environment (.env).
+
+default: local-gemma
+fallback: [local-gemma, local-llama, claude, openai, offline]
+
+policy:
+  # Context containing these document categories may only be sent to `trust: private` profiles,
+  # even though names are already masked before any model call.
+  private_only_categories: [board, hr, finance]
+
+profiles:
+  local-gemma:
+    label: Gemma 4 e4b (local, Ollama)
+    provider: ollama
+    base_url: http://localhost:11434
+    model: gemma4:e4b
+    trust: private
+  local-llama:
+    label: Llama 3.2 1B (local, Ollama)
+    provider: ollama
+    base_url: http://localhost:11434
+    model: hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:latest
+    trust: private
+  claude:
+    label: Claude Sonnet (Anthropic API)
+    provider: anthropic
+    model: claude-sonnet-5-5
+    api_key_env: ANTHROPIC_API_KEY
+    trust: external
+  openai:
+    label: OpenAI
+    provider: openai
+    base_url: https://api.openai.com/v1
+    model_env: OPENAI_MODEL
+    api_key_env: OPENAI_API_KEY
+    trust: external
+  gemini:
+    label: Gemini (OpenAI-compatible endpoint)
+    provider: openai
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    model_env: GEMINI_MODEL
+    api_key_env: GEMINI_API_KEY
+    trust: external
+  groq:
+    label: Groq
+    provider: openai
+    base_url: https://api.groq.com/openai/v1
+    model_env: GROQ_MODEL
+    api_key_env: GROQ_API_KEY
+    trust: external
+  self-hosted:
+    label: Self-hosted OpenAI-compatible (vLLM / LM Studio / llama.cpp)
+    provider: openai
+    base_url_env: SELF_HOSTED_LLM_URL
+    model_env: SELF_HOSTED_LLM_MODEL
+    api_key_env: SELF_HOSTED_LLM_KEY
+    trust: private

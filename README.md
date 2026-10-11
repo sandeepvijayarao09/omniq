@@ -65,6 +65,14 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
          ─► episode (Atlas) + hash-chained audit (Atlas) + Raindrop event
 ```
 
+## Every improvement request is logged and drives development
+
+Each request is stored in `improvement_requests` against the exact answer and playbook version it was about, whichever
+way it arrives: **✨ Improve** on an answer, a follow-up like "make it shorter / add the owners" (detected automatically),
+or 👎 with "do this instead". It applies to that person immediately (preference memory), joins the agent's development log
+(My agents → Updates), goes to Raindrop as an `improvement_request` signal, and feeds the agent's 7-day cycle and the governed
+loop that changes the agent for everyone.
+
 ## IAM: role-based access control (`data/iam/policies.yaml`, `omniq_atlas/iam.py`)
 
 Access follows AWS-IAM-style policies: **explicit Deny > Allow > implicit deny**. Roles inherit statements
@@ -173,8 +181,11 @@ Small eval sets are scored twice, and a case passes only if it passes every time
 - **Voyage AI:** `voyage-4` embeddings and the `rerank-3` reranker. The reranker is a knob the harness learns to turn on.
 - **Raindrop:** every answer is an event (event id = Atlas episode id) and every 👍/👎, regeneration and suggestion a signal; the 7-day cycle **reads them back with the Query API** (using Raindrop's own signal sentiment) and counts Raindrop-flagged answers as evidence against the agent that gave them, so Raindrop closes the self-improvement loop.
 - **Modelence:** a Node edge (`modelence/`) deployed to Modelence Cloud, which proxies to the Python API.
-- **Models:** any OpenAI-compatible endpoint. The demo runs **Gemma 4 (e4b) locally through Ollama**, so employee data
-  never leaves the laptop. Set `ANTHROPIC_API_KEY` to switch to Claude.
+- **Models, fully model-agnostic** (`config/models.yaml`, `omniq_atlas/llm.py`): every model call (answers, the improver,
+  the blind judge, the 7-day analyst) goes through a named profile: local Gemma 4 and Llama 3.2 via Ollama, Claude, OpenAI,
+  Gemini, Groq, or any self-hosted OpenAI-compatible server. Routing goes requested → default → fallback chain → offline,
+  and every answer records which model served it. **Data rule:** context with board, HR or finance documents only goes to
+  `trust: private` models. Each agent's context file names its model, and each person can choose another in My agents.
 
 ## Run it
 

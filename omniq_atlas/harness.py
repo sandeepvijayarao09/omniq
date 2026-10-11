@@ -73,7 +73,7 @@ def default_config(scope: str) -> dict[str, Any]:
         cfg["agent"] = {"id": scope[6:], "name": tpl.get("name", scope[6:]), "org_role": tpl.get("org_role"),
                         "instructions": tpl.get("context_md") or tpl.get("instructions", ""),
                         "context_file": tpl.get("context_file", ""),
-                        "llm_model": llm_cfg.get("model"),
+                        "llm_model": llm_cfg.get("profile") or llm_cfg.get("model"),
                         "focus_categories": tpl.get("focus_categories", []),
                         "allowed_tools": tpl.get("tools", ["search_docs"])}
         cfg["tools"] = list(tpl.get("tools", ["search_docs"]))

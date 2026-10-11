@@ -126,6 +126,9 @@ def _rewrite(question: str, cfg: dict[str, Any]) -> str:
 
 
 MAX_QUESTION_CHARS = 2000
+IMPROVE_RX = re.compile(r"^\s*(make it|can you make|please make|shorter|longer|more (detail|concise|specific)|less |"
+                        r"too (long|short|vague)|add (the|a|more)|include |rewrite|rephrase|improve|instead|be more|"
+                        r"you (missed|forgot)|that'?s (wrong|missing|not)|missing |use a table|bullet)", re.I)
 SELF_REF = re.compile(r"\b(i|my|me|mine|we|our|us)\b", re.I)
 
 
@@ -171,6 +174,11 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         except Exception:
             query = question
     turns = memory.recent_turns(convo_id, user.id) if source == "chat" else []
+    improvement_logged = None
+    if turns and source == "chat" and IMPROVE_RX.search(question):
+        prev = db().episodes.find_one({"user_id": user.id, "convo_id": convo_id, "source": "chat"}, sort=[("ts", -1)])
+        if prev:
+            improvement_logged = request_improvement(prev["_id"], user.id, question, source="chat_followup")
     if turns:  # follow-ups ("and their renewal?") retrieve with the previous question for context
         query = f"{turns[-1]['q']} {query}"
 
@@ -223,9 +231,12 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         answer_t, meta = "Blocked: sensitive data could not be fully tokenized for this request.", {"model": "blocked"}
     else:
         try:
+            private_cats = set(llm.registry().get("policy", {}).get("private_only_categories", []))
+            private_only = any(cat in private_cats for cat in {h.get("category") for h in hits})
             answer_t, meta = llm.complete(t_system, t_user, max_tokens=int(cfg["model"]["max_tokens"]),
                                           temperature=float(cfg["model"]["temperature"]),
-                                          model=(cfg.get("agent") or {}).get("llm_model") or None)
+                                          model=(cfg.get("agent") or {}).get("llm_model") or None,
+                                          private_only=private_only)
         except Exception as e:  # model down or timed out: degrade, never 500
             error = str(e)[:200]
             answer_t, meta = ("The model is unavailable right now. The most relevant passages I can show you: "
@@ -237,7 +248,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     episode = {"_id": event_id, "ts": dt.datetime.now(dt.timezone.utc), "user_id": user.id, "role": scope,
                "user_role": user.role, "agent_id": agent_id, "convo_id": convo_id,
                "harness_version": version, "source": source, "question_t": tq, "answer_t": answer_t,
-               "sources": [s["title"] for s in sources], "model": meta.get("model"),
+               "sources": [s["title"] for s in sources], "model": meta.get("model"), "profile": meta.get("profile"),
                "tokens": meta.get("input_tokens", 0) + meta.get("output_tokens", 0), "latency": latency,
                "pii": vault.summary(), "blocked": bool(leaked), "memories_applied": len(mems), "error": error}
     if source == "chat":
@@ -251,8 +262,11 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
                             "n_sources": len(sources), "latency": latency, "memories_applied": len(mems)})
     return {"answer": answer, "event_id": event_id, "harness_version": version, "scope": scope, "role": user.role,
             "agent": (tpl or {}).get("name"), "sources": [s["title"] for s in sources], "model": meta.get("model"),
+            "profile": meta.get("profile"), "model_label": meta.get("label") or meta.get("model"),
+            "model_skipped": meta.get("skipped", []),
             "latency": latency, "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
             "preferences_applied": prefs, "lessons_applied": len(notes), "personal_edit": personal_edit,
+            "improvement_logged": improvement_logged,
             "context_layers": card_files +
                               ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
             "model_view": {"system": t_system, "user": t_user, "answer": answer_t},
@@ -297,6 +311,34 @@ def feedback(event_id: str, user_id: str, good: bool, comment: str = "", recomme
         telemetry.signal(event_id, "recommendation", negative=True, comment=vault.tokenize(rec))
     audit.record("feedback", user_id, episode=event_id, good=good, recommendation=bool(rec))
     return out
+
+
+def request_improvement(event_id: str, user_id: str, request: str, source: str = "improve_button") -> dict[str, Any]:
+    """Log an explicit improvement request against the answer it is about. It becomes this person's preference
+    for the agent right away, a governed recommendation for the agent's development, and a Raindrop signal."""
+    from . import governance
+
+    ep = db().episodes.find_one({"_id": event_id})
+    if not ep or ep["user_id"] != user_id:
+        raise KeyError(event_id)
+    request = (request or "").strip()[:500]
+    if not request:
+        raise ValueError("empty improvement request")
+    vault = Vault(name_registry())
+    flags = governance.screen(request)
+    doc = {"event_id": event_id, "user_id": user_id, "agent_id": ep.get("agent_id"), "scope": ep["role"],
+           "harness_version": ep["harness_version"], "request_t": vault.tokenize(request), "source": source,
+           "status": "quarantined" if flags else "logged", "ts": dt.datetime.now(dt.timezone.utc)}
+    db().improvement_requests.insert_one(doc)
+    if not flags and ep.get("agent_id"):
+        memory.add(ep["agent_id"], user_id, "preference", request, source=event_id)
+        memory.recommend(ep["agent_id"], ep["role"], user_id, event_id, vault.detokenize(ep["question_t"]),
+                         vault.detokenize(ep.get("answer_t", "")), request, ep["harness_version"])
+        db().recommendations.update_one({"event_id": event_id, "text": request}, {"$set": {"source": source}})
+    telemetry.signal(event_id, "improvement_request", negative=True, comment=vault.tokenize(request))
+    audit.record("improvement_request", user_id, episode=event_id, agent=ep.get("agent_id") or "", source=source,
+                 quarantined=bool(flags))
+    return {"logged": True, "agent": ep.get("agent_id"), "source": source, "quarantined": bool(flags)}
 
 
 def remember(user_id: str, text: str, agent_id: str | None = None) -> None:

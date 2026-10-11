@@ -87,7 +87,7 @@ button.big{padding:9px 16px;font-size:14px}.more{position:relative}.more summary
 .link{display:inline-flex;gap:6px;align-items:center;margin:3px 6px 3px 0;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:transparent}
 .graph{width:100%;height:340px}.graph text{fill:var(--text);font-size:11px}.graph .lbl{fill:var(--mute);font-size:10px}
 .graph circle{cursor:pointer}
-#vData,#vAccess,#vImpact{display:none;overflow:auto}#vData.on,#vAccess.on,#vImpact.on{display:block}
+#vData,#vAccess,#vImpact,#vModels{display:none;overflow:auto}#vData.on,#vAccess.on,#vImpact.on,#vModels.on{display:block}
 .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .kpi{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px}.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--mute)}
 .flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:4px 0 10px}.flow span{border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--panel)}
@@ -150,7 +150,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
   <h1>Omniq <span>Atlas</span></h1>
   <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Learning</button><button data-v="vImpact">📊 Impact</button>
     <span class="hood"><button class="hoodbtn" id="hoodBtn">⋯ Under the hood</button><span class="hoodmenu" id="hoodMenu">
-      <button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button></span></span></nav>
+      <button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button><button data-v="vModels">🔌 Models</button></span></span></nav>
   <div class="right"><span class="pill" id="dots">…</span><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
 
@@ -214,6 +214,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 
 <div class="view" id="vAccess"><div class="wrap" id="awrap"><p class="empty">Pick a person first.</p></div></div>
 
+<div class="view" id="vModels"><div class="wrap" id="mwrap"></div></div>
+
 <div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
 
 <div class="toast" id="toast"></div>
@@ -227,7 +229,7 @@ const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
 $('#hoodBtn').onclick=e=>{e.stopPropagation();$('.hood').classList.toggle('open')};document.addEventListener('click',()=>$('.hood').classList.remove('open'));
 document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>{$('.hood').classList.remove('open');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b||(x.id==='hoodBtn'&&!!b.closest('.hoodmenu'))));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact()});
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact();if(b.dataset.v==='vModels')loadModels()});
 
 async function status(){const s=await api('/api/status');const d=[['MongoDB Atlas',true],['Voyage AI',s.voyage],['Raindrop',s.raindrop],[s.model+' (local)',s.llm!=='offline']];
   const all=d.every(x=>x[1]);$('#dots').innerHTML=`<i class="${all?'on':''}"></i>${all?'All connected':'Partly connected'}`;$('#dots').title=d.map(([n,on])=>`${on?'●':'○'} ${n}`).join('\n')}
@@ -269,10 +271,12 @@ async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!
   try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo})});renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
   catch(e){pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
 function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
-  el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
+  el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${esc(r.model_label||r.model)} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
     <div class="text">${esc(r.answer)}</div>
     ${r.preferences_applied?.length?`<div class="prefs">✦ Used your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
-    <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
+    ${r.improvement_logged?`<div class="prefs">📝 Logged as an improvement request${r.improvement_logged.agent?' for @'+esc(r.improvement_logged.agent)+"'s development":''}</div>`:''}
+    <div class="acts"><button data-imp title="Ask for a better version; the request is logged and shapes how the agent develops">✨ Improve</button><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
+    <div class="imp" style="display:none;margin-top:6px"><textarea placeholder="What should be better? e.g. shorter, add owners and dates, use a table"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-impgo>Improve it</button></div></div>
     <div class="fb" style="display:none;margin-top:6px"><textarea placeholder="What should ${r.agent?esc(r.agent):'it'} do differently next time?"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send</button><button class="ghost" data-skip>Just 👎</button></div></div>
     <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
       <details><summary>Sources (${r.sources.length}, filtered to your access inside $vectorSearch)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
@@ -281,6 +285,11 @@ function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)
   const fb=async(good,recommendation='',comment='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation,comment})});
     B.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);B.querySelector('.fb').style.display='none';
     toast(out.quarantined?'Set aside: that looked like an attempt to get around the rules':out.queued?`Saved. ${r.agent} will do this for you from now on.`:good?'Thanks! That counts as a positive signal.':'Noted.');return out};
+  B.querySelector('[data-imp]').onclick=()=>{const x=B.querySelector('.imp');x.style.display=x.style.display==='none'?'block':'none';x.querySelector('textarea').focus()};
+  B.querySelector('[data-impgo]').onclick=async()=>{const req=B.querySelector('.imp textarea').value.trim();if(!req)return;B.querySelector('.imp').style.display='none';
+    addTurn('u',`✨ ${esc(req)}`);const pend=addTurn('a','<div class="text mute">Improving…</div>');
+    try{const nr=await api('/api/improve-answer',{method:'POST',body:JSON.stringify({event_id:r.event_id,request:req,convo_id:convo})});renderAnswer(pend,nr,q);
+      toast(nr.improvement_logged?.quarantined?'Set aside: that looked like an attempt to get around the rules':`Logged. ${r.agent?r.agent+' will develop from it':'Saved for your assistant'}.`)}catch(e){pend.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`}};
   B.querySelector('[data-g="1"]').onclick=()=>fb(true);
   B.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){fb(false);return}B.querySelector('.fb').style.display='block';B.querySelector('.fb textarea').focus()};
   B.querySelector('[data-send]').onclick=()=>fb(false,B.querySelector('.fb textarea').value.trim());B.querySelector('[data-skip]').onclick=()=>fb(false);
@@ -417,7 +426,7 @@ async function loadImpact(){if(!token){$('#iwrap').innerHTML='<p class="empty">P
   const kept=(o.active||0)+(o.superseded||0),undone=o.rolled_back||0,refused=o.blocked||0,waiting=o.awaiting_approval||0;
   const DEC={active:'✅ kept',superseded:'✅ kept, later improved',rolled_back:'↩️ undone',blocked:'🛑 refused',awaiting_approval:'🙋 needs approval',candidate:'🧪 testing',abandoned:'· abandoned'};
   $('#iwrap').innerHTML=`<div class="card"><h3>Data-driven decisions</h3>
-      <div class="flow"><span>📥 ${S.answers} answers</span>→<span>👍👎 ${S.ratings} ratings</span>→<span>💬 ${S.suggestions} suggestions</span>→<span>🔁 ${S.cycles} 7-day cycles reviewing ${S.decisions_reviewed_in_cycles} decisions</span>→<span>🧪 ${S.graded_eval_cases} graded test cases</span>→<span>⚖️ ${D.total} decisions</span></div>
+      <div class="flow"><span>📥 ${S.answers} answers</span>→<span>👍👎 ${S.ratings} ratings</span>→<span>✨ ${S.improvement_requests||0} improvement requests</span>→<span>💬 ${S.suggestions} suggestions</span>→<span>🔁 ${S.cycles} 7-day cycles reviewing ${S.decisions_reviewed_in_cycles} decisions</span>→<span>🧪 ${S.graded_eval_cases} graded test cases</span>→<span>⚖️ ${D.total} decisions</span></div>
       <div class="kpis"><div class="kpi"><b>${D.total}</b><span>automatic decisions</span></div><div class="kpi"><b class="ok">${kept}</b><span>kept (proven better)</span></div>
         <div class="kpi"><b class="no">${undone}</b><span>undone (not better)</span></div><div class="kpi"><b>${refused}</b><span>refused by safety rules</span></div>
         <div class="kpi"><b>${waiting}</b><span>waiting for a manager</span></div><div class="kpi"><b class="ok">${D.avg_uplift_kept!=null?'+'+Math.round(D.avg_uplift_kept*100)+' pts':'–'}</b><span>avg score gain of kept changes</span></div></div>
@@ -434,6 +443,15 @@ async function loadImpact(){if(!token){$('#iwrap').innerHTML='<p class="empty">P
       ${p.gaps.length?`<div class="small no" style="margin-top:6px">Gaps: ${p.gaps.map(esc).join(' · ')}</div>`:''}</div>`).join('')}</div>
       <div class="mute small" style="margin-top:6px">Live counters are stored in Atlas (<code>usage</code>, one document per day) and bumped on every external call.</div></div>`}
 
+
+/* ---------- models ---------- */
+async function loadModels(){const m=await api('/api/models');
+  $('#mwrap').innerHTML=`<div class="card"><h3>Model-agnostic by design</h3><div class="small">Every model call (answers, the improver, the judge, the 7-day analyst) goes through a profile in <code>config/models.yaml</code>. Add a model there; no code change. Default now: <b>${esc(m.default)}</b>. Fallback: ${m.fallback.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}.</div>
+    <div class="small" style="margin-top:6px">🔒 Data rule: answers whose sources include <b>${(m.policy.private_only_categories||[]).join(', ')}</b> only go to <b>private</b> (local or self-hosted) models, even though names are already masked.</div></div>
+    <div class="grid">${m.profiles.map(p=>`<div class="card" style="margin:0"><div style="display:flex;gap:8px;align-items:baseline"><b>${esc(p.label)}</b>${p.default?'<span class="agenttag">default</span>':''}<span class="${p.available?'ok':'no'} small" style="margin-left:auto">● ${p.available?'available':'not configured'}</span></div>
+      <div class="small mute">profile <code>${esc(p.name)}</code> · ${esc(p.provider)} · ${esc(p.model||'(model from env)')} · ${p.trust==='private'?'🔒 private':'🌐 external'}</div></div>`).join('')}</div>
+    <div class="mute small" style="margin-top:8px">Each agent's context file names its model; anyone can pick a different one for themselves in 🤖 My agents → ✏️ My edit.</div>`}
+
 /* ---------- my agents ---------- */
 let curAgent=null,agentTab='context';
 async function loadAgents(){if(!token){$('#alist').innerHTML='';$('#adetail').innerHTML='<p class="empty">Pick a person first.</p>';return}
@@ -445,7 +463,7 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
   const d=await api('/api/agents/'+id+'/detail');const o=d.override||{};
   const tabs=[['context','📄 Context'],['learned','🧠 What it learned'],['timeline',`🕒 Updates (${d.timeline.length})`],['edit','✏️ My edit'],...(d.can_publish?[['publish','🚀 Publish for everyone']]:[])];
   const body={
-    context:`<div class="small mute">Active context file in Atlas <code>context_layers</code> (v${d.context_version}) · playbook v${d.playbook_version} · 🔌 ${esc(d.llm?.model)} · temp ${d.llm?.temperature} · ${d.llm?.max_tokens} tokens</div><pre style="max-height:520px">${esc(d.markdown)}</pre>${o.version?`<div class="prefs">+ your personal edit v${o.version} is applied on top for you</div>`:''}`,
+    context:`<div class="small mute">Active context file in Atlas <code>context_layers</code> (v${d.context_version}) · playbook v${d.playbook_version} · 🔌 model profile <code>${esc(d.profile||d.llm?.model)}</code> · temp ${d.llm?.temperature} · ${d.llm?.max_tokens} tokens</div><pre style="max-height:520px">${esc(d.markdown)}</pre>${o.version?`<div class="prefs">+ your personal edit v${o.version} is applied on top for you</div>`:''}`,
     learned:`<div class="kv"><div>Learned rules</div><div>${d.rules.length?d.rules.map(r=>`<div>• ${esc(r)}</div>`).join(''):'<span class="mute">none yet</span>'}</div>
       <div>Learned workflow</div><div>${d.workflow?`${(d.workflow.procedure||[]).map((x,i)=>`<div>${i+1}. ${esc(x)}</div>`).join('')}${d.workflow.template?`<pre>${esc(d.workflow.template)}</pre>`:''}`:'<span class="mute">uses the procedure and template in its context file</span>'}</div>
       <div>Retrieval</div><div>reads ${d.retrieval.top_k} passages${d.retrieval.rerank?', re-ranked':''}${d.retrieval.graph_context?', + company graph':''}</div></div>`,
@@ -454,6 +472,7 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
     edit:`<div class="editor"><div class="small mute">Applies only to you, immediately. Versioned (you are on v${o.version||0}). Screened for attempts to get around the rules.</div>
       <label class="small">Notes for this agent (added to its context for you)</label><textarea id="eNotes" placeholder="e.g. I work on the auth service; always mention session impact.">${esc(o.notes||'')}</textarea>
       <label class="small">Procedure (one step per line, optional)</label><textarea id="eProc" placeholder="1 step per line">${esc((o.procedure||[]).join('\n'))}</textarea>
+      <label class="small">Model for me (optional)</label><select id="eModel" style="width:100%"><option value="">Agent default (${esc(d.profile||'')})</option></select>
       <label class="small">Output template (optional)</label><textarea id="eTpl" placeholder="**Verdict** · **Checks** · **Fixes**">${esc(o.template||'')}</textarea>
       <div style="display:flex;gap:6px;margin-top:8px"><button class="primary" id="eSave">Save my edit</button>${o.version?'<button class="ghost" id="eReset">Reset to shared agent</button>':''}</div></div>`,
     publish:`<div class="editor"><div class="small mute">Edits the agent's context file <b>for everyone who uses it</b>. Allowed by your IAM role. It must pass the injection screen and the leak safety gate, and it becomes a new version in Atlas you can roll back.</div>
@@ -463,7 +482,8 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
     <div class="tabs2">${tabs.map(([k,l])=>`<button data-t="${k}" class="${k===agentTab?'on':''}">${l}</button>`).join('')}</div><div class="card">${body[tabs.find(t=>t[0]===agentTab)?agentTab:'context']}</div>`;
   $('#adetail').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{agentTab=b.dataset.t;openAgent(id)});
   $('#aCycle').onclick=()=>{document.querySelector('nav button[data-v=vImprove]').click();loadScopes('agent:'+id).then(()=>{loadLineage();setTimeout(()=>$('#cycleBtn').click(),600)})};
-  const sv=$('#eSave');if(sv)sv.onclick=async()=>{try{await api('/api/agents/'+id+'/override',{method:'PUT',body:JSON.stringify({notes:$('#eNotes').value,procedure:$('#eProc').value.split('\n'),template:$('#eTpl').value})});toast('Saved. Applies to you from your next message.');openAgent(id)}catch(e){toast('⛔ '+e.message)}};
+  const em=$('#eModel');if(em){api('/api/models').then(m=>{em.innerHTML+=m.profiles.filter(p=>p.available).map(p=>`<option value="${p.name}" ${o.profile===p.name?'selected':''}>${esc(p.label)}</option>`).join('')})}
+  const sv=$('#eSave');if(sv)sv.onclick=async()=>{try{await api('/api/agents/'+id+'/override',{method:'PUT',body:JSON.stringify({notes:$('#eNotes').value,procedure:$('#eProc').value.split('\n'),template:$('#eTpl').value,profile:$('#eModel')?.value||''})});toast('Saved. Applies to you from your next message.');openAgent(id)}catch(e){toast('⛔ '+e.message)}};
   const rs=$('#eReset');if(rs)rs.onclick=async()=>{await api('/api/agents/'+id+'/override',{method:'DELETE'});toast('Back to the shared agent');openAgent(id)};
   const pg=$('#pGo');if(pg)pg.onclick=async()=>{pg.disabled=true;pg.textContent='Checking safety gate…';try{const r=await api('/api/agents/'+id+'/publish',{method:'POST',body:JSON.stringify({markdown:$('#pMd').value,reason:$('#pWhy').value})});toast(`Published: context v${r.context_version}, playbook v${r.harness_version} (passed ${r.safety_gate} leak checks)`);agentTab='timeline';openAgent(id)}catch(e){toast('⛔ '+e.message);pg.disabled=false;pg.textContent='Publish new version'}}}
 

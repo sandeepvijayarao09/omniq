@@ -53,6 +53,7 @@ def decisions() -> dict[str, Any]:
                "ratings": db().feedback.count_documents({}),
                "thumbs_down": db().feedback.count_documents({"good": False}),
                "suggestions": db().recommendations.count_documents({}),
+               "improvement_requests": db().improvement_requests.count_documents({}),
                "quarantined": db().recommendations.count_documents({"status": "quarantined"}),
                "cycles": db().cycles.count_documents({"status": "done"}),
                "decisions_reviewed_in_cycles": sum(c.get("totals", {}).get("decisions", 0) for c in db().cycles.find({"status": "done"})),
