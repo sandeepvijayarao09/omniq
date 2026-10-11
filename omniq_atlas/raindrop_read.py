@@ -121,3 +121,55 @@ def event_total() -> int | None:
         return int((d.get("data") or {}).get("total"))
     except Exception:
         return None
+
+
+FAILURE_KINDS = {"thumbs_down": "rated down", "rephrased": "had to rephrase", "followup_correction": "corrected it",
+                 "followup_refinement": "asked for a different shape", "regenerated": "regenerated",
+                 "recommendation": "said what to change", "improvement_request": "asked for an improvement"}
+NOT_FOUND = __import__("re").compile(r"(couldn'?t|could not|unable to) find|not (in|contain(ed)?) (the )?(sources|provided)|don'?t contain", __import__("re").I)
+
+
+def _all_events(c, max_pages: int = 5) -> list[dict[str, Any]]:
+    out, cursor = [], None
+    for _ in range(max_pages):
+        d = _as_dict(c.events.list(limit=100, cursor=cursor) if cursor else c.events.list(limit=100))
+        out += d.get("data", [])
+        meta = d.get("meta") or {}
+        cursor = meta.get("cursor")
+        if not meta.get("has_more") or not cursor:
+            break
+    return out
+
+
+def agent_failures(agent_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, Any]:
+    """Where this agent is failing, according to Raindrop: failing answers by kind and by playbook version."""
+    c = _client()
+    if c is None:
+        return {"status": "no query key"}
+    try:
+        events = _all_events(c)
+        sentiment = {d.get("id"): d.get("sentiment") for d in _items(c.signals.list(limit=100)) if isinstance(d, dict)}
+    except Exception as e:
+        return {"status": f"query failed: {str(e)[:120]}"}
+    mine = [e for e in events if (e.get("properties") or {}).get("agent") == agent_id
+            and ((t := _ts(e)) is None or since <= t < until)]
+    by_kind: Counter = Counter()
+    by_version: dict[str, dict[str, int]] = {}
+    failing = []
+    for e in mine:
+        v = str((e.get("properties") or {}).get("harness_version", "?"))
+        bv = by_version.setdefault(v, {"answers": 0, "failing": 0})
+        bv["answers"] += 1
+        sigs = [s for s in (e.get("signals") or []) if isinstance(s, dict)]
+        kinds = [FAILURE_KINDS[s["name"]] for s in sigs if s.get("name") in FAILURE_KINDS and sentiment.get(s.get("id")) != "POSITIVE"]
+        if NOT_FOUND.search(str(e.get("assistant_output") or "")):
+            kinds.append("said it couldn't find it")
+        if kinds:
+            bv["failing"] += 1
+            by_kind.update(set(kinds))
+            failing.append({"event_id": e.get("id"), "version": v, "why": sorted(set(kinds)),
+                            "question": str(e.get("user_input") or "")[:180]})
+    n = len(mine)
+    return {"status": "ok", "answers": n, "failing": len(failing), "failure_rate": round(len(failing) / n, 3) if n else None,
+            "by_kind": dict(by_kind.most_common()), "by_version": by_version, "examples": failing[:8],
+            "failing_event_ids": [f["event_id"] for f in failing]}

@@ -36,6 +36,10 @@
 6. **Guardrails and data (20 s).** **More → Try to break it** is refused. **⋯ Under the hood → Company graph and Data layer** show the Atlas
    collections, the vector indexes and the person's own ACL filter.
 
+**Raindrop moment (15 s):** 🤖 My agents → Release Agent → **🌧 Where it fails**: "2 of 8 answers failing · had to rephrase,
+asked for an improvement · struggled with 'can I ship on friday afternoon'". Then **Improve from last 7 days ▶**: the first
+step of the cycle is Raindrop's failure analysis.
+
 **Likely questions**
 - *What is in a context file?* Persona, mission, the team's rhythm, current priorities, recent events, working style,
   house rules, output format and glossary, drawn per agent from pools with a seeded RNG (`scripts/build_agents.py`).

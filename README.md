@@ -196,7 +196,12 @@ Small eval sets are scored twice, and a case passes only if it passes every time
 ## Partners
 
 - **Voyage AI:** `voyage-4` embeddings and the `rerank-3` reranker. The reranker is a knob the harness learns to turn on.
-- **Raindrop:** every answer is an event (event id = Atlas episode id) and every 👍/👎, regeneration and suggestion a signal; the 7-day cycle **reads them back with the Query API** (using Raindrop's own signal sentiment) and counts Raindrop-flagged answers as evidence against the agent that gave them, so Raindrop closes the self-improvement loop.
+- **Raindrop, in the improvement loop:** each agent's 7-day cycle **starts from Raindrop's view of where the agent is failing**:
+  failing answers by kind (rated down, rephrased, corrected, regenerated, "couldn't find") and by playbook version, with
+  examples (`raindrop_read.agent_failures`). Raindrop-flagged answers become the evidence the improver works from and the
+  blind replay tests on. The regression watchdog compares Raindrop failure rates per version, and each agent's
+  **🌧 Where it fails** tab shows it.
+- **Raindrop, telemetry:** every answer is an event (event id = Atlas episode id) and every 👍/👎, regeneration and suggestion a signal; the 7-day cycle **reads them back with the Query API** (using Raindrop's own signal sentiment) and counts Raindrop-flagged answers as evidence against the agent that gave them, so Raindrop closes the self-improvement loop.
 - **Modelence:** a Node edge (`modelence/`) deployed to Modelence Cloud, which proxies to the Python API.
 - **Models, fully model-agnostic** (`config/models.yaml`, `omniq_atlas/llm.py`): every model call (answers, the improver,
   the blind judge, the 7-day analyst) goes through a named profile: local Gemma 4 and Llama 3.2 via Ollama, Claude, OpenAI,

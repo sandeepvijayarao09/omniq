@@ -61,8 +61,20 @@ def watchdog() -> list[dict[str, Any]]:
         scope, ver, parent = cur["role"], cur["version"], cur["parent"]
         rate, n = _down_rate(scope, ver)
         base, n0 = _down_rate(scope, parent)
+        if scope.startswith("agent:"):  # Raindrop's failure rate per version, when it has more evidence
+            try:
+                from . import raindrop_read
+
+                f = raindrop_read.agent_failures(scope[6:], _now() - dt.timedelta(days=7), _now())
+                bv = f.get("by_version") or {}
+                cur_v, par_v = bv.get(str(ver)), bv.get(str(parent))
+                if cur_v and par_v and cur_v["answers"] >= n and par_v["answers"]:
+                    rate, n = cur_v["failing"] / cur_v["answers"], cur_v["answers"]
+                    base, n0 = par_v["failing"] / par_v["answers"], par_v["answers"]
+            except Exception:
+                pass
         if n >= MIN_VOTES and rate - base >= REGRESSION_MARGIN:
-            reason = f"live thumbs-down {rate:.0%} on v{ver} (n={n}) vs {base:.0%} on v{parent} (n={n0})"
+            reason = f"live failure rate {rate:.0%} on v{ver} (n={n}) vs {base:.0%} on v{parent} (n={n0}) (Atlas feedback + Raindrop)"
             harness.reject(scope, ver, cur.get("scores", {}), reason)
             db().harness.update_one({"role": scope, "version": parent}, {"$set": {"status": "active"}})
             audit.record("harness_auto_rollback", "watchdog", role=scope, version=ver, restored=parent, reason=reason)

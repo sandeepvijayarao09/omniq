@@ -274,8 +274,19 @@ def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, 
     _log(run_id, "cycle_ledger", days=days, **L)
     outcome: dict[str, Any] = {"ledger": L}
 
-    # 0) live signals: downvoted / regenerated answers become evidence when 2+ different people were unhappy
-    added = _live_signal_recommendations(agent_id, since, until)
+    # 0a) Raindrop's view: where this agent is failing, by kind and by playbook version
+    from . import raindrop_read
+
+    rd = raindrop_read.agent_failures(agent_id, since, until)
+    outcome["raindrop"] = {k: rd.get(k) for k in ("status", "answers", "failing", "failure_rate", "by_kind", "by_version")}
+    if rd.get("status") == "ok":
+        _log(run_id, "raindrop_failures", answers=rd["answers"], failing=rd["failing"], failure_rate=rd["failure_rate"],
+             by_kind=rd["by_kind"], by_version=rd["by_version"], examples=[x["question"][:90] for x in rd["examples"][:4]])
+    else:
+        _log(run_id, "raindrop_failures", status=rd.get("status"))
+
+    # 0b) live evidence: answers people (or Raindrop) marked as failing become evidence when 2+ people are affected
+    added = _live_signal_recommendations(agent_id, since, until, extra_event_ids=rd.get("failing_event_ids", []))
     if added:
         _log(run_id, "cycle_step", step=f"Found {added} answers that real users rephrased, corrected, regenerated or rated down")
         L["pending_suggestions"] += added
@@ -319,16 +330,20 @@ LIVE_SIGNAL_TEXT = ("Real users rated this answer down, rephrased the question, 
                     "sources (names, numbers, runbook steps), and say plainly what the sources do not cover.")
 
 
-def _live_signal_recommendations(agent_id: str, since: dt.datetime, until: dt.datetime) -> int:
+def _live_signal_recommendations(agent_id: str, since: dt.datetime, until: dt.datetime,
+                                 extra_event_ids: list[str] | None = None) -> int:
     from .assistant import Vault, name_registry
 
     w = {"$gte": since, "$lt": until}
     eps = {e["_id"]: e for e in db().episodes.find({"agent_id": agent_id, "source": "chat", "ts": w})}
     bad = [f for f in db().feedback.find({"event_id": {"$in": list(eps)}, "good": False})]
+    bad += [{"event_id": i, "user_id": eps[i]["user_id"]} for i in (extra_event_ids or []) if i in eps]  # Raindrop-flagged
     bad += [{"event_id": x["event_id"], "user_id": x["user_id"]} for x in
             db().implicit_signals.find({"event_id": {"$in": list(eps)}, "positive": False})]
     if len({f["user_id"] for f in bad}) < 2:  # same quorum as suggestions: one unhappy person stays personal
         return 0
+    seen_ev: set[str] = set()
+    bad = [f for f in bad if not (f["event_id"] in seen_ev or seen_ev.add(f["event_id"]))]
     have = {r["event_id"] for r in db().recommendations.find({"event_id": {"$in": [f["event_id"] for f in bad]}}, {"event_id": 1})}
     v = Vault(name_registry())
     n = 0

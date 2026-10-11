@@ -367,6 +367,7 @@ const STEP={
   paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],meta_error:ev=>['⚠️','Hiccup','Using a safe built-in fix instead.'],
   cycle_ledger:ev=>['📒','Last 7 days',`${ev.asks} answers to ${ev.users} people · ${ev.rephrased||0} rephrased · ${ev.corrected||0} corrected · ${ev.regenerated} regenerated · ${ev.copied||0} copied · ${ev.up} 👍 · ${ev.down} 👎 · ${ev.not_found} "not in sources"`+(ev.satisfaction!=null?` · satisfaction ${pct(ev.satisfaction)}`:'')+(ev.worst_questions?.length?`\nWeakest: `+ev.worst_questions.map(q=>'“'+q.slice(0,90)+'”').join('; '):'')],
   cycle_step:ev=>['▶️','Step',ev.step+'…'],
+  raindrop_failures:ev=>['🌧','Raindrop',ev.status?`unavailable (${ev.status})`:`${ev.failing} of ${ev.answers} answers failing (${pct(ev.failure_rate)})`+(Object.keys(ev.by_kind||{}).length?` · ${Object.entries(ev.by_kind).map(([k,v])=>k+' ×'+v).join(', ')}`:'')+(ev.examples?.length?`\nStruggled with: `+ev.examples.map(q=>'“'+q+'”').join('; '):'')],
   cycle_result:ev=>[{promoted:'✅',rolled_back:'↩️',awaiting_approval:'🙋',converged:'🏁',blocked:'🛑',done:'·',skipped:'⏭️',paused:'⏸️'}[ev.result]||'•',ev.step==='suggestions'?'From suggestions':'From scores',`${({promoted:'kept a change',rolled_back:'tried a change, undone (not better)',awaiting_approval:'better, waiting for a manager',converged:'already perfect on its tests',blocked:'refused by safety rules',done:'no agent-wide change needed',skipped:'skipped',paused:'paused'})[ev.result]||ev.result}${ev.detail?' · '+ev.detail:''}`],
   done:ev=>['🏁','Finished',ev.final_version?`Using v${ev.final_version}.`:(ev.reason||'')]};
 const fmt=ev=>(STEP[ev.kind]||(e=>['•',e.kind,'']))(ev);
@@ -442,7 +443,7 @@ async function loadModels(){const m=await api('/api/models');
     <div class="mute small" style="margin-top:8px">Each agent's context file names its model; anyone can pick a different one for themselves in 🤖 My agents → ✏️ My edit.</div>`}
 
 /* ---------- my agents ---------- */
-let curAgent=null,agentTab='context';
+let curAgent=null,agentTab='failing';
 async function loadAgents(){if(!token){$('#alist').innerHTML='';$('#adetail').innerHTML='<p class="empty">Pick a person first.</p>';return}
   const groups=[...new Set(myAgents.map(a=>a.org_title))];
   $('#alist').innerHTML=groups.map(g=>`<div class="tierlabel" style="text-align:left;padding:4px 8px">${esc(g)} agents</div>`+myAgents.filter(a=>a.org_title===g).map(a=>`<button data-id="${a.id}" class="${a.id===curAgent?'on':''}">🤖 ${esc(a.name)}<small>v${a.version}</small></button>`).join('')).join('');
@@ -450,8 +451,14 @@ async function loadAgents(){if(!token){$('#alist').innerHTML='';$('#adetail').in
   if(!curAgent||!myAgents.find(a=>a.id===curAgent))curAgent=(myAgents.find(a=>a.org_role===me.org_role)||myAgents[0]||{}).id;if(curAgent)openAgent(curAgent)}
 async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
   const d=await api('/api/agents/'+id+'/detail');const o=d.override||{};
-  const tabs=[['context','📄 Context'],['learned','🧠 What it learned'],['timeline',`🕒 Updates (${d.timeline.length})`],['edit','✏️ My edit'],...(d.can_publish?[['publish','🚀 Publish for everyone']]:[])];
+  const tabs=[['failing','🌧 Where it fails'],['context','📄 Context'],['learned','🧠 What it learned'],['timeline',`🕒 Updates (${d.timeline.length})`],['edit','✏️ My edit'],...(d.can_publish?[['publish','🚀 Publish for everyone']]:[])];
+  let F={};if(agentTab==='failing'){try{F=await api('/api/agents/'+id+'/failures')}catch(e){F={status:e.message}}}
   const body={
+    failing:F.status!=='ok'?`<span class="mute">Raindrop: ${esc(F.status||'loading…')}</span>`:`<div class="small mute">From Raindrop (Query API), last 7 days. This is what the agent's improvement cycle starts from.</div>
+      <div class="kpis" style="margin-top:8px"><div class="kpi"><b>${F.answers}</b><span>answers seen by Raindrop</span></div><div class="kpi"><b class="${F.failing?'no':'ok'}">${F.failing}</b><span>failing</span></div><div class="kpi"><b>${F.failure_rate!=null?Math.round(F.failure_rate*100)+'%':'–'}</b><span>failure rate</span></div></div>
+      <div class="kv"><div>How it fails</div><div>${Object.entries(F.by_kind).map(([k,v])=>`<span class="badge">${esc(k)} ×${v}</span>`).join('')||'<span class="ok">no failures</span>'}</div>
+      <div>By playbook version</div><div>${Object.entries(F.by_version).map(([v,x])=>`<span class="badge">v${esc(v)}: ${x.failing}/${x.answers} failing</span>`).join('')}</div></div>
+      ${F.examples.length?`<div class="small" style="margin-top:8px"><b>Where it struggled</b>${F.examples.map(x=>`<div>• “${esc(x.question)}” <span class="mute">(v${esc(x.version)} · ${esc(x.why.join(', '))})</span></div>`).join('')}</div>`:''}`,
     context:`<div class="small mute">Active context file in Atlas <code>context_layers</code> (v${d.context_version}) · playbook v${d.playbook_version} · 🔌 model profile <code>${esc(d.profile||d.llm?.model)}</code> · temp ${d.llm?.temperature} · ${d.llm?.max_tokens} tokens</div><pre style="max-height:520px">${esc(d.markdown)}</pre>${o.version?`<div class="prefs">+ your personal edit v${o.version} is applied on top for you</div>`:''}`,
     learned:`<div class="kv"><div>Learned rules</div><div>${d.rules.length?d.rules.map(r=>`<div>• ${esc(r)}</div>`).join(''):'<span class="mute">none yet</span>'}</div>
       <div>Learned workflow</div><div>${d.workflow?`${(d.workflow.procedure||[]).map((x,i)=>`<div>${i+1}. ${esc(x)}</div>`).join('')}${d.workflow.template?`<pre>${esc(d.workflow.template)}</pre>`:''}`:'<span class="mute">uses the procedure and template in its context file</span>'}</div>

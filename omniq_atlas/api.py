@@ -422,6 +422,18 @@ def agent_improve_cycle(agent_id: str, uid: str = Depends(current_user)) -> dict
     return {"run_id": run_id}
 
 
+@app.get("/api/agents/{agent_id}/failures")
+def agent_failures(agent_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
+    """Where this agent is failing, according to Raindrop (last 7 days)."""
+    import datetime as _dt
+
+    from . import raindrop_read
+
+    _my_agent(uid, agent_id)
+    now = _dt.datetime.now(_dt.timezone.utc)
+    return _jsonable(raindrop_read.agent_failures(agent_id, now - _dt.timedelta(days=7), now + _dt.timedelta(minutes=1)))
+
+
 @app.get("/api/agents/{agent_id}/cycles")
 def agent_cycles(agent_id: str, uid: str = Depends(current_user)) -> list[dict[str, Any]]:
     _my_agent(uid, agent_id)
