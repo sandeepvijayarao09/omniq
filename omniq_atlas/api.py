@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agents, assistant, audit, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agents, assistant, audit, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
@@ -227,12 +227,13 @@ def _scheduler() -> None:
     def loop() -> None:
         while True:
             time.sleep(60)
-            try:
-                started = improve.tick()
-                if started:
-                    audit.record("scheduler", "system", improved=started)
-            except Exception:
-                pass
+            for job in (improve.tick, maintenance.watchdog, maintenance.consolidate):
+                try:
+                    out = job()
+                    if out:
+                        audit.record("scheduler", "system", job=job.__name__, result=out)
+                except Exception:
+                    pass
 
     threading.Thread(target=loop, daemon=True).start()
 

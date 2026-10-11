@@ -25,6 +25,15 @@ Open http://127.0.0.1:8000 (or the Modelence URL).
    - `promoted` or `rolled_back`: the candidate is scored on train **and holdout**, and regressions are rolled back.
    - Switch the dropdown to **executive**: v1 0.33 → v6 0.66 → v7 1.00, with failed attempts rolled back.
 
+3b. **Agents that learn from their users (45 s, swap in for part of step 3 if time is short).**
+   Sign in as **Lauren Fitzgerald** (Customer Success). Pick **Renewal Risk Radar**, then the Corvid starter question.
+   Give 👎 and type *"Always start with a one-line risk verdict (Healthy / Watch / At risk) with the ARR and renewal date."*
+   Ask the other starter question. It now starts with the verdict and shows **✦ applied your preferences**.
+   Open **My memory** to show the preference (it can be deleted). Then **Improve from feedback**: it groups
+   recommendations into themes, sorts them into personal vs agent-wide, runs a blind judge replay *with personal
+   memory off* plus the graded guard, then promotes or rolls back. "Personal taste stays personal. What helps
+   everyone becomes the agent."
+
 4. **It can't unlock itself (20 s).** Click **Red-team patch**. It's an injected patch that disables the ACL
    and adds an `export_all_data` tool. It's **blocked**, with four reasons, and written to the hash-chained audit log.
 
@@ -37,5 +46,7 @@ Open http://127.0.0.1:8000 (or the Modelence URL).
   and proves it on held-out cases. And bigger isn't free: the score includes a cost penalty.
 - *Could the meta-agent rewrite the validator?* No. The validator is code, not harness data. The agent only emits
   JSON patches over the tunable fields, and every attempt is audited.
+- *What if a promoted version is worse in real use?* The watchdog compares live thumbs-down per version and
+  automatically restores the parent (`maintenance.watchdog`).
 - *Long horizon?* Runs are checkpointed in `evolve_runs` (`oa evolve --resume <id>`). Failures and lessons are
   embedded and recalled with Vector Search in later runs.

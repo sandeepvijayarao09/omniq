@@ -46,6 +46,40 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
 6. Every step is appended to an `evolve_runs` document, which **checkpoints** the run (`oa evolve --resume <id>`).
    The UI streams it live through a **MongoDB change stream**.
 
+## Role-specific agents that keep improving from their users (`agents.py`, `memory.py`, `improve.py`)
+
+Nine agents (`data/agents.yaml`) are gated by role and department: Deal Coach, Renewal Risk Radar, On-call Copilot,
+Deploy & Architecture Guide, Escalation Triage, Team Pulse, Variance Analyst, Executive Brief and Policy Helper.
+Each agent has:
+
+- **its own harness lineage** (`agent:<id>`), seeded from the template's persona, focus categories and tool allow-list.
+  The persona and allow-list are fixed identity; the evolver can only add rules and tune knobs.
+- **its own context policy**: retrieval searches the agent's focus categories first, intersected with the user's
+  grants (focus can narrow access, never widen it), then fills from everything else the user may read.
+- **its own memory layer** in Atlas Vector Search (`agent_memory`):
+  - *preferences* (per user) apply to that user's next answer immediately
+  - *lessons* (agent-wide) come from adopted improvements and are opt-in per harness version
+  - *facts* come from `/remember`
+  - recent *conversation turns* give follow-ups their context
+  Users can view and delete their own memories, never anyone else's or the agent's lessons.
+
+**The recurring improvement loop.** A 👎 asks "what should it do differently next time?"
+
+1. The recommendation becomes the user's preference right away, and is queued in `recommendations`.
+2. When an agent has 2+ pending, the scheduler, which runs every minute, starts `improve.run`:
+   - groups the recommendations into themes by Voyage similarity
+   - the meta-agent triages each theme as *personal* (already handled by that user's memory) or *agent-wide*
+   - it drafts one patch; the validator checks it, with one self-repair attempt if it objects
+3. The candidate is tested two ways:
+   - a **blind, order-randomized LLM-judge replay** of the recommended questions, *with personal memory off*,
+     to test whether the change helps every user
+   - the **agent's graded eval guard**: no score regression, no new leaks
+4. It's promoted (the theme becomes an agent-wide lesson) or rolled back.
+
+**Production guards.** A **watchdog** auto-restores the parent version if live thumbs-down on a new version is
+clearly worse. Memory **consolidation** collapses near-duplicate preferences so the newest instruction wins.
+Small eval sets are scored twice, and a case passes only if it passes every time, so a lucky run can't promote a change.
+
 ## MongoDB Atlas usage
 
 | Feature | Where |
@@ -53,7 +87,9 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
 | Atlas Vector Search with filter fields (ACL pre-filter) | `chunks`, `retrieve.search_docs` |
 | Vector Search over memory | `episodes` (failures), `lessons` (procedural) |
 | `$graphLookup` ontology traversal | `objects` / `links`, `retrieve.graph_context` |
+| Vector Search over per-agent memory, filtered by agent and owner | `agent_memory`, `memory.recall` |
 | Change streams → SSE | `api.evolve_stream` |
+| TTL index locks (one improvement run per scope) | `locks`, `db.acquire` |
 | Versioned documents as agent config | `harness` |
 | Append-only, hash-chained audit | `audit` |
 
@@ -75,6 +111,9 @@ uv venv --python 3.12 .venv && uv pip install --python .venv -e '.[dev]'
 .venv/bin/oa eval             # score the default harness for every role
 .venv/bin/oa evolve --role pro --generations 3
 .venv/bin/oa redteam --role pro   # an injected unsafe patch is blocked
+.venv/bin/oa agents                         # agents and their active harness versions
+.venv/bin/oa evolve --role agent:oncall_helper  # hard-metric loop for one agent
+.venv/bin/oa improve --agent deal_coach     # recommendation-driven loop for one agent
 .venv/bin/oa lineage --role pro
 .venv/bin/oa serve            # http://127.0.0.1:8000
 ```
