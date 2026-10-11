@@ -1,8 +1,7 @@
 # 3-minute demo script
 
-**Before you go on:** Ollama running. Restart the API with automatic improvement off so nothing changes mid-demo:
-`OA_AUTO_EVOLVE_MINUTES=0 .venv/bin/oa serve`. Then `.venv/bin/oa reset-harness --role agent:security_agent`
-(it starts at 0% and climbs to 100% live). Open http://127.0.0.1:8000.
+**Before you go on (one command):** `.venv/bin/oa demo-reset`, then `OA_AUTO_EVOLVE_MINUTES=0 OA_CYCLES=off .venv/bin/oa serve`
+(the model warms up for about 10 s). Open http://127.0.0.1:8000. Security Agent starts below 100%, and Verifier v3 waits for approval.
 
 **Say first (5 s):** "All code was written today. The demo company dataset is from my earlier prototype."
 
@@ -32,6 +31,9 @@
    `docs:read → doc:category/board` gives **Deny (implicit)**. Switch to Nadia: `improve:run → harness:agent/developer/…`
    gives **Allow, by director.ImproveAndApproveTeamPlaybooks**. Ask "What should I focus on this week?" as Maya, then as Ben:
    each gets their own projects.
+
+5c. **Outcome (10 s):** the chat home shows "What your agents learned this week", and 📊 Impact shows **answers right the first
+   time** per agent (e.g. Debug Agent 43% vs Build Agent 100%). "This is the number the loops move."
 
 6. **Guardrails and data (20 s).** **More → Try to break it** is refused. **⋯ Under the hood → Company graph and Data layer** show the Atlas
    collections, the vector indexes and the person's own ACL filter.

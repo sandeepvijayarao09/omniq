@@ -257,7 +257,13 @@ function newChat(){convo=Math.random().toString(36).slice(2,12);$('#ctxDrawer').
   $('#thread').innerHTML=`<div class="inner welcome"><h2>Hi ${esc(first)} 👋</h2><p>Ask anything, or bring in one of your agents with <b>@</b>.</p>
     <div class="sugs">${mine.map(a=>`<button data-q="@${a.id} ${esc(a.starter_questions[0]||'')}"><b>@${esc(a.id)}</b><small>${esc(a.starter_questions[0]||a.description)}</small></button>`).join('')}
     <button data-q="What happened in the August 14 outage and what should we do next?"><b>Ask without an agent</b><small>What happened in the August 14 outage and what should we do next?</small></button></div></div>`;
-  $('#thread').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;send()})}
+  $('#thread').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;send()});
+  api('/api/me/learned').then(L=>{if(!L.agents.length&&!L.about_you.length)return;const w=$('#thread .welcome');if(!w)return;
+    const d=document.createElement('div');d.className='card';d.style.cssText='text-align:left;margin-top:18px';
+    d.innerHTML=`<h3>What your agents learned this week</h3>${L.agents.map(x=>`<div class="small" style="margin:4px 0">🤖 <b>${esc(x.agent)}</b> v${x.version}: ${esc(x.what)} <span class="mute">(${esc(x.proof)})</span></div>`).join('')}
+      ${L.about_you.length?`<div class="small" style="margin-top:6px">🧭 <b>About how you work:</b> ${L.about_you.map(esc).join(' · ')}</div>`:''}
+      ${L.first_time_right?.rate!=null?`<div class="small mute" style="margin-top:6px">Your answers right the first time this week: <b>${Math.round(L.first_time_right.rate*100)}%</b> of ${L.first_time_right.answers}</div>`:''}
+      <div class="mute small" style="margin-top:4px">Learned from how you and your team use them. Nobody had to fill in a form.</div>`;w.appendChild(d)}).catch(()=>{})}
 async function loadConvos(){const cs=await api('/api/conversations');$('#convos').innerHTML=cs.length?'<div class="lbl">Recent</div>'+cs.map(c=>`<button data-id="${c.id}" class="${c.id===convo?'on':''}">${esc(c.title)}</button>`).join(''):'';
   $('#convos').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openConvo(b.dataset.id))}
 async function openConvo(id){const c=await api('/api/conversations/'+id);convo=id;$('#thread').innerHTML='<div class="inner"></div>';
@@ -271,9 +277,11 @@ function addTurn(kind,html,agent){const d=document.createElement('div');d.classN
 async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!token)return toast('Pick a person first');$('#q').value='';autosize();closeMentions();
   if(q.startsWith('/remember ')){addTurn('u',esc(q));await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10)})});addTurn('a','<div class="text">Got it. Saved to your memory.</div>');return}
   addTurn('u',esc(q).replace(/@([a-z_\-]+)/gi,'<b style="color:var(--accent)">@$1</b>'));
-  const pending=addTurn('a','<div class="text mute">Thinking…</div>');
-  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo})});renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
-  catch(e){pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
+  const pending=addTurn('a','<div class="text mute" data-steps>🔐 Checking your access…</div>');
+  const STEPS=['🔐 Checking your access…','🔎 Searching MongoDB Atlas (filtered to what you may read)…','🕸 Adding company-graph facts…','🫥 Masking names before the model sees anything…','🧠 Asking the model…'];
+  let si=0;const tick=setInterval(()=>{const el=pending.querySelector('[data-steps]');if(!el){clearInterval(tick);return}si=Math.min(si+1,STEPS.length-1);el.textContent=STEPS[si]},900);
+  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo})});clearInterval(tick);renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
+  catch(e){clearInterval(tick);pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
 function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
   el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${esc(r.model_label||r.model)} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
     <div class="text">${esc(r.answer)}</div>
@@ -423,7 +431,8 @@ async function loadImpact(){if(!token){$('#iwrap').innerHTML='<p class="empty">P
       <div class="flow"><span>📥 ${S.answers} answers</span>→<span>👍👎 ${S.ratings} ratings</span>→<span>🧭 ${S.follow_up_intents||0} follow-ups understood</span>→<span>💬 ${S.suggestions} suggestions</span>→<span>🔁 ${S.cycles} 7-day cycles reviewing ${S.decisions_reviewed_in_cycles} decisions</span>→<span>🧪 ${S.graded_eval_cases} graded test cases</span>→<span>⚖️ ${D.total} decisions</span></div>
       <div class="kpis"><div class="kpi"><b>${D.total}</b><span>automatic decisions</span></div><div class="kpi"><b class="ok">${kept}</b><span>kept (proven better)</span></div>
         <div class="kpi"><b class="no">${undone}</b><span>undone (not better)</span></div><div class="kpi"><b>${refused}</b><span>refused by safety rules</span></div>
-        <div class="kpi"><b>${waiting}</b><span>waiting for a manager</span></div><div class="kpi"><b class="ok">${D.avg_uplift_kept!=null?'+'+Math.round(D.avg_uplift_kept*100)+' pts':'–'}</b><span>avg score gain of kept changes</span></div></div>
+        <div class="kpi"><b>${waiting}</b><span>waiting for a manager</span></div><div class="kpi"><b class="ok">${D.avg_uplift_kept!=null?'+'+Math.round(D.avg_uplift_kept*100)+' pts':'–'}</b><span>avg score gain of kept changes</span></div>
+        <div class="kpi"><b>${D.first_time_right?.rate!=null?Math.round(D.first_time_right.rate*100)+'%':'–'}</b><span>answers right the first time (no rephrase, correction, ↻ or 👎) · 7 days</span></div></div>
       <div class="mute small">Nothing changes on opinion. A change is kept only when the numbers say it's better: practice + unseen questions, blind side-by-side replays, zero leaks. Everything else is undone, and that is a decision too.</div></div>
     <div class="card"><h3>Scores over time</h3><table class="dt"><tr><th>Playbook</th><th>Versions</th><th>Start</th><th>Now</th></tr>
       ${D.trend.filter(t=>t.points.length).slice(0,14).map(t=>`<tr><td>${esc(t.name)}</td><td><div class="trend">${t.points.map(p=>`<i class="${['active','superseded'].includes(p.status)?'on':''}" title="v${p.v} ${Math.round(p.score*100)}% ${p.status}" style="height:${Math.max(3,p.score*34)}px"></i>`).join('')}</div></td><td>${pct(t.start)}</td><td><b>${pct(t.now)}</b></td></tr>`).join('')}</table></div>

@@ -440,6 +440,27 @@ def agent_cycles(agent_id: str, uid: str = Depends(current_user)) -> list[dict[s
     return _jsonable(list(db().agent_cycles.find({"agent_id": agent_id}, {"_id": 0}).sort("created", -1).limit(5)))
 
 
+@app.get("/api/me/learned")
+def learned_this_week(uid: str = Depends(current_user)) -> dict[str, Any]:
+    """What the person's agents (and their own context) learned in the last 7 days, in plain sentences."""
+    import datetime as _dt
+
+    since = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=7)
+    user = assistant.get_user(uid)
+    mine = {a["id"]: a["name"] for a in agents.for_user(user)}
+    items = []
+    for v in db().harness.find({"role": {"$in": [f"agent:{a}" for a in mine]}, "status": {"$in": ["active", "superseded"]},
+                                "version": {"$gt": 1}, "created": {"$gte": since}}).sort("created", -1).limit(6):
+        aid = v["role"][6:]
+        sc = v.get("scores") or {}
+        proof = (f"won {round(sc['replay_win_rate'] * 100)}% of blind comparisons" if sc.get("replay_win_rate") is not None
+                 else f"now {round(sc['train']['pass_rate'] * 100)}% on tests" if sc.get("train") else "passed every check")
+        items.append({"agent": mine[aid], "what": (v.get("rationale") or "")[:140], "proof": proof, "version": v["version"]})
+    cyc = db().cycles.find_one({"user_id": uid, "status": "done"}, sort=[("created", -1)])
+    return _jsonable({"agents": items, "about_you": (cyc or {}).get("learned", [])[:3],
+                      "first_time_right": impact.first_time_right(uid)})
+
+
 @app.get("/api/org")
 def org_chart(uid: str = Depends(current_user)) -> dict[str, Any]:
     """The four-role hierarchy with the people in each role and how many agents each can use."""
@@ -526,6 +547,17 @@ def _scheduler() -> None:
         contextdb.sync_from_files()
     except Exception:
         pass
+
+    def warm() -> None:  # first answer on stage should be fast: load the model and cache common embeddings
+        try:
+            llm.complete("Reply with OK.", "OK", max_tokens=5)
+            qs = [q for a in db().agents.find({}, {"starter_questions": 1}) for q in a.get("starter_questions", [])]
+            for q in qs + ["What happened in the August 14 outage and what should we do next?"]:
+                embed.embed_one(q)
+        except Exception:
+            pass
+
+    threading.Thread(target=warm, daemon=True).start()
     if os.environ.get("OA_AUTO_IMPROVE", "true").lower() == "false":
         return
 

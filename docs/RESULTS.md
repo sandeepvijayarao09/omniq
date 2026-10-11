@@ -1,6 +1,6 @@
 # Results (generated from MongoDB Atlas)
 
-_Generated 2026-10-11 22:49 UTC by `scripts/results.py`. Every number below is a query over the live data._
+_Generated 2026-10-11 22:52 UTC by `scripts/results.py`. Every number below is a query over the live data._
 
 ## Data-driven decisions
 
@@ -13,6 +13,22 @@ _Generated 2026-10-11 22:49 UTC by `scripts/results.py`. Every number below is a
 | Waiting for a manager's approval | **1** |
 | Average score gain of kept changes | **+34 pts** |
 | Privacy leaks in any kept version | **0** |
+| Answers right the first time, last 7 days (no rephrase, correction, regenerate or 👎) | **76%** of 84 |
+
+## First-time-right by agent (last 7 days)
+
+| Agent | Answers | Right first time |
+|---|---|---|
+| General assistant | 31 | 90% |
+| Release Agent | 13 | 77% |
+| Debug Agent | 7 | 43% |
+| Verifier Agent | 6 | 67% |
+| Build Agent | 6 | 100% |
+| General assistant | 5 | 20% |
+| General assistant | 5 | 60% |
+| Board Brief Agent | 2 | 100% |
+| General assistant | 2 | 100% |
+| General assistant | 2 | 100% |
 
 ## Scores over time (practice-question pass rate)
 
@@ -32,7 +48,7 @@ _Generated 2026-10-11 22:49 UTC by `scripts/results.py`. Every number below is a
 
 | Signal | Count |
 |---|---|
-| Answers given | 83 |
+| Answers given | 84 |
 | 👍/👎 ratings | 22 |
 | followup_correction | 3 |
 | copied | 3 |
@@ -43,12 +59,12 @@ _Generated 2026-10-11 22:49 UTC by `scripts/results.py`. Every number below is a
 | follow-up understood as new_task | 1 |
 | 7-day person cycles run | 11 (reviewing 128 decisions) |
 | Agent 7-day cycles run | 5 |
-| Events stored in Raindrop | 76 |
+| Events stored in Raindrop | 77 |
 | Graded test cases | 84 |
 
 ## Safety
 
 - Leak test cases across roles and agents: all pass on every kept version (absolute safety gate).
 - Suggestions quarantined as injection attempts: 0.
-- Hash-chained audit log: 412 events, verified end to end.
+- Hash-chained audit log: 415 events, verified end to end.
 - End-to-end suite `scripts/e2e_live.py`: **29/29** through the public Modelence URL.

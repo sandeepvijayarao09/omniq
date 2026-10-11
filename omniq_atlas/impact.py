@@ -60,6 +60,7 @@ def decisions() -> dict[str, Any]:
                "decisions_reviewed_in_cycles": sum(c.get("totals", {}).get("decisions", 0) for c in db().cycles.find({"status": "done"})),
                "graded_eval_cases": 24 + 60}
     return {"outcomes": dict(outcome), "total": len(rows), "avg_uplift_kept": uplift, "signals": signals,
+            "first_time_right": first_time_right(),
             "trend": sorted(trend, key=lambda t: (t["now"] or 0) - (t["start"] or 0), reverse=True), "decisions": rows[:60]}
 
 
@@ -104,3 +105,28 @@ def partners() -> dict[str, Any]:
          "how": "Answers, the improver, the judge and the cycle analyst. Employee data never leaves the machine.",
          "counts": {"model calls": u.get("llm_calls", 0)}, "gaps": []},
     ]
+
+
+def first_time_right(user_id: str | None = None, days: int = 7) -> dict[str, Any]:
+    """Share of answers people did not have to rephrase, correct, regenerate or rate down: the outcome that matters."""
+    import datetime as dt
+
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
+    flt: dict[str, Any] = {"source": "chat", "ts": {"$gte": since}}
+    if user_id:
+        flt["user_id"] = user_id
+    eps = list(db().episodes.find(flt, {"_id": 1, "agent_id": 1}))
+    ids = [e["_id"] for e in eps]
+    bad = {x["event_id"] for x in db().implicit_signals.find({"event_id": {"$in": ids}, "positive": False})}
+    bad |= {f["event_id"] for f in db().feedback.find({"event_id": {"$in": ids}, "good": False})}
+    per: dict[str, list[int]] = {}
+    for e in eps:
+        k = e.get("agent_id") or "assistant"
+        per.setdefault(k, [0, 0])
+        per[k][0] += 1
+        per[k][1] += e["_id"] not in bad
+    names = {a["id"]: a["name"] for a in db().agents.find({}, {"id": 1, "name": 1})}
+    rows = sorted(({"agent": names.get(k, "General assistant"), "answers": n, "first_time_right": round(ok / n, 3)}
+                   for k, (n, ok) in per.items() if n), key=lambda r: -r["answers"])
+    total = len(eps)
+    return {"answers": total, "rate": round((total - len(bad & set(ids))) / total, 3) if total else None, "per_agent": rows[:10]}

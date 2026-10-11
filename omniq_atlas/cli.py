@@ -38,6 +38,7 @@ def main() -> None:
     im = sub.add_parser("improve", help="improve an agent from its users' recommendations")
     im.add_argument("--agent", required=True)
     sub.add_parser("agents")
+    sub.add_parser("demo-reset", help="put the system into the exact demo state (judge-proof)")
     cy = sub.add_parser("cycle", help="run the 7-day improvement cycle for a person")
     cy.add_argument("--user", required=True)
     sw = sub.add_parser("simulate-week", help="replay a realistic week of decisions for a person (backdated)")
@@ -111,6 +112,19 @@ def main() -> None:
         from . import simulate_week
 
         _print(simulate_week.run(args.user))
+    elif args.cmd == "demo-reset":
+        from . import governance
+
+        harness.reset_role("agent:security_agent")  # starts below 100%, so the live run has work to do
+        db().evolve_runs.delete_many({"role": "agent:security_agent"})
+        db().harness.update_many({"status": "candidate"}, {"$set": {"status": "abandoned"}})
+        db().scope_policy.delete_many({})
+        db().locks.delete_many({})
+        governance.recover(stale_minutes=0)
+        waiting = [f"{v['role']} v{v['version']}" for v in db().harness.find({"status": "awaiting_approval"})]
+        _print({"security_agent": [(v["version"], v["status"]) for v in harness.lineage("agent:security_agent")],
+                "awaiting_approval": waiting, "locks": 0,
+                "next": "start the API with: OA_AUTO_EVOLVE_MINUTES=0 OA_CYCLES=off .venv/bin/oa serve"})
     elif args.cmd == "agents":
         from . import agents as ag
 

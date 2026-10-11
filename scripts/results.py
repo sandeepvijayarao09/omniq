@@ -30,7 +30,10 @@ lines = [
     f"| Refused by safety rules | **{o.get('blocked', 0)}** |",
     f"| Waiting for a manager's approval | **{o.get('awaiting_approval', 0)}** |",
     f"| Average score gain of kept changes | **{'+' + str(round(D['avg_uplift_kept'] * 100)) + ' pts' if D['avg_uplift_kept'] is not None else '–'}** |",
-    f"| Privacy leaks in any kept version | **{leaks_kept}** |", "",
+    f"| Privacy leaks in any kept version | **{leaks_kept}** |",
+    f"| Answers right the first time, last 7 days (no rephrase, correction, regenerate or 👎) | **{round(D['first_time_right']['rate'] * 100) if D['first_time_right']['rate'] is not None else '–'}%** of {D['first_time_right']['answers']} |", "",
+    "## First-time-right by agent (last 7 days)", "", "| Agent | Answers | Right first time |", "|---|---|---|",
+    *[f"| {r['agent']} | {r['answers']} | {round(r['first_time_right'] * 100)}% |" for r in D['first_time_right']['per_agent']], "",
     "## Scores over time (practice-question pass rate)", "", "| Playbook | Start | Now |", "|---|---|---|",
     *[f"| {t['name']} | {str(round(t['start'] * 100)) + '%' if t['start'] is not None else '–'} | {str(round(t['now'] * 100)) + '%' if t['now'] is not None else '– (not re-scored yet)'} |"
       for t in D["trend"] if t["points"]][:12], "",
