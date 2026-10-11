@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agents, assistant, audit, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agents, assistant, audit, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
@@ -34,6 +34,11 @@ app = FastAPI(title="Omniq Atlas")
 
 @app.exception_handler(assistant.Forbidden)
 async def _forbidden(_: Request, e: Exception) -> JSONResponse:
+    return JSONResponse({"detail": str(e)}, status_code=403)
+
+
+@app.exception_handler(governance.NotAllowed)
+async def _not_allowed(_: Request, e: Exception) -> JSONResponse:
     return JSONResponse({"detail": str(e)}, status_code=403)
 
 
@@ -221,6 +226,10 @@ def _safe(fn, *args) -> None:
 @app.on_event("startup")
 def _scheduler() -> None:
     """Recurring improvement: every minute, agents with enough queued recommendations improve themselves."""
+    try:
+        governance.recover()
+    except Exception:
+        pass
     if os.environ.get("OA_AUTO_IMPROVE", "true").lower() == "false":
         return
 
@@ -304,6 +313,43 @@ async def evolve_stream(run_id: str) -> StreamingResponse:
 
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+class FreezeReq(BaseModel):
+    frozen: bool
+
+
+class RejectReq(BaseModel):
+    reason: str = ""
+
+
+@app.get("/api/governance/{scope}")
+def governance_status(scope: str) -> dict[str, Any]:
+    return _jsonable(governance.status(scope))
+
+
+@app.post("/api/governance/{scope}/approve/{version}")
+def approve(scope: str, version: int, uid: str = Depends(current_user)) -> dict[str, str]:
+    governance.approve(scope, version, uid, assistant.get_user(uid).role)
+    return {"ok": f"{scope} v{version} promoted"}
+
+
+@app.post("/api/governance/{scope}/reject/{version}")
+def reject(scope: str, version: int, body: RejectReq, uid: str = Depends(current_user)) -> dict[str, str]:
+    governance.reject(scope, version, uid, assistant.get_user(uid).role, body.reason)
+    return {"ok": f"{scope} v{version} rejected"}
+
+
+@app.post("/api/governance/{scope}/rollback/{version}")
+def manual_rollback(scope: str, version: int, uid: str = Depends(current_user)) -> dict[str, str]:
+    governance.rollback(scope, version, uid, assistant.get_user(uid).role)
+    return {"ok": f"{scope} is back on v{version}"}
+
+
+@app.post("/api/governance/{scope}/freeze")
+def freeze(scope: str, body: FreezeReq, uid: str = Depends(current_user)) -> dict[str, Any]:
+    governance.freeze(scope, body.frozen, uid, assistant.get_user(uid).role)
+    return {"frozen": body.frozen}
 
 
 @app.get("/api/runs")

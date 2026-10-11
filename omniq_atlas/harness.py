@@ -174,8 +174,12 @@ def apply_patch(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]
 
 def propose(role: str, patch: dict[str, Any], rationale: str, evidence: list[Any]) -> dict[str, Any]:
     """Store a candidate version (status 'candidate'), or a 'blocked' record if unsafe."""
+    from . import governance
+
     base = active(role)
-    problems = validate_patch(base["config"], patch)
+    problems = validate_patch(base["config"], patch) + governance.check_types(patch)
+    if not problems:
+        problems = governance.review_rules(base["config"], patch)
     version = (db().harness.find_one({"role": role}, sort=[("version", -1)]) or {"version": 0})["version"] + 1
     doc = {"role": role, "version": version, "parent": base["version"], "created": _now(),
            "patch": patch, "rationale": rationale, "evidence": evidence, "scores": {},

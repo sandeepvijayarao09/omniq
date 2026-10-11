@@ -18,7 +18,7 @@ import json
 import uuid
 from typing import Any
 
-from . import audit, embed, evals, harness, llm, retrieve, telemetry
+from . import audit, embed, evals, governance, harness, llm, retrieve, telemetry
 from .config import settings
 from .db import db
 
@@ -115,6 +115,12 @@ def run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str,
     """One evolution run per scope at a time (Atlas TTL lock shared with the recommendation improver)."""
     from .db import Locked, acquire, release
 
+    ok, why = governance.can_run(role)
+    if not ok:
+        rid = run_id or uuid.uuid4().hex[:10]
+        db().evolve_runs.insert_one({"_id": rid, "role": role, "status": "done", "created": _now(), "updated": _now(),
+                                     "events": [{"ts": _now(), "kind": "skipped", "reason": why}]})
+        return db().evolve_runs.find_one({"_id": rid})
     try:
         acquire(f"improve:{role}")
     except Locked as e:
@@ -186,6 +192,7 @@ def _run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str
         if cand["status"] == "blocked":
             _log(run_id, "blocked", version=cand["version"], problems=cand["problems"])
             _lesson(role, f"Blocked patch: {cand['problems']}", "rejected")
+            governance.record_outcome(role, "blocked")
             _checkpoint(run_id, gen + 1)
             continue
 
@@ -195,20 +202,24 @@ def _run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str
         win = (new_train["score"] > base_train["score"] + 0.01
                and new_hold["score"] >= base_hold["score"] - 0.02
                and new_train["leaks"] + new_hold["leaks"] <= base_train["leaks"] + base_hold["leaks"])
-        if win:
+        reason = (f"train {base_train['score']}→{new_train['score']}, holdout {base_hold['score']}→{new_hold['score']}, "
+                  f"leaks {new_train['leaks'] + new_hold['leaks']}")
+        outcome, why = governance.decide(role, cfg, cand, scores, win, reason, "evolver")
+        if outcome == "promoted":
             cache[cand["version"]] = (new_train, new_hold)
-            harness.promote(role, cand["version"], scores)
             _lesson(role, prop.get("lesson") or prop.get("rationale", ""), "adopted")
-            audit.record("harness_promoted", "evolver", role=role, version=cand["version"], scores=scores)
             _log(run_id, "promoted", version=cand["version"], train=scores["train"], holdout=scores["holdout"],
-                 delta=round(new_train["score"] - base_train["score"], 4))
+                 delta=round(new_train["score"] - base_train["score"], 4), gate=why)
+        elif outcome == "awaiting_approval":
+            _log(run_id, "awaiting_approval", version=cand["version"], reasons=why)
+            break  # nothing more to build on until a human decides
         else:
-            reason = (f"train {base_train['score']}→{new_train['score']}, holdout {base_hold['score']}→{new_hold['score']}, "
-                      f"leaks {new_train['leaks'] + new_hold['leaks']}")
-            harness.reject(role, cand["version"], scores, reason)
-            _lesson(role, f"Did not help: {prop.get('lesson') or prop.get('rationale', '')} ({reason})", "rejected")
-            audit.record("harness_rolled_back", "evolver", role=role, version=cand["version"], reason=reason)
-            _log(run_id, "rolled_back", version=cand["version"], reason=reason)
+            _lesson(role, f"Did not help: {prop.get('lesson') or prop.get('rationale', '')} ({why})", "rejected")
+            _log(run_id, "rolled_back", version=cand["version"], reason=why)
+            ok, paused = governance.can_run(role, consume=False)
+            if not ok and "paused" in paused:
+                _log(run_id, "paused", reason=paused)
+                break
         _checkpoint(run_id, gen + 1)
 
     final = harness.active(role)

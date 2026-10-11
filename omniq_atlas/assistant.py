@@ -192,6 +192,14 @@ def feedback(event_id: str, user_id: str, good: bool, comment: str = "", recomme
             "question": ep["question_t"], "embedding": embed.embed_one(ep["question_t"], "document")}})
     out = {"queued": False, "preference": False}
     if rec and ep.get("agent_id"):
+        from . import governance
+
+        flags = governance.screen(rec)
+        if flags or not governance.recommendation_allowed(user_id, ep["agent_id"]):
+            audit.record("recommendation_quarantined", user_id, episode=event_id, reasons=flags or ["daily limit"])
+            telemetry.signal(event_id, "recommendation_quarantined", negative=True, comment=vault.tokenize(rec))
+            return {"queued": False, "preference": False, "quarantined": True,
+                    "reasons": flags or ["daily recommendation limit reached"]}
         q = vault.detokenize(ep["question_t"])
         memory.add(ep["agent_id"], user_id, "preference", rec, source=event_id)
         memory.recommend(ep["agent_id"], ep["role"], user_id, event_id, q, vault.detokenize(ep["answer_t"]), rec,

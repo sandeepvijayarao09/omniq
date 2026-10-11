@@ -22,7 +22,7 @@ import random
 import uuid
 from typing import Any
 
-from . import assistant, audit, embed, evals, harness, llm, memory, telemetry
+from . import assistant, audit, embed, evals, governance, harness, llm, memory, telemetry
 from .config import settings
 from .db import Locked, acquire, db, release
 from .evolve import KNOBS, _log, _slim
@@ -115,6 +115,11 @@ def run(scope: str, run_id: str | None = None, min_pending: int = 1) -> dict[str
     run_id = run_id or uuid.uuid4().hex[:10]
     db().evolve_runs.insert_one({"_id": run_id, "role": scope, "kind": "recommendations", "status": "running",
                                  "created": _now(), "updated": _now(), "events": []})
+    ok, why = governance.can_run(scope)
+    if not ok:
+        _log(run_id, "skipped", reason=why)
+        db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done"}})
+        return db().evolve_runs.find_one({"_id": run_id})
     try:
         acquire(f"improve:{scope}")
     except Locked as e:
@@ -139,6 +144,11 @@ def _close(recs: list[dict[str, Any]], status: str, version: int | None) -> None
 
 def _run(scope: str, run_id: str, min_pending: int) -> dict[str, Any]:
     recs = memory.pending(scope)
+    flagged = [r for r in recs if governance.screen(r["text"])]
+    if flagged:  # never let steering attempts reach the meta-agent
+        _close(flagged, "quarantined", None)
+        _log(run_id, "quarantined", count=len(flagged), items=[r["text"][:120] for r in flagged])
+        recs = [r for r in recs if r not in flagged]
     _log(run_id, "recommendations", count=len(recs), items=[r["text"] for r in recs][:10])
     if len(recs) < min_pending:
         _log(run_id, "done", reason="nothing pending")
@@ -157,7 +167,12 @@ def _run(scope: str, run_id: str, min_pending: int) -> dict[str, Any]:
         _log(run_id, "meta_error", error=str(e)[:200])
         prop = {"decisions": [], "patch": {}, "rationale": "meta-agent failed", "lesson": ""}
     decisions = {d.get("theme"): d for d in prop.get("decisions", [])}
-    personal = [r for i, t in enumerate(themes) if decisions.get(i, {}).get("scope") == "personal" for r in t]
+    # quorum: one person's request never changes the agent for everyone, whatever the meta-agent says
+    below = [i for i, t in enumerate(themes) if len({r["user_id"] for r in t}) < governance.QUORUM]
+    if below:
+        _log(run_id, "below_quorum", themes=[themes[i][0]["text"][:120] for i in below], quorum=governance.QUORUM)
+    personal = [r for i, t in enumerate(themes)
+                if decisions.get(i, {}).get("scope") == "personal" or i in below for r in t]
     general = [r for r in recs if r not in personal]
     _log(run_id, "triaged", personal=len(personal), agent_wide=len(general), patch=prop.get("patch"),
          rationale=prop.get("rationale"))
@@ -189,6 +204,7 @@ def _run(scope: str, run_id: str, min_pending: int) -> dict[str, Any]:
     if cand["status"] == "blocked":
         _log(run_id, "blocked", version=cand["version"], problems=cand["problems"])
         _close(general, "blocked", cand["version"])
+        governance.record_outcome(scope, "blocked")
         db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done"}})
         return db().evolve_runs.find_one({"_id": run_id})
 
@@ -204,20 +220,21 @@ def _run(scope: str, run_id: str, min_pending: int) -> dict[str, Any]:
          evals_before=base and base["score"], evals_after=new and new["score"],
          leaks=new and new["leaks"], cases=rep["cases"])
 
-    if rep["win_rate"] >= 0.6 and guard_ok:
-        harness.promote(scope, cand["version"], scores)
+    won = rep["win_rate"] >= 0.6 and guard_ok
+    lost = (f"replay win rate {rep['win_rate']}" if rep["win_rate"] < 0.6 else
+            f"eval guard: {base['score']}→{new['score']}, leaks {new['leaks']}") if not won else ""
+    outcome, why = governance.decide(scope, cur["config"], cand, scores, won, lost, "improver")
+    if outcome == "promoted":
         if prop.get("lesson"):
             memory.add(scope[6:], memory.GLOBAL, "lesson", prop["lesson"], source=f"v{cand['version']}")
         _close(general, "adopted", cand["version"])
-        audit.record("harness_promoted", "improver", role=scope, version=cand["version"], scores=scores)
-        _log(run_id, "promoted", version=cand["version"], replay=rep["win_rate"])
+        _log(run_id, "promoted", version=cand["version"], replay=rep["win_rate"], gate=why)
+    elif outcome == "awaiting_approval":
+        _close(general, "awaiting_approval", cand["version"])
+        _log(run_id, "awaiting_approval", version=cand["version"], reasons=why)
     else:
-        reason = (f"replay win rate {rep['win_rate']}" if rep["win_rate"] < 0.6 else
-                  f"eval guard: {base['score']}→{new['score']}, leaks {new['leaks']}")
-        harness.reject(scope, cand["version"], scores, reason)
         _close(general, "rejected", cand["version"])
-        audit.record("harness_rolled_back", "improver", role=scope, version=cand["version"], reason=reason)
-        _log(run_id, "rolled_back", version=cand["version"], reason=reason)
+        _log(run_id, "rolled_back", version=cand["version"], reason=why)
     db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done"}})
     return db().evolve_runs.find_one({"_id": run_id})
 
