@@ -161,7 +161,8 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         memory.remember_turn(convo_id, user.id, agent_id or "", question, answer)
         audit.record("ask", user.id, episode=event_id, scope=scope, harness_version=version, question=tq,
                      sources=episode["sources"], model=meta.get("model"), pii=vault.summary())
-    telemetry.track_answer(event_id, user.id, tq, answer_t, meta.get("model", ""), convo_id or event_id,
+    if source == "chat":  # only real conversations go to Raindrop (eval traffic would drown the signal and quota)
+        telemetry.track_answer(event_id, user.id, tq, answer_t, meta.get("model", ""), convo_id or event_id,
                            {"scope": scope, "agent": agent_id or "", "harness_version": version, "source": source,
                             "n_sources": len(sources), "latency": latency, "memories_applied": len(mems)})
     return {"answer": answer, "event_id": event_id, "harness_version": version, "scope": scope, "role": user.role,

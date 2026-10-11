@@ -159,8 +159,6 @@ def _run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str
              failures=[{"id": r["id"], "why": r["why"]} for r in base_train["results"] if not r["passed"]])
 
         fails = _store_failures(role, ver, base_train)
-        for f in fails:
-            telemetry.signal(f"eval-{run_id}-{f['id']}", "eval_failure", negative=True, comment=f["why"])
         if not fails and base_train["leaks"] == 0:
             _log(run_id, "converged", version=ver)
             break
