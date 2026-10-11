@@ -74,7 +74,13 @@ textarea{width:100%;min-height:56px}
 .link{display:inline-flex;gap:6px;align-items:center;margin:3px 6px 3px 0;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:transparent}
 .graph{width:100%;height:340px}.graph text{fill:var(--text);font-size:11px}.graph .lbl{fill:var(--mute);font-size:10px}
 .graph circle{cursor:pointer}
-#vData{display:none;overflow:auto}#vData.on{display:block}
+#vData,#vAccess{display:none;overflow:auto}#vData.on,#vAccess.on{display:block}
+.st{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0;background:var(--panel);font-size:13px}
+.st .eff{font-weight:700}.st .eff.Allow{color:var(--accent)}.st .eff.Deny{color:var(--bad)}
+.st code{background:var(--panel2);padding:1px 6px;border-radius:6px}
+.sim{display:grid;grid-template-columns:1fr 2fr auto;gap:8px;align-items:center}
+.verdict{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:14px}.verdict.Allow{background:var(--accent-soft);border:1px solid var(--green-line)}.verdict.Deny{background:#fdecec;border:1px solid var(--bad-line)}
+.proj{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--panel)}
 .wrap{max-width:1150px;margin:0 auto;padding:18px 22px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px}
 .coll .top{display:flex;align-items:baseline;gap:8px}.coll .top b{font-size:15px;font-family:ui-monospace,Menlo,monospace}.coll .n{margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums}
@@ -123,7 +129,7 @@ textarea{width:100%;min-height:56px}
 <body>
 <header>
   <h1>Omniq <span>Atlas</span></h1>
-  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
+  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vAccess">🔐 Access</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
   <div class="right"><div class="dots" id="dots"></div><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
 
@@ -174,6 +180,8 @@ textarea{width:100%;min-height:56px}
   <div class="odetail" id="odetail"><p class="empty">Pick a person first, then anything on the left. You only see the parts of the company graph your role allows.</p></div>
 </div>
 
+<div class="view" id="vAccess"><div class="wrap" id="awrap"><p class="empty">Pick a person first.</p></div></div>
+
 <div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
 
 <div class="toast" id="toast"></div>
@@ -186,7 +194,7 @@ const pct=x=>x==null?'–':Math.round(x*100)+'%';const newConvo=()=>convo=Math.r
 const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData()});
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess()});
 
 async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['ElevenLabs',s.elevenlabs],['Atlas',true]];
   $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
@@ -204,7 +212,7 @@ async function login(id){const r=await api('/api/login',{method:'POST',body:JSON
   $('#mecard').innerHTML=`<b>${esc(me.name)}</b><span class="mute">${esc(me.title)}</span><br><span class="role">${esc(me.org_title||me.role)}</span> <span class="mute small">${myAgents.length} agents</span><div style="margin-top:6px"><a id="myCtx">My context files</a><a id="myMem">My memory</a></div>`;
   $('#myCtx').onclick=showMyContext;$('#myMem').onclick=showMemory;
   newChat();loadConvos();loadScopes(me.org_role?myAgents.find(a=>a.org_role===me.org_role)?'agent:'+myAgents.find(a=>a.org_role===me.org_role).id:me.role:me.role).then(loadLineage);
-  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData()}
+  if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData();if($('#vAccess').classList.contains('on'))loadAccess()}
 function newChat(){convo=Math.random().toString(36).slice(2,12);$('#ctxDrawer').classList.remove('on');document.querySelectorAll('#convos button').forEach(b=>b.classList.remove('on'));
   const mine=myAgents.filter(a=>a.org_role===me.org_role).slice(0,4);const first=me.name.split(' ')[0];
   $('#thread').innerHTML=`<div class="inner welcome"><h2>Hi ${esc(first)} 👋</h2><p>Ask anything, or bring in one of your agents with <b>@</b>.</p>
@@ -329,9 +337,9 @@ const fmt=ev=>(STEP[ev.kind]||(e=>['•',e.kind,'']))(ev);
 function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;const es=new EventSource(`/api/evolve/${run_id}/stream`);
   es.onmessage=e=>{const ev=JSON.parse(e.data);const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <b class="k-${ev.kind}">${esc(label)}</b> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','done','evaluated','awaiting_approval'].includes(ev.kind))loadLineage()};
   es.addEventListener('end',()=>{es.close();btn.disabled=false;loadScopes().then(loadLineage)});es.onerror=()=>{es.close();btn.disabled=false}}
-$('#evolve').onclick=async()=>{if(!token)return toast('Pick a person first');const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})});stream(run_id,$('#evolve'))};
-$('#improve').onclick=async()=>{if(!token)return toast('Pick a person first');const {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})});stream(run_id,$('#improve'))};
-$('#redteam').onclick=async()=>{if(!token)return toast('Pick a person first');const r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');
+$('#evolve').onclick=async()=>{if(!token)return toast('Pick a person first');try{var {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#evolve'))};
+$('#improve').onclick=async()=>{if(!token)return toast('Pick a person first');try{var {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#improve'))};
+$('#redteam').onclick=async()=>{if(!token)return toast('Pick a person first');let r;try{r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'})}catch(e){return toast('⛔ '+e.message)}const log=$('#log');log.style.display='block';const d=document.createElement('div');
   d.innerHTML=`🛑 <b class="k-blocked">Refused</b> We tried to sneak in a change that switches off access rules and adds an "export all data" tool. Refused: ${esc(r.problems.join('; '))}`;log.appendChild(d);loadLineage()};
 
 const TYPE_ICON={Person:'🧑',Team:'👥',Customer:'🏢',Contact:'📇',Deal:'💼',System:'⚙️',Incident:'🚨',ActionItem:'✅',Decision:'📐',Project:'🗂️',Contract:'📜',Vendor:'🏷️',Objective:'🎯',Policy:'📘'};
@@ -359,6 +367,34 @@ function graphSVG(o){const W=760,H=340,cx=W/2,cy=H/2,ls=o.links.slice(0,18),R=Ma
   return `<svg class="graph" viewBox="0 0 ${W} ${H}">${nodes.map(n=>`<line x1="${cx}" y1="${cy}" x2="${n.x}" y2="${n.y}" stroke="#c9d1d9"/><text class="lbl" x="${(cx+n.x)/2}" y="${(cy+n.y)/2-3}" text-anchor="middle">${esc(n.type.replace(/_/g,' '))}</text>`).join('')}
     ${nodes.map(n=>`<g onclick="openObject('${n.id}')"><circle cx="${n.x}" cy="${n.y}" r="17" fill="var(--btn)" stroke="#b8c2cc"/><text x="${n.x}" y="${n.y+4}" text-anchor="middle">${TYPE_ICON[n.otype]||'•'}</text><text x="${n.x}" y="${n.y+32}" text-anchor="middle">${esc(n.name.length>22?n.name.slice(0,21)+'…':n.name)}</text></g>`).join('')}
     <circle cx="${cx}" cy="${cy}" r="26" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="${cx}" y="${cy+5}" text-anchor="middle" style="font-size:16px">${TYPE_ICON[o.type]||'•'}</text><text x="${cx}" y="${cy+44}" text-anchor="middle" style="font-weight:650">${esc(o.name)}</text></svg>`}
+
+
+/* ---------- IAM / access ---------- */
+const SIM_PRESETS=[['docs:read','doc:category/board'],['docs:read','doc:hr/platform'],['docs:read','doc:owner/emp-1001'],['agent:use','agent:cto/board_tech_brief'],['agent:use','agent:developer/deploy_guide'],['improve:run','harness:agent/developer/deploy_guide'],['harness:approve','harness:agent/cto/security_posture'],['iam:edit','policies']];
+async function loadAccess(){if(!token){$('#awrap').innerHTML='<p class="empty">Pick a person first (Chat tab).</p>';return}
+  const [m,projs]=await Promise.all([api('/api/iam/me'),api('/api/projects')]);
+  if(!m.org_role){$('#awrap').innerHTML=`<div class="card"><h3>Access</h3>${esc(me.name)} is outside the four org roles, so the legacy role grants apply.</div>`;return}
+  const byRole={};m.statements.forEach(st=>(byRole[st.role]=byRole[st.role]||[]).push(st));
+  $('#awrap').innerHTML=`<div class="card"><h3>Who you are to IAM</h3>
+      <div><b>${esc(me.name)}</b> · role <code>${esc(m.org_role)}</code> · inherits <code>${m.role_chain.slice(1).join('</code> → <code>')||'nothing'}</code></div>
+      <div class="small mute" style="margin-top:6px">Variables: ${Object.entries(m.variables).map(([k,v])=>`<code>\${user.${k}}</code> = ${esc(v.join(', '))}`).join(' · ')}</div></div>
+    <div class="card"><h3>What that compiles to</h3><div class="kv">
+      <div>Document categories</div><div>${m.doc_categories.map(c=>`<span class="badge">${c}</span>`).join('')}</div>
+      <div>HR notes for teams</div><div>${m.hr_teams.length?m.hr_teams.map(c=>`<span class="badge">${c}</span>`).join(''):'<span class="mute">none</span>'}</div>
+      <div>Agents you can use</div><div>${m.agents_usable.length}</div>
+      <div>Playbooks you can improve</div><div>${m.agents_improvable.length||'<span class="mute">none (developers and PMs can suggest, directors and the CTO run improvements)</span>'}</div></div>
+      <div class="mute small" style="margin-top:6px">Document access is enforced by MongoDB itself: these become your <code>$vectorSearch</code> filter (see 🗄 Data layer).</div></div>
+    <div class="card"><h3>Try it: would this be allowed?</h3>
+      <div class="sim"><input id="simA" placeholder="action, e.g. docs:read" value="docs:read"><input id="simR" placeholder="resource, e.g. doc:category/board" value="doc:category/board"><button class="primary" id="simGo">Check</button></div>
+      <div class="chips" style="margin-top:8px">${SIM_PRESETS.map(([a,r])=>`<button data-a="${a}" data-r="${r}">${a} → ${r}</button>`).join('')}</div><div id="simOut"></div></div>
+    <div class="card"><h3>Your projects and scope of work</h3>${projs.length?projs.map(p=>`<div class="proj"><b>${esc(p.name)}</b> <span class="role">${esc(p.status)}</span> ${p.mine?'<span class="agenttag">you</span>':'<span class="mute small">visibility</span>'}
+        <div class="small mute">Owner: ${esc(p.owner_name)} · Milestones: ${esc(p.milestones.join('; '))}</div>
+        <div class="small" style="margin-top:4px">${p.members.map(x=>`<div>${x.id===me.id?'<b>':''}${esc(x.name)}: ${esc(x.role)}, ${esc(x.scope)}${x.id===me.id?'</b>':''}</div>`).join('')}</div></div>`).join(''):'<span class="mute">No projects.</span>'}</div>
+    <div class="card"><h3>Your policy statements (from data/iam/policies.yaml)</h3>
+      ${Object.entries(byRole).map(([r,sts])=>`<div class="tierlabel" style="text-align:left">${esc(r)}</div>`+sts.map(st=>`<div class="st"><span class="eff ${st.effect}">${st.effect}</span> <b>${esc(st.sid)}</b><div class="small" style="margin-top:3px">actions ${st.actions.map(a=>'<code>'+esc(a)+'</code>').join(' ')}</div><div class="small">resources ${st.expanded.map(a=>'<code>'+esc(a)+'</code>').join(' ')}</div></div>`).join('')).join('')}</div>`;
+  const go=async()=>{const r=await api('/api/iam/simulate',{method:'POST',body:JSON.stringify({action:$('#simA').value,resource:$('#simR').value})});
+    $('#simOut').innerHTML=`<div class="verdict ${r.decision==='Allow'?'Allow':'Deny'}"><b>${r.decision==='Allow'?'✅ Allow':'⛔ Deny'}</b>: ${esc(r.reason)}</div>`};
+  $('#simGo').onclick=go;$('#awrap').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{$('#simA').value=b.dataset.a;$('#simR').value=b.dataset.r;go()})}
 
 async function loadData(){if(!token){$('#dwrap').innerHTML='<p class="empty">Pick a person first (Assistant tab). The data layer is shown as that person.</p>';return}
   $('#dwrap').innerHTML='<p class="empty">Reading MongoDB Atlas…</p>';const d=await api('/api/datalayer');const layers=[...new Set(d.collections.map(c=>c.layer))];

@@ -65,6 +65,27 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
          ─► episode (Atlas) + hash-chained audit (Atlas) + Raindrop event
 ```
 
+## IAM: role-based access control (`data/iam/policies.yaml`, `omniq_atlas/iam.py`)
+
+Access follows AWS-IAM-style policies: **explicit Deny > Allow > implicit deny**. Roles inherit statements
+(`cto → director → developer | product_manager → employee`), and variables expand per person:
+`doc:hr/${user.manages}` means "HR notes for the teams I manage" and `project:${user.projects}` means "my projects".
+
+- **Documents:** for org members, read access is *compiled from the policies* into the categories and HR teams that
+  become the `$vectorSearch` pre-filter, so MongoDB enforces exactly what the policy says.
+- **Actions:** `agent:use` (who can @ an agent), `improve:run` (directors improve Developer, PM and Director playbooks;
+  the CTO improves all), `harness:approve|freeze|rollback`, `memory:delete` (own only). `iam:edit` and
+  `harness:edit-invariants` are explicitly denied to everyone, including the CTO.
+- **🔐 Access tab:** your role chain, variables, compiled access, every statement, your projects, and a simulator that
+  answers "would X on Y be allowed?" and names the statement that decided it.
+
+## Projects and scope of work (`data/projects.yaml`)
+
+Eight projects, each with an owner, status, milestones, linked docs and **each member's own role and scope**
+(for example, Maya is tech lead on ADR-007 and backend engineer on SSO/SAML). Every person's context file
+includes "My projects and scope of work". Retrieval adds the most relevant passages from the asker's project docs
+(still access-checked). Questions about yourself ("what should I focus on?") are searched with your project names.
+
 ## Governance of the autonomous cycle (`omniq_atlas/governance.py`)
 
 Both loops end in one function, `governance.decide()`.

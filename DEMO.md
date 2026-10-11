@@ -26,6 +26,11 @@
 5. **It learns from you (20 s).** 👎 an agent answer and type what to do differently. The next answer shows
    **✦ Used your preferences**. ↻ Regenerate also counts as a quiet thumbs-down.
 
+5b. **IAM (20 s).** **🔐 Access** tab as Maya: role chain, compiled access, projects with her scope. Simulator:
+   `docs:read → doc:category/board` gives **Deny (implicit)**. Switch to Nadia: `improve:run → harness:agent/developer/…`
+   gives **Allow, by director.ImproveAndApproveTeamPlaybooks**. Ask "What should I focus on this week?" as Maya, then as Ben:
+   each gets their own projects.
+
 6. **Guardrails and data (20 s).** **Try to break it** is refused. **🕸 Ontology** and **🗄 Data layer** show the Atlas
    collections, the vector indexes and the person's own ACL filter.
 
