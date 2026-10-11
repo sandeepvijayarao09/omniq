@@ -91,7 +91,7 @@ button.big{padding:9px 16px;font-size:14px}.more{position:relative}.more summary
 .link{display:inline-flex;gap:6px;align-items:center;margin:3px 6px 3px 0;padding:3px 10px;border:1px solid var(--line);border-radius:99px;font-size:12px;background:transparent}
 .graph{width:100%;height:340px}.graph text{fill:var(--text);font-size:11px}.graph .lbl{fill:var(--mute);font-size:10px}
 .graph circle{cursor:pointer}
-#vData,#vAccess,#vImpact,#vModels{display:none;overflow:auto}#vData.on,#vAccess.on,#vImpact.on,#vModels.on{display:block}
+#vData,#vAccess,#vImpact,#vModels,#vWorkflow{display:none;overflow:auto}#vData.on,#vAccess.on,#vImpact.on,#vModels.on,#vWorkflow.on{display:block}
 .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
 .kpi{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px}.kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.kpi span{font-size:12px;color:var(--mute)}
 .flow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:4px 0 10px}.flow span{border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--panel)}
@@ -130,7 +130,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 .av.u{background:#e8f1fb;color:var(--blue)}.av.a{background:var(--accent-soft);color:var(--accent)}
 .bubble{flex:1;min-width:0}.who2{font-size:12px;color:var(--mute);margin-bottom:2px}.who2 b{color:var(--text)}
 .agenttag{display:inline-block;font-size:11px;padding:0 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);border:1px solid var(--green-line);margin-left:6px}
-.text{white-space:pre-wrap;word-wrap:break-word}
+.text{white-space:pre-wrap;word-wrap:break-word}.text.md{white-space:normal}.text.md ul,.text.md ol{margin:4px 0 4px 20px;padding:0}.text.md li{margin:2px 0}.text.md code{background:var(--panel2);padding:0 5px;border-radius:5px}
 .acts{display:flex;gap:4px;margin-top:6px}.acts button{padding:2px 8px;font-size:12px;background:transparent;border-color:transparent;color:var(--mute)}.acts button:hover{border-color:var(--line);color:var(--text)}
 .welcome{text-align:center;padding:8vh 0 2vh}.welcome h2{font-size:26px;margin:0 0 6px}.welcome p{color:var(--mute);margin:0 0 18px}
 .sugs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;text-align:left}
@@ -167,7 +167,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
   <h1>Omniq <span>Atlas</span></h1>
   <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Learning</button><button data-v="vImpact">📊 Impact</button>
     <span class="hood"><button class="hoodbtn" id="hoodBtn">⋯ Under the hood</button><span class="hoodmenu" id="hoodMenu">
-      <button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button><button data-v="vModels">🔌 Models</button></span></span></nav>
+      <button data-v="vWorkflow">🔁 Improvement workflow</button><button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button><button data-v="vModels">🔌 Models</button></span></span></nav>
   <div class="right"><span class="pill" id="dots">…</span><span class="me" id="who">not signed in</span><span class="sw"><button class="ghost" id="switch">Switch person ▾</button><span class="swmenu" id="swMenu"></span></span></div>
 </header>
 
@@ -229,6 +229,21 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 
 <div class="view" id="vAccess"><div class="wrap" id="awrap"><p class="empty">Pick a person first.</p></div></div>
 
+<div class="view" id="vWorkflow"><div class="wrap">
+  <div class="card"><h3>How every agent improves itself</h3><div class="small">Nobody fills in feedback. Agents improve from how people use them, and a change ships only when the data proves it, without ever loosening access or privacy.</div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="wfAgent"></select><button class="primary" id="wfGo">Watch it run ▶</button><span class="mute small">opens 📈 Learning and runs the agent's 7-day cycle live</span></div></div>
+  <div class="card" style="padding:4px 0 10px"><div class="wf" id="wf2"></div></div>
+  <div class="grid">
+    <div class="card" style="margin:0"><h3>① → ② Signals (never asked for)</h3><div class="small">• <b>Rephrased</b>: the next question means the same (Voyage similarity ≥ 0.6)<br>• <b>Correction / refinement / extension</b>: the follow-up's intent, classified in the background<br>• <b>Regenerated</b>, <b>copied</b>, optional 👍👎<br>All stored in Atlas and sent to Raindrop.</div></div>
+    <div class="card" style="margin:0"><h3>③ Raindrop: where it fails</h3><div class="small">Raindrop's Query API returns each agent's failing answers by type and playbook version. The cycle starts from this; a failure spike (≥30% of ≥5 answers in 24h) triggers it immediately.</div></div>
+    <div class="card" style="margin:0"><h3>④ Evidence</h3><div class="small">Every 7 days, per person (persona learns how they work) and per agent (what keeps failing). One person's taste stays personal; a change for everyone needs the same pattern from <b>2+ people</b>.</div></div>
+    <div class="card" style="margin:0"><h3>⑤ Proposed change</h3><div class="small">The improver (any model, via the gateway) proposes one patch: rules, retrieval (top-k, hybrid <code>$rankFusion</code>, rerank), workflow or output template. The agent's context file never changes.</div></div>
+    <div class="card" style="margin:0"><h3>⑥ Gates</h3><div class="small">• Locked invariants: access filter, name masking, audit<br>• Injection screen + LLM safety review of new rules<br>• Type and bounds checks, per-agent tool allow-list<br>• <b>Every leak test must pass</b>, whatever the score</div></div>
+    <div class="card" style="margin:0"><h3>⑦ Proof</h3><div class="small">Must beat the current version on <b>unseen</b> graded questions, or win a <b>blind, order-randomised side-by-side replay</b> of the real questions that failed, with the eval guard showing no regression.</div></div>
+    <div class="card" style="margin:0"><h3>⑧ Decision</h3><div class="small">Kept · undone · refused · or <b>waits for a manager</b> (template or tool changes). Undone is a decision too, with its numbers recorded. After 3 failures in a row it pauses itself.</div></div>
+    <div class="card" style="margin:0"><h3>⑨ Saved in Atlas</h3><div class="small">A new playbook version with parent, change, evidence and scores, plus an audit entry. Live after promotion: a watchdog compares real failure rates per version (Atlas + Raindrop) and restores the parent if the new one is worse.</div></div>
+  </div></div></div>
+
 <div class="view" id="vModels"><div class="wrap" id="mwrap"></div></div>
 
 <div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
@@ -238,13 +253,22 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 const $=s=>document.querySelector(s);let token=null,me=null,convo=null,myAgents=[],otype='Customer',oid=null;
 const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:{...(o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(o.headers||{})}});if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(e){}throw new Error(m||r.status)}return r.headers.get('content-type')?.includes('json')?r.json():r};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function md(t){const lines=esc(t).split('\n');let out='',list=null;
+  const close=()=>{if(list){out+=`</${list}>`;list=null}};
+  for(let raw of lines){const l=raw.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>');
+    let m;if((m=l.match(/^\s*[\*\-•]\s+(.*)/))){if(list!=='ul'){close();out+='<ul>';list='ul'}out+=`<li>${m[1]}</li>`}
+    else if((m=l.match(/^\s*\d+[\.\)]\s+(.*)/))){if(list!=='ol'){close();out+='<ol>';list='ol'}out+=`<li>${m[1]}</li>`}
+    else if((m=l.match(/^\s*#{1,4}\s+(.*)/))){close();out+=`<div style="font-weight:650;margin-top:6px">${m[1]}</div>`}
+    else if(l.trim()===''){close();out+='<div style="height:6px"></div>'}
+    else{close();out+=`<div>${l}</div>`}}
+  close();return out}
 const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3200)};
 const pct=x=>x==null?'–':Math.round(x*100)+'%';const newConvo=()=>convo=Math.random().toString(36).slice(2,12);
 const canApprove=()=>me&&['admin','executive'].includes(me.role);
 
 $('#hoodBtn').onclick=e=>{e.stopPropagation();$('.hood').classList.toggle('open')};document.addEventListener('click',()=>$('.hood').classList.remove('open'));
 document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>{$('.hood').classList.remove('open');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b||(x.id==='hoodBtn'&&!!b.closest('.hoodmenu'))));
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove'){loadCycle();renderWorkflow()}if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact();if(b.dataset.v==='vModels')loadModels()});
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove'){loadCycle();renderWorkflow()}if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact();if(b.dataset.v==='vModels')loadModels();if(b.dataset.v==='vWorkflow')loadWorkflowView()});
 
 async function status(){const s=await api('/api/status');const d=[['MongoDB Atlas',true],['Voyage AI',s.voyage],['Raindrop',s.raindrop],[s.model+' (local)',s.llm!=='offline']];
   const all=d.every(x=>x[1]);$('#dots').innerHTML=`<i class="${all?'on':''}"></i>${all?'All connected':'Partly connected'}`;$('#dots').title=d.map(([n,on])=>`${on?'●':'○'} ${n}`).join('\n')}
@@ -278,7 +302,7 @@ function newChat(){convo=Math.random().toString(36).slice(2,12);$('#ctxDrawer').
 async function loadConvos(){const cs=await api('/api/conversations');$('#convos').innerHTML=cs.length?'<div class="lbl">Recent</div>'+cs.map(c=>`<button data-id="${c.id}" class="${c.id===convo?'on':''}">${esc(c.title)}</button>`).join(''):'';
   $('#convos').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openConvo(b.dataset.id))}
 async function openConvo(id){const c=await api('/api/conversations/'+id);convo=id;$('#thread').innerHTML='<div class="inner"></div>';
-  c.turns.forEach(t=>{addTurn('u',esc(t.q));addTurn('a',`<div class="text">${esc(t.a)}</div>`,t.agent?agentName(t.agent):null)});loadConvos()}
+  c.turns.forEach(t=>{addTurn('u',esc(t.q));addTurn('a',`<div class="text md">${md(t.a)}</div>`,t.agent?agentName(t.agent):null)});loadConvos()}
 const agentName=id=>(myAgents.find(a=>a.id===id)||{}).name||id;
 function inner(){let i=$('#thread .inner:not(.welcome)');if(!i){$('#thread').innerHTML='<div class="inner"></div>';i=$('#thread .inner')}return i}
 function addTurn(kind,html,agent){const d=document.createElement('div');d.className='turn';
@@ -295,7 +319,7 @@ async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!
   catch(e){clearInterval(tick);pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
 function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
   el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${esc(r.model_label||r.model)} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
-    <div class="text">${esc(r.answer)}</div>
+    <div class="text md">${md(r.answer)}</div>
     <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
     <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
       <details><summary>Sources (${r.sources.length}, filtered to your access inside $vectorSearch)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
@@ -531,14 +555,14 @@ const WF=[
   ['proof','⑦ Proof','unseen tests · blind side-by-side replay · eval guard'],
   ['gates','⑥ Gates','locked safety rules · injection screen · leak tests (absolute)'],
   ['spacer','','']];
-async function renderWorkflow(){if(!token){$('#wf').innerHTML='';return}let D={};try{D=(await api('/api/impact')).decisions}catch(e){}
+async function renderWorkflow(sel='#wf'){if(!token){$(sel).innerHTML='';return}let D={};try{const I=await api('/api/impact');D=I.decisions;const R=(I.partners||[]).find(p=>p.partner==='Raindrop');window._rdTotal=R?R.counts['events stored in Raindrop (Query API)']:null}catch(e){}
   const S=D.signals||{},o=D.outcomes||{},im=S.implicit||{};const sigs=(im.rephrased||0)+(im.followup_correction||0)+(im.copied||0)+(im.regenerated||0)+(S.ratings||0);
   const rd=(window._rdTotal!=null)?window._rdTotal:'';
   const num={use:`${S.answers||0} answers`,signals:`${sigs} signals`,raindrop:rd?`${rd} events`:'live',evidence:`${(S.cycles||0)+(S.agent_cycles||0)} cycles`,
     propose:`${D.total||0} proposals`,gates:`${o.blocked||0} refused`,proof:`${S.graded_eval_cases||84} tests`,
     decide:`${(o.active||0)+(o.superseded||0)} kept · ${o.rolled_back||0} undone`,atlas:D.first_time_right?.rate!=null?`${Math.round(D.first_time_right.rate*100)}% right 1st time`:''};
   const order=['use','signals','raindrop','evidence','propose','atlas','decide','proof','gates'];
-  $('#wf').innerHTML=WF.filter(w=>w[0]!=='spacer').map(([k,t,d],i)=>{const row2=i>=5;const cls=['n',row2?'row2':'',k==='propose'?'down last':'',k==='gates'?'last':''].join(' ');
+  $(sel).innerHTML=WF.filter(w=>w[0]!=='spacer').map(([k,t,d],i)=>{const row2=i>=5;const cls=['n',row2?'row2':'',k==='propose'?'down last':'',k==='gates'?'last':''].join(' ');
     return `<div class="${cls}" data-n="${k}" style="grid-row:${row2?2:1};grid-column:${row2?(5-(i-5)):(i+1)}"><span class="step">${t.split(' ')[0]}</span><b>${t.slice(2)}</b><div class="num">${esc(num[k]||'')}</div><span>${d}</span><div class="now"></div></div>`}).join('')+
     `<div class="loop">↺ the new version serves the next answer, and the loop starts again (every 7 days, on a Raindrop failure spike, or when someone presses Improve)</div>`}
 function wfMark(node,state,text){const el=$(`#wf [data-n="${node}"]`);if(!el)return;$('#wf').querySelectorAll('.n.live').forEach(x=>{if(x!==el){x.classList.remove('live');x.classList.add('ok')}});
@@ -561,6 +585,12 @@ function wfEvent(ev){const k=ev.kind;
   else if(k==='done'){wfMark('atlas','ok',`using v${ev.final_version||'–'}`);setTimeout(renderWorkflowKeep,1500)}}
 async function renderWorkflowKeep(){const marks=[...$('#wf').querySelectorAll('.n')].map(x=>[x.dataset.n,[...x.classList].find(c=>['ok','warn','bad','live'].includes(c)),x.querySelector('.now').textContent]);
   await renderWorkflow();marks.forEach(([n,c,t])=>{if(c)wfMark(n,c,t)})}
+
+
+async function loadWorkflowView(){if(!token){$('#wf2').innerHTML='<p class="empty" style="padding:0 16px">Pick a person first.</p>';return}await renderWorkflow('#wf2');
+  const ags=myAgents.filter(a=>true);$('#wfAgent').innerHTML=ags.map(a=>`<option value="${a.id}">${esc(a.org_title)}: ${esc(a.name)}</option>`).join('');
+  const sec=ags.find(a=>a.id==='security_agent');if(sec)$('#wfAgent').value='security_agent';
+  $('#wfGo').onclick=async()=>{const id=$('#wfAgent').value;document.querySelector('nav button[data-v=vImprove]').click();await loadScopes('agent:'+id);await loadLineage();setTimeout(()=>{if(!$('#cycleBtn').disabled)$('#cycleBtn').click();else toast('⛔ Your role cannot run this agent\'s cycle')},500)}}
 
 /* ---------- 7-day cycle ---------- */
 async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<span class="mute small">Pick a person to see their cycle.</span>';return}

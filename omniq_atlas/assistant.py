@@ -28,7 +28,9 @@ BASE_SYSTEM = (
     "4. If the question is about the asker's own work, answer from their projects and scope; ignore other teams' plans.\n"
     "5. Prefer short bullets; bold the key numbers and dates; keep it under 180 words unless asked for more.\n"
     "6. [PERSON_1]-style tokens are masked names: copy them exactly, never guess.\n"
-    "7. End with 'Sources:' and the document titles you used."
+    "7. Your context files describe how to work, not facts: never cite or quote them. Every fact and every citation "
+    "must come from a <source> passage (runbooks, ADRs, specs, policies).\n"
+    "8. End with 'Sources:' and the titles of the <source> documents you used."
 )
 
 
