@@ -48,7 +48,7 @@ details summary{cursor:pointer;color:var(--mute);font-size:12px}details{margin-t
 textarea{width:100%;min-height:56px}
 .how{border:1px solid var(--line);border-radius:var(--r);padding:9px 12px;background:var(--panel);font-size:13px;margin-bottom:12px}
 .how ol{margin:8px 0 2px 18px;padding:0}.how li{margin:4px 0;color:var(--text)}
-.state{font-size:13px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.state{font-size:13px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.state>div.small{flex-basis:100%}
 .ver{display:grid;grid-template-columns:44px 1fr auto;gap:2px 10px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--panel);cursor:pointer}
 .ver b{font-size:14px}.ver .what{font-size:13px;color:var(--text);grid-column:2/4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ver.open .what{white-space:normal}.ver .more{grid-column:1/4;display:none;font-size:12px;color:var(--mute)}.ver.open .more{display:block}
@@ -314,6 +314,7 @@ async function loadScopes(sel){const s=await api('/api/scopes');const cur=sel||$
 let showAll=false;
 async function loadLineage(){const role=$('#role').value;if(!role)return;const r=await api('/api/harness/'+encodeURIComponent(role));const isAgent=role.startsWith('agent:');$('#improve').style.display=isAgent?'':'none';
   const L=r.lineage.slice().reverse();const shown=showAll?L:L.slice(0,5);
+  try{const g0=await api('/api/governance/'+encodeURIComponent(role));window._canApprove=!!(g0.can||{})['harness:approve']}catch(e){window._canApprove=false}
   if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));const RS={pending:'waiting',adopted:'adopted',rejected:'tried, not better',personal:'kept personal',quarantined:'set aside',awaiting_approval:'needs approval',blocked:'refused',superseded:'replaced'};
     $('#recs').innerHTML=rs.length?`<div class="card" style="padding:10px 14px"><h3>Users' suggestions</h3>`+rs.slice(0,5).map(x=>`<div class="rec"><span class="chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':'rolled_back'}">${RS[x.status]||x.status}</span> ${esc(x.text)}</div>`).join('')+'</div>':''}else $('#recs').innerHTML='';
   $('#lineage').innerHTML=`<div class="mute small" style="margin:0 0 6px">Playbook versions (newest first). Click one for details.</div>`+shown.map(v=>{const sc=scoreOf(v);return `<div class="ver" data-v="${v.version}">
@@ -324,14 +325,17 @@ async function loadLineage(){const role=$('#role').value;if(!role)return;const r
         ${v.scores?.train?`<div>Practice ${pct(v.scores.train.pass_rate)} · unseen ${pct(v.scores.holdout?.pass_rate)} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}</div>`:''}
         ${v.reject_reason?`<div style="color:var(--warn)">Undone: ${esc(v.reject_reason)}</div>`:''}${v.problems?.length?`<div style="color:var(--bad)">Refused: ${esc(v.problems.join('; '))}</div>`:''}
         ${v.risk_reasons?.length?`<div style="color:var(--violet)">Needs approval: ${esc(v.risk_reasons.join('; '))}</div>`:''}
-        ${v.status==='awaiting_approval'&&canApprove()?`<div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-approve="${v.version}">Approve</button><button data-reject="${v.version}">Reject</button></div>`:''}
+        ${v.status==='awaiting_approval'&&window._canApprove?`<div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-approve="${v.version}">Approve</button><button data-reject="${v.version}">Reject</button></div>`:''}
         <details><summary>full settings</summary><pre>${esc(JSON.stringify(v.config,null,1))}</pre></details></div></div>`}).join('')+(L.length>5?`<button class="ghost small" id="allBtn">${showAll?'Show fewer':`Show all ${L.length} versions`}</button>`:'');
   $('#lineage').querySelectorAll('.ver').forEach(el=>el.onclick=e=>{if(e.target.closest('button,details'))return;el.classList.toggle('open')});
   const ab=$('#allBtn');if(ab)ab.onclick=()=>{showAll=!showAll;loadLineage()};
   $('#lineage').querySelectorAll('[data-approve]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/approve/${b.dataset.approve}`,{method:'POST'});toast('Approved, now in use');loadLineage()});
   $('#lineage').querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/reject/${b.dataset.reject}`,{method:'POST',body:JSON.stringify({reason:'rejected in review'})});toast('Rejected');loadLineage()});
   const gv=await api('/api/governance/'+encodeURIComponent(role));
-  $('#gov').innerHTML=(gv.frozen?'❄️ <b>Frozen.</b> <span class="mute">No automatic changes.</span>':gv.paused_until?'⏸️ <b>Paused</b> <span class="mute">after repeated failed attempts</span>':`🟢 <span>Using <b>v${r.active.version}</b>. Improving automatically; safety rules locked.</span>`)+(canApprove()?` <button class="ghost small" id="freezeBtn">${gv.frozen?'Unfreeze':'Freeze'}</button>`:'');
+  const can=gv.can||{};const runOk=!!can['improve:run'];
+  ['#evolve','#improve','#redteam'].forEach(q=>{const b=$(q);if(!b)return;b.disabled=!runOk;b.title=runOk?b.title:`Your role (${gv.role_title||'—'}) can't run improvements on this playbook. Directors and the CTO can.`});
+  const hintTxt=runOk?'':`<div class="small mute" style="margin:-4px 0 10px">🔒 As a ${esc(gv.role_title||'')}, you improve this agent by using it: 👎 + "do this instead" changes it for you right away, and your <b>7-day cycle</b> proposes changes for everyone. Running improvements is for Directors and the CTO (IAM <code>improve:run</code>).</div>`;
+  $('#gov').innerHTML=hintTxt+(gv.frozen?'❄️ <b>Frozen.</b> <span class="mute">No automatic changes.</span>':gv.paused_until?'⏸️ <b>Paused</b> <span class="mute">after repeated failed attempts</span>':`🟢 <span>Using <b>v${r.active.version}</b>. Improving automatically; safety rules locked.</span>`)+((can['harness:freeze'])?` <button class="ghost small" id="freezeBtn">${gv.frozen?'Unfreeze':'Freeze'}</button>`:'');
   const fb=$('#freezeBtn');if(fb)fb.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/freeze`,{method:'POST',body:JSON.stringify({frozen:!gv.frozen})});loadLineage()}}
 const STEP={
   evaluating:ev=>['🧪','Testing',`Running practice questions on v${ev.version}…`],

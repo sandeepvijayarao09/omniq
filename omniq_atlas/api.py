@@ -121,7 +121,7 @@ class Speak(BaseModel):
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(STATIC / "index.html")
+    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/status")
@@ -531,8 +531,18 @@ class RejectReq(BaseModel):
 
 
 @app.get("/api/governance/{scope}")
-def governance_status(scope: str) -> dict[str, Any]:
-    return _jsonable(governance.status(scope))
+def governance_status(scope: str, authorization: str = Header(default="")) -> dict[str, Any]:
+    out = governance.status(scope)
+    try:  # what the signed-in person may do on this playbook (drives which buttons are enabled)
+        u = assistant.get_user(current_user(authorization))
+        res = governance.resource_for(scope)
+        org = iam.org_role(u)
+        out["can"] = {a: (iam.allowed(u, a, res) if org else u.role in ("executive", "admin"))
+                      for a in ("improve:run", "harness:approve", "harness:freeze")}
+        out["role_title"] = agents.ORG_ROLES.get(org, {}).get("title") if org else u.role
+    except Exception:
+        out["can"] = {}
+    return _jsonable(out)
 
 
 @app.post("/api/governance/{scope}/approve/{version}")
