@@ -109,3 +109,15 @@ def project_signals() -> dict[str, Any]:
         return {"status": "ok", "signals": [r.get("name") or r.get("id") for r in rows if isinstance(r, dict)]}
     except Exception as e:
         return {"status": f"query failed: {str(e)[:120]}", "signals": []}
+
+
+def event_total() -> int | None:
+    """Total events Raindrop holds for this project (Query API)."""
+    c = _client()
+    if c is None:
+        return None
+    try:
+        d = _as_dict(c.events.count())
+        return int((d.get("data") or {}).get("total"))
+    except Exception:
+        return None

@@ -86,7 +86,10 @@ def partners() -> dict[str, Any]:
         {"partner": "Raindrop", "status": "in use" if telemetry.available() else "not configured", "depth": "telemetry",
          "how": "Every real answer is an event (event id = Atlas episode id); 👍/👎, regenerations, suggestions and "
                 "quarantines are signals. The 7-day cycle reads them back with the Query API as independent evidence.",
-         "counts": {"events sent": u.get("raindrop_events", 0), "signals sent": u.get("raindrop_signals", 0),
+         "counts": {"events stored in Raindrop (Query API)": raindrop_read.event_total() or 0,
+                    "signal types": len(raindrop_read.project_signals().get("signals", [])),
+                    "events sent since counters started": u.get("raindrop_events", 0),
+                    "signals sent since counters started": u.get("raindrop_signals", 0),
                     "cycles that read Raindrop back": d.cycles.count_documents({"raindrop.status": "ok"})},
          "features": ["write SDK: events + signals", "Query API read-back into the 7-day cycle"
                       + ("" if raindrop_read.available() else " (waiting for RAINDROP_QUERY_API_KEY)")],
