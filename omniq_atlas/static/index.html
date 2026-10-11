@@ -46,6 +46,16 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0a0e13;border:1px sol
 .spark i.on{background:var(--accent)}.spark i span{position:absolute;top:-16px;left:0;right:0;text-align:center;font-size:10px;color:var(--mute);font-style:normal}
 .empty{color:var(--mute);padding:20px 0}
 @media (max-width:900px){main{grid-template-columns:1fr;height:auto}section+section{border-left:0;border-top:1px solid var(--line)}.scroll{max-height:70vh}}
+.agentbar{display:flex;gap:8px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chips button{font-size:12px;padding:4px 10px;border-radius:99px;background:transparent}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#16301f;border:1px solid #0b5f2d;color:var(--text);padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+.drawer{border:1px solid var(--line);background:var(--panel);border-radius:var(--r);padding:10px 12px;margin:0 16px 10px;display:none}
+.drawer.on{display:block}.mem{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed #1f2832;font-size:13px}
+.mem .kind{font-size:11px;color:var(--mute);min-width:74px}.mem button{margin-left:auto;padding:1px 8px;font-size:11px}
+.rec{font-size:12px;padding:5px 0;border-bottom:1px dashed #1f2832}.rec .st{font-size:11px;margin-right:6px}
+.prefs{font-size:12px;color:#c58af9;margin-top:6px}
+textarea{width:100%;background:#0a0e13;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;min-height:56px}
 </style>
 </head>
 <body>
@@ -57,61 +67,101 @@ pre{white-space:pre-wrap;word-break:break-word;background:#0a0e13;border:1px sol
 <main>
   <section>
     <div class="bar"><h2>Assistant</h2><span class="who" id="who">not signed in</span>
-      <button class="ghost" id="switch" style="margin-left:auto">Switch person</button></div>
+      <button class="ghost" id="memBtn" style="margin-left:auto">My memory</button>
+      <button class="ghost" id="switch">Switch person</button></div>
+    <div class="agentbar"><select id="agent"><option value="">General assistant</option></select>
+      <span class="who" id="agentDesc"></span><div class="chips" id="starters"></div></div>
+    <div class="drawer" id="memDrawer"></div>
     <div class="scroll" id="chat"></div>
     <div class="composer">
       <button class="mic" id="mic" title="Hold to talk (ElevenLabs)">🎙</button>
-      <input id="q" placeholder="Ask about policies, customers, incidents… or /remember something" autocomplete="off">
+      <input id="q" placeholder="Ask… or /remember something about how you work" autocomplete="off">
       <button class="primary" id="send">Ask</button>
     </div>
   </section>
   <section>
     <div class="bar"><h2>Harness</h2>
-      <select id="role"><option>pro</option><option>manager</option><option>basic</option><option>executive</option></select>
+      <select id="role"></select>
       <span class="who" id="activeVer"></span>
-      <span style="margin-left:auto;display:flex;gap:6px">
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         <button id="redteam" title="Try to inject an unsafe patch">Red-team patch</button>
-        <button class="primary" id="evolve">Evolve ▶</button></span></div>
+        <button id="improve" title="Improve this agent from its users' recommendations" style="display:none">Improve from feedback</button>
+        <button class="primary" id="evolve" title="Improve against graded eval cases">Evolve ▶</button></span></div>
     <div class="scroll">
       <div id="sparkWrap"></div>
       <div id="log" class="log" style="display:none"></div>
+      <div id="recs"></div>
       <div id="lineage"></div>
     </div>
   </section>
 </main>
+<div class="toast" id="toast"></div>
 <script>
-const $=s=>document.querySelector(s);let token=null,me=null,lastAnswer='';
-const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:{...(o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(o.headers||{})}});if(!r.ok)throw new Error((await r.text())||r.status);return r.headers.get('content-type')?.includes('json')?r.json():r};
+const $=s=>document.querySelector(s);let token=null,me=null,convo=null,myAgents=[];
+const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:{...(o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...(o.headers||{})}});if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(e){}throw new Error(m||r.status)}return r.headers.get('content-type')?.includes('json')?r.json():r};
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=t=>{const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3200)};
+const newConvo=()=>convo=Math.random().toString(36).slice(2,12);
 
 async function status(){const s=await api('/api/status');$('#pills').innerHTML=`<span class="pill ${s.llm!=='offline'?'on':''}">${esc(s.model)}</span>`+['voyage','raindrop','elevenlabs'].map(k=>`<span class="pill ${s[k]?'on':''}">${k}</span>`).join('')+`<span class="pill on">atlas · ${s.chunks} chunks</span>`}
-async function pickPersona(){const ps=await api('/api/personas');$('#chat').innerHTML=`<p class="empty">Sign in as someone. Each person sees only what their role allows; the harness behind them evolves per role.</p><div class="persona-grid">${ps.map(p=>`<button class="persona" data-id="${p.id}"><b>${esc(p.name)}</b><small>${esc(p.title)} · ${p.role}</small><br><small>sees: ${esc(p.access)}</small></button>`).join('')}</div>`;
+async function loadScopes(sel){const s=await api('/api/scopes');const cur=sel||$('#role').value||'pro';
+  $('#role').innerHTML=`<optgroup label="Role harnesses">${s.roles.map(r=>`<option value="${r}">${r}</option>`).join('')}</optgroup><optgroup label="Agent harnesses">${s.agents.map(a=>`<option value="${a.scope}">${esc(a.name)}${a.pending?` · ${a.pending} pending`:''}</option>`).join('')}</optgroup>`;
+  $('#role').value=cur;if(!$('#role').value)$('#role').value='pro'}
+async function pickPersona(){const ps=await api('/api/personas');token=null;$('#agent').innerHTML='<option value="">General assistant</option>';$('#starters').innerHTML='';$('#agentDesc').textContent='';$('#memDrawer').classList.remove('on');
+  $('#chat').innerHTML=`<p class="empty">Sign in as someone. Each person sees only what their role allows, and gets the agents built for their job. Every agent keeps its own memory and improves from its users' recommendations.</p><div class="persona-grid">${ps.map(p=>`<button class="persona" data-id="${p.id}"><b>${esc(p.name)}</b><small>${esc(p.title)} · ${p.role}</small><br><small>sees: ${esc(p.access)}</small></button>`).join('')}</div>`;
   document.querySelectorAll('.persona').forEach(b=>b.onclick=()=>login(b.dataset.id))}
-async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;$('#who').textContent=`${me.name} · ${me.title} · ${me.role}`;$('#chat').innerHTML='';$('#role').value=me.role;loadLineage()}
+async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;newConvo();
+  $('#who').textContent=`${me.name} · ${me.title} · ${me.role}`;$('#chat').innerHTML='';
+  myAgents=await api('/api/agents');$('#agent').innerHTML='<option value="">General assistant</option>'+myAgents.map(a=>`<option value="${a.id}">${esc(a.name)} (v${a.version})</option>`).join('');
+  onAgent();}
+function onAgent(){const a=myAgents.find(x=>x.id===$('#agent').value);newConvo();$('#memDrawer').classList.remove('on');
+  $('#agentDesc').textContent=a?a.description:`${myAgents.length} agents available for your role`;
+  $('#starters').innerHTML=(a?a.starter_questions:[]).map(q=>`<button>${esc(q)}</button>`).join('');
+  $('#starters').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#q').value=b.textContent;ask()});
+  loadScopes(a?'agent:'+a.id:me.role).then(loadLineage)}
 function add(html,cls){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;$('#chat').appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'});return d}
-async function ask(){const q=$('#q').value.trim();if(!q||!token)return;$('#q').value='';add(esc(q),'me');
-  if(q.startsWith('/remember ')){await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10)})});add('Saved to your memory (stored in Atlas, tokenized before any model call).','ai');return}
+async function ask(){const q=$('#q').value.trim();if(!q||!token)return;$('#q').value='';add(esc(q),'me');const agent_id=$('#agent').value;
+  if(q.startsWith('/remember ')){await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10),agent_id})});add(`Saved to ${agent_id?'this agent\'s':'your'} memory in Atlas. It's tokenized before any model call.`,'ai');return}
   const d=add('<span class="who">thinking…</span>','ai');
-  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q})});lastAnswer=r.answer;
+  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo,agent_id})});
     const pii=Object.entries(r.pii||{}).map(([k,v])=>`${v} ${k}`).join(', ')||'none';
     d.innerHTML=`<div>${esc(r.answer).replace(/\n/g,'<br>')}</div>
-    <div class="meta">harness v${r.harness_version} · ${esc(r.model)} · ${r.latency}s · tokenized: ${pii}${r.blocked?' · <b style="color:var(--bad)">blocked by guard</b>':''}
+    ${r.preferences_applied?.length?`<div class="prefs">✦ applied your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
+    <div class="meta">${r.agent?esc(r.agent)+' · ':''}harness v${r.harness_version} · ${esc(r.model)} · ${r.latency}s · tokenized: ${pii}${r.blocked?' · <b style="color:var(--bad)">blocked by guard</b>':''}
       <button data-g="1">👍</button><button data-g="0">👎</button><button data-say>🔊</button></div>
-    <details><summary>Sources (${r.sources.length}) — ACL-filtered in $vectorSearch</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
-    <details><summary>What the model saw</summary><pre>${esc(r.model_view.system)}\n\n${esc(r.model_view.user)}</pre></details>`;
-    d.querySelectorAll('[data-g]').forEach(b=>b.onclick=async()=>{const good=b.dataset.g==='1';const comment=good?'':(prompt('What was wrong? (optional)')||'');await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,comment})});b.parentElement.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);b.textContent+=' sent'});
+    <details><summary>Sources (${r.sources.length}): ACL-filtered in $vectorSearch</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
+    <details><summary>What the model saw</summary><pre>${esc(r.model_view.system)}\n\n${esc(r.model_view.user)}</pre></details>
+    <div class="fb" style="display:none;margin-top:8px"><textarea placeholder="What should ${r.agent?esc(r.agent):'it'} do differently next time? It applies to you right away, and the agent learns it for everyone if it holds up."></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send recommendation</button><button class="ghost" data-skip>Just 👎</button></div></div>`;
+    const sendFb=async(good,recommendation='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation})});
+      d.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);d.querySelector('.fb').style.display='none';
+      toast(out.queued?`Saved as your preference for ${r.agent}. Queued for the agent's improvement loop.`:good?'Thanks: recorded as a positive signal':'Recorded: Raindrop signal + Atlas episode');loadScopes()};
+    d.querySelector('[data-g="1"]').onclick=()=>sendFb(true);
+    d.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){sendFb(false);return}d.querySelector('.fb').style.display='block';d.querySelector('textarea').focus()};
+    d.querySelector('[data-send]').onclick=()=>sendFb(false,d.querySelector('textarea').value.trim());
+    d.querySelector('[data-skip]').onclick=()=>sendFb(false);
     d.querySelector('[data-say]').onclick=()=>say(r.answer);
+    if(r.scope===$('#role').value)loadLineage();
   }catch(e){d.innerHTML=`<span style="color:var(--bad)">${esc(e.message)}</span>`}}
-async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){alert('Voice unavailable: '+e.message)}}
+async function showMemory(){const dr=$('#memDrawer');if(dr.classList.contains('on')){dr.classList.remove('on');return}
+  const agent_id=$('#agent').value;if(!token)return;if(!agent_id){dr.innerHTML='<span class="who">Pick an agent to see its memory of you.</span>';dr.classList.add('on');return}
+  const ms=await api('/api/memory?agent_id='+agent_id);
+  dr.innerHTML=`<div class="who" style="margin-bottom:6px">What ${esc(myAgents.find(a=>a.id===agent_id)?.name)} remembers (Atlas · vector-recalled per question)</div>`+(ms.length?ms.map(m=>`<div class="mem"><span class="kind">${m.mine?m.kind:'agent lesson'}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:''}</div>`).join(''):'<span class="who">Nothing yet. Leave a recommendation on an answer, or type /remember …</span>');
+  dr.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{await api('/api/memory/'+b.dataset.id,{method:'DELETE'});dr.classList.remove('on');showMemory()});dr.classList.add('on')}
+async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){toast('Voice unavailable: '+e.message)}}
 let rec=null,chunks=[];
-$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;ask()}catch(e){alert('Voice unavailable: '+e.message)}};rec.start();$('#mic').classList.add('rec')};
+$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;ask()}catch(e){toast('Voice unavailable: '+e.message)}};rec.start();$('#mic').classList.add('rec')};
 $('#mic').onmouseup=$('#mic').onmouseleave=()=>{if(rec&&rec.state==='recording'){rec.stop();$('#mic').classList.remove('rec')}};
 
-async function loadLineage(){const role=$('#role').value;const r=await api('/api/harness/'+role);const L=r.lineage;$('#activeVer').textContent=`active v${r.active.version}`;
-  const scored=L.filter(v=>v.scores&&v.scores.train);
-  $('#sparkWrap').innerHTML=scored.length?`<div class="who">train score by version (green = promoted)</div><div class="spark">${scored.map(v=>{const s=Math.max(0,v.scores.train.score);return `<i class="${['active','superseded'].includes(v.status)?'on':''}" style="height:${Math.max(4,s*100)}%"><span>${s.toFixed(2)}</span></i>`}).join('')}</div>`:'';
+async function loadLineage(){const role=$('#role').value;if(!role)return;const r=await api('/api/harness/'+encodeURIComponent(role));const L=r.lineage;$('#activeVer').textContent=`active v${r.active.version}`;
+  const isAgent=role.startsWith('agent:');$('#improve').style.display=isAgent?'':'none';
+  const scored=L.filter(v=>v.scores&&(v.scores.train||v.scores.evals));
+  const val=v=>v.scores.train?v.scores.train.score:(v.scores.evals?.score??0);
+  $('#sparkWrap').innerHTML=scored.length?`<div class="who">score by version (green = promoted)</div><div class="spark">${scored.map(v=>{const s=Math.max(0,val(v));return `<i class="${['active','superseded'].includes(v.status)?'on':''}" style="height:${Math.max(4,s*100)}%"><span>v${v.version} ${s.toFixed(2)}</span></i>`}).join('')}</div>`:'';
+  if(isAgent){const rs=await api('/api/recommendations/'+encodeURIComponent(role));
+    $('#recs').innerHTML=rs.length?`<div class="who" style="margin:4px 0">User recommendations for this agent</div>`+rs.slice(0,8).map(x=>`<div class="rec"><span class="st chip ${x.status==='adopted'?'active':x.status==='pending'?'candidate':x.status==='rejected'?'rolled_back':'superseded'}">${x.status}${x.handled_by?' → v'+x.handled_by:''}</span>${esc(x.text)}</div>`).join('')+'<div style="height:10px"></div>':''}else $('#recs').innerHTML='';
   $('#lineage').innerHTML=L.slice().reverse().map(v=>`<div class="ver"><div class="top"><b>v${v.version}</b><span class="chip ${v.status}">${v.status.replace('_',' ')}</span>${v.parent?`<span class="who">from v${v.parent}</span>`:''}
-    <span class="score">${v.scores?.train?`train ${v.scores.train.score} · holdout ${v.scores.holdout?.score} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}`:''}</span></div>
+    <span class="score">${v.scores?.train?`train ${v.scores.train.score} · holdout ${v.scores.holdout?.score} · leaks ${v.scores.train.leaks+(v.scores.holdout?.leaks||0)}`:v.scores?.replay_win_rate!=null?`replay win ${v.scores.replay_win_rate} · evals ${v.scores.evals_before?.score??'–'}→${v.scores.evals?.score??'–'}`:''}</span></div>
     <div class="who" style="margin:4px 0">${esc(v.rationale||'')}</div>
     ${v.patch?`<code>${esc(JSON.stringify(v.patch))}</code>`:''}
     ${v.problems?.length?`<div style="color:var(--bad);font-size:12px;margin-top:4px">✗ ${esc(v.problems.join(' · '))}</div>`:''}
@@ -123,16 +173,22 @@ function fmt(ev){const k=ev.kind;const rest={...ev};delete rest.kind;delete rest
   if(k==='meta_overruled')return `${ev.reason}: ${JSON.stringify(ev.patch).slice(0,140)}…`;
   if(k==='rolled_back')return `v${ev.version} ${ev.reason}`;
   if(k==='proposed')return `${ev.diagnosis||''}  →  ${JSON.stringify(ev.patch)}`;
-  if(k==='promoted')return `v${ev.version} train=${ev.train.score} holdout=${ev.holdout.score} (Δ ${ev.delta>0?'+':''}${ev.delta})`;
+  if(k==='promoted')return `v${ev.version}`+(ev.train?` train=${ev.train.score} holdout=${ev.holdout.score} (Δ ${ev.delta>0?'+':''}${ev.delta})`:` replay win rate ${ev.replay}`);
+  if(k==='recommendations')return `${ev.count} pending`+(ev.items?.length?`: ${ev.items.map(t=>'“'+t+'”').join(' ')}`:'');
+  if(k==='themes')return ev.themes.map(t=>`${t.n}× “${t.example}”`).join('\n   ');
+  if(k==='triaged')return `${ev.agent_wide} agent-wide, ${ev.personal} personal → ${JSON.stringify(ev.patch||{}).slice(0,220)}`;
+  if(k==='evaluated')return `v${ev.version} blind replay win rate ${ev.replay} · graded evals ${ev.evals_before}→${ev.evals_after} · leaks ${ev.leaks}`;
+  if(k==='repair')return `validator objected: ${ev.problems.join('; ')}. Asking the agent to fix its patch`;
   return JSON.stringify(rest)}
-$('#evolve').onclick=async()=>{if(!token)return alert('Sign in first');const role=$('#role').value;$('#evolve').disabled=true;const log=$('#log');log.style.display='block';log.innerHTML='';
-  const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role,generations:3})});
+function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;
   const es=new EventSource(`/api/evolve/${run_id}/stream`);
-  es.onmessage=e=>{const ev=JSON.parse(e.data);const d=document.createElement('div');d.innerHTML=`<span class="k ${ev.kind}">${ev.kind}</span> ${esc(fmt(ev))}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','scored','done'].includes(ev.kind))loadLineage()};
-  es.addEventListener('end',()=>{es.close();$('#evolve').disabled=false;loadLineage()});es.onerror=()=>{es.close();$('#evolve').disabled=false}};
-$('#redteam').onclick=async()=>{if(!token)return alert('Sign in first');const r=await api('/api/redteam/'+$('#role').value,{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');d.innerHTML=`<span class="k blocked">${r.status}</span> injected patch v${r.version}: ${esc(r.problems.join(' · '))}`;log.appendChild(d);loadLineage()};
-$('#role').onchange=loadLineage;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;
-status();pickPersona();loadLineage();
+  es.onmessage=e=>{const ev=JSON.parse(e.data);const d=document.createElement('div');d.innerHTML=`<span class="k ${ev.kind}">${ev.kind}</span> ${esc(fmt(ev))}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','scored','done','evaluated'].includes(ev.kind))loadLineage()};
+  es.addEventListener('end',()=>{es.close();btn.disabled=false;loadScopes().then(loadLineage)});es.onerror=()=>{es.close();btn.disabled=false}}
+$('#evolve').onclick=async()=>{if(!token)return toast('Sign in first');const {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})});stream(run_id,$('#evolve'))};
+$('#improve').onclick=async()=>{if(!token)return toast('Sign in first');const {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})});stream(run_id,$('#improve'))};
+$('#redteam').onclick=async()=>{if(!token)return toast('Sign in first');const r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'});const log=$('#log');log.style.display='block';const d=document.createElement('div');d.innerHTML=`<span class="k blocked">${r.status}</span> injected patch v${r.version}: ${esc(r.problems.join(' · '))}`;log.appendChild(d);loadLineage()};
+$('#role').onchange=loadLineage;$('#agent').onchange=onAgent;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;$('#memBtn').onclick=showMemory;
+status();pickPersona();loadScopes('pro').then(loadLineage);
 </script>
 </body>
 </html>

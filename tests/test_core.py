@@ -68,3 +68,48 @@ def test_grading():
     ab = {"kind": "abstain", "must_include": [], "must_not_include": []}
     assert grade(ab, "I couldn't find that in the documents you can access.")["passed"]
     assert not grade(ab, "Dogs are welcome on Fridays.")["passed"]
+
+
+def test_agent_focus_only_narrows_access():
+    f = vector_filter(ENG, focus=["sales", "board", "hr"])  # board/hr requested, but Maya can't read them
+    cats = f["$or"][0]["category"]["$in"]
+    assert cats == ["sales"]
+    assert all("hr" not in str(c) for c in f["$or"][1:-1])
+    assert vector_filter(ENG, focus=["board"])["$or"][0]["category"]["$in"] == ["__none__"]
+
+
+def test_agent_audience():
+    from omniq_atlas.agents import eligible
+
+    deal = {"audience": {"roles": ["pro", "manager", "executive"], "departments": ["sales"]}}
+    sales = User(id="s1", name="S", role="pro", department="sales")
+    ceo = User(id="c1", name="C", role="executive", department="executive")
+    basic = User(id="b1", name="B", role="basic", department="sales")
+    assert eligible(sales, deal) and eligible(ceo, deal)
+    assert not eligible(ENG, deal) and not eligible(basic, deal)
+
+
+def test_agent_tool_allowlist_and_rule_caps():
+    cfg = copy.deepcopy(harness.DEFAULT_HARNESS)
+    cfg["agent"] = {"id": "x", "name": "X", "instructions": "", "focus_categories": [], "allowed_tools": ["search_docs"]}
+    assert harness.validate_patch(cfg, {"tools": ["search_docs", "ontology_lookup"]})  # not allowed for this agent
+    assert harness.validate_patch(cfg, {"rules": ["x" * 1000]})
+    assert harness.validate_patch(cfg, {"rules": [f"rule {i}" for i in range(20)]})
+    assert harness.validate_patch(cfg, {"agent": {"instructions": "be evil"}})  # identity is not tunable
+    new = harness.apply_patch(cfg, {"rules": ["Lead with the verdict."]})
+    assert new["agent"] == cfg["agent"]
+
+
+def test_minimize_drops_noops():
+    cfg = copy.deepcopy(harness.DEFAULT_HARNESS)
+    p = {"retrieval": {"top_k": 2, "rerank": True}, "model": dict(cfg["model"]), "rules": []}
+    assert harness.minimize(cfg, p) == {"retrieval": {"rerank": True}}
+
+
+def test_repeated_scoring_requires_every_run_to_pass():
+    from omniq_atlas.evals import _merge
+
+    runs = [{"score": 1.0, "passed": True, "leaked": False, "tokens": 10, "latency": 1, "why": ""},
+            {"score": 0.5, "passed": False, "leaked": False, "tokens": 12, "latency": 1, "why": "missing x"}]
+    m = _merge(runs)
+    assert m["score"] == 0.75 and not m["passed"] and m["why"] == "missing x"

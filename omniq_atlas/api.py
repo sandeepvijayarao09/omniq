@@ -59,7 +59,8 @@ def _rate_limit(uid: str, per_minute: int = 30) -> None:
     q.append(now)
 STATIC = Path(__file__).parent / "static"
 
-FEATURED = ["emp-1005", "emp-1001", "emp-1002", "emp-1003", "emp-1012", "emp-1085", "emp-1091", "emp-1007"]
+FEATURED = ["emp-1005", "emp-1001", "emp-1059", "emp-1002", "emp-1074", "emp-1003", "emp-1012", "emp-1085",
+            "emp-1092", "emp-1007"]
 
 
 def _token(user_id: str) -> str:
