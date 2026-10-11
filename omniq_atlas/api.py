@@ -356,6 +356,22 @@ def impact_view(uid: str = Depends(current_user)) -> dict[str, Any]:
     return _jsonable({"decisions": impact.decisions(), "partners": impact.partners()})
 
 
+@app.post("/api/agents/{agent_id}/improve-cycle")
+def agent_improve_cycle(agent_id: str, uid: str = Depends(current_user)) -> dict[str, str]:
+    """Improve this agent from the last 7 days of evidence. Any role that may use the agent can trigger it;
+    the evidence and the governance gates still decide what changes."""
+    governance.check(uid, "improve:cycle", f"agent:{agent_id}")
+    run_id = uuid.uuid4().hex[:10]
+    threading.Thread(target=_safe, args=(cycles.run_agent, agent_id, 7, run_id, uid), daemon=True).start()
+    return {"run_id": run_id}
+
+
+@app.get("/api/agents/{agent_id}/cycles")
+def agent_cycles(agent_id: str, uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    _my_agent(uid, agent_id)
+    return _jsonable(list(db().agent_cycles.find({"agent_id": agent_id}, {"_id": 0}).sort("created", -1).limit(5)))
+
+
 @app.get("/api/org")
 def org_chart(uid: str = Depends(current_user)) -> dict[str, Any]:
     """The four-role hierarchy with the people in each role and how many agents each can use."""
@@ -424,6 +440,16 @@ def _cycles_tick() -> list[str]:
     return [] if recent else cycles.tick()
 
 
+def _agent_cycles_tick() -> list[str]:
+    """Weekly agent cycles (one agent per tick, quiet time only). OA_CYCLES=off disables both cycle kinds."""
+    if os.environ.get("OA_CYCLES", "on") == "off":
+        return []
+    import datetime as _dt
+
+    recent = db().episodes.find_one({"source": "chat", "ts": {"$gt": _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(minutes=2)}})
+    return [] if recent else cycles.agent_tick(1)
+
+
 @app.on_event("startup")
 def _scheduler() -> None:
     """Recurring improvement: every minute, agents with enough queued recommendations improve themselves."""
@@ -439,7 +465,7 @@ def _scheduler() -> None:
         while True:
             time.sleep(60)
             for job in (improve.tick, maintenance.watchdog, maintenance.consolidate, maintenance.auto_evolve,
-                        _cycles_tick):
+                        _cycles_tick, _agent_cycles_tick):
                 try:
                     out = job()
                     if out:
@@ -538,7 +564,7 @@ def governance_status(scope: str, authorization: str = Header(default="")) -> di
         res = governance.resource_for(scope)
         org = iam.org_role(u)
         out["can"] = {a: (iam.allowed(u, a, res) if org else u.role in ("executive", "admin"))
-                      for a in ("improve:run", "harness:approve", "harness:freeze")}
+                      for a in ("improve:run", "improve:cycle", "harness:approve", "harness:freeze")}
         out["role_title"] = agents.ORG_ROLES.get(org, {}).get("title") if org else u.role
     except Exception:
         out["can"] = {}

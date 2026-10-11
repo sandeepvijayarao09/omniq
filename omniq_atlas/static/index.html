@@ -169,7 +169,8 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         <button id="redteam" title="Try to sneak in a dangerous change">Try to break it</button>
         <button id="improve" style="display:none" title="Learn from users' 👎 suggestions">Learn from feedback</button>
-        <button class="primary" id="evolve" title="Test, find mistakes, fix, keep only what's better">Improve itself ▶</button></span></div>
+        <button class="primary" id="cycleBtn" style="display:none" title="Improve this agent from everything people did with it in the last 7 days">Improve from last 7 days ▶</button>
+        <button id="evolve" title="Test, find mistakes, fix, keep only what's better">Improve itself ▶</button></span></div>
     <div class="scroll">
       <div class="card" id="cycleCard"><h3>Your 7-day cycle</h3><span class="mute small">Pick a person to see their cycle.</span></div>
       <details class="how"><summary><b>How it works</b> (30 seconds)</summary><ol>
@@ -333,8 +334,9 @@ async function loadLineage(){const role=$('#role').value;if(!role)return;const r
   $('#lineage').querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/reject/${b.dataset.reject}`,{method:'POST',body:JSON.stringify({reason:'rejected in review'})});toast('Rejected');loadLineage()});
   const gv=await api('/api/governance/'+encodeURIComponent(role));
   const can=gv.can||{};const runOk=!!can['improve:run'];
+  const cyc=$('#cycleBtn');cyc.style.display=role.startsWith('agent:')?'':'none';cyc.disabled=!can['improve:cycle'];
   ['#evolve','#improve','#redteam'].forEach(q=>{const b=$(q);if(!b)return;b.disabled=!runOk;b.title=runOk?b.title:`Your role (${gv.role_title||'—'}) can't run improvements on this playbook. Directors and the CTO can.`});
-  const hintTxt=runOk?'':`<div class="small mute" style="margin:-4px 0 10px">🔒 As a ${esc(gv.role_title||'')}, you improve this agent by using it: 👎 + "do this instead" changes it for you right away, and your <b>7-day cycle</b> proposes changes for everyone. Running improvements is for Directors and the CTO (IAM <code>improve:run</code>).</div>`;
+  const hintTxt=runOk?'':`<div class="small mute" style="margin:-4px 0 10px">🔒 As a ${esc(gv.role_title||'')}, you can <b>Improve from last 7 days</b>: the agent learns from what everyone did with it, and the data decides what changes. Direct tuning and approvals are for Directors and the CTO.</div>`;
   $('#gov').innerHTML=hintTxt+(gv.frozen?'❄️ <b>Frozen.</b> <span class="mute">No automatic changes.</span>':gv.paused_until?'⏸️ <b>Paused</b> <span class="mute">after repeated failed attempts</span>':`🟢 <span>Using <b>v${r.active.version}</b>. Improving automatically; safety rules locked.</span>`)+((can['harness:freeze'])?` <button class="ghost small" id="freezeBtn">${gv.frozen?'Unfreeze':'Freeze'}</button>`:'');
   const fb=$('#freezeBtn');if(fb)fb.onclick=async()=>{await api(`/api/governance/${encodeURIComponent(role)}/freeze`,{method:'POST',body:JSON.stringify({frozen:!gv.frozen})});loadLineage()}}
 const STEP={
@@ -352,11 +354,15 @@ const STEP={
   triaged:ev=>['⚖️','Decided',`${ev.agent_wide} would help everyone, ${ev.personal} are personal taste.`],repair:ev=>['🔧','Fixing','The safety rules objected. Asking the improver to fix its change.'],
   replaying:ev=>['🔁','Comparing','Asking the same questions with the old and new playbook…'],evaluated:ev=>['🧑‍⚖️','Judged',`New version won ${pct(ev.replay)} of blind comparisons; tests ${pct(ev.evals_before)}→${pct(ev.evals_after)}.`],
   paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],meta_error:ev=>['⚠️','Hiccup','Using a safe built-in fix instead.'],
+  cycle_ledger:ev=>['📒','Last 7 days',`${ev.asks} answers to ${ev.users} people · ${ev.up} 👍 · ${ev.down} 👎 · ${ev.regenerated} regenerated · ${ev.not_found} "not in sources" · ${ev.pending_suggestions} pending suggestions`+(ev.satisfaction!=null?` · satisfaction ${pct(ev.satisfaction)}`:'')+(ev.worst_questions?.length?`\nWeakest: `+ev.worst_questions.map(q=>'“'+q.slice(0,90)+'”').join('; '):'')],
+  cycle_step:ev=>['▶️','Step',ev.step+'…'],
+  cycle_result:ev=>[{promoted:'✅',rolled_back:'↩️',awaiting_approval:'🙋',converged:'🏁',blocked:'🛑',done:'·',skipped:'⏭️',paused:'⏸️'}[ev.result]||'•',ev.step==='suggestions'?'From suggestions':'From scores',`${({promoted:'kept a change',rolled_back:'tried a change, undone (not better)',awaiting_approval:'better, waiting for a manager',converged:'already perfect on its tests',blocked:'refused by safety rules',done:'no agent-wide change needed',skipped:'skipped',paused:'paused'})[ev.result]||ev.result}${ev.detail?' · '+ev.detail:''}`],
   done:ev=>['🏁','Finished',ev.final_version?`Using v${ev.final_version}.`:(ev.reason||'')]};
 const fmt=ev=>(STEP[ev.kind]||(e=>['•',e.kind,'']))(ev);
 function stream(run_id,btn){const log=$('#log');log.style.display='block';log.innerHTML='';btn.disabled=true;const es=new EventSource(`/api/evolve/${run_id}/stream`);
   es.onmessage=e=>{const ev=JSON.parse(e.data);const [ic,label,text]=fmt(ev);const d=document.createElement('div');d.innerHTML=`${ic} <b class="k-${ev.kind}">${esc(label)}</b> ${esc(text)}`;log.appendChild(d);log.scrollTop=log.scrollHeight;if(['promoted','rolled_back','blocked','done','evaluated','awaiting_approval'].includes(ev.kind))loadLineage()};
   es.addEventListener('end',()=>{es.close();btn.disabled=false;loadScopes().then(loadLineage)});es.onerror=()=>{es.close();btn.disabled=false}}
+$('#cycleBtn').onclick=async()=>{if(!token)return toast('Pick a person first');const id=$('#role').value.slice(6);try{var {run_id}=await api('/api/agents/'+id+'/improve-cycle',{method:'POST'})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#cycleBtn'))};
 $('#evolve').onclick=async()=>{if(!token)return toast('Pick a person first');try{var {run_id}=await api('/api/evolve',{method:'POST',body:JSON.stringify({role:$('#role').value,generations:3})})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#evolve'))};
 $('#improve').onclick=async()=>{if(!token)return toast('Pick a person first');try{var {run_id}=await api('/api/improve',{method:'POST',body:JSON.stringify({scope:$('#role').value})})}catch(e){return toast('⛔ '+e.message)}stream(run_id,$('#improve'))};
 $('#redteam').onclick=async()=>{if(!token)return toast('Pick a person first');let r;try{r=await api('/api/redteam/'+encodeURIComponent($('#role').value),{method:'POST'})}catch(e){return toast('⛔ '+e.message)}const log=$('#log');log.style.display='block';const d=document.createElement('div');
@@ -440,9 +446,10 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
     publish:`<div class="editor"><div class="small mute">Edits the agent's context file <b>for everyone who uses it</b>. Allowed by your IAM role. It must pass the injection screen and the leak safety gate, and it becomes a new version in Atlas you can roll back.</div>
       <textarea id="pMd" style="min-height:360px">${esc(d.markdown)}</textarea><input id="pWhy" placeholder="Why are you changing it?" style="width:100%;margin-top:6px">
       <button class="primary" id="pGo" style="margin-top:8px">Publish new version</button></div>`};
-  $('#adetail').innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 style="margin:0">🤖 ${esc(d.name)}</h2><span class="role">${esc(d.org_role)}</span><span class="mute small">${esc(d.description)}</span></div>
+  $('#adetail').innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 style="margin:0">🤖 ${esc(d.name)}</h2><span class="role">${esc(d.org_role)}</span><span class="mute small">${esc(d.description)}</span><button class="primary small" id="aCycle" style="margin-left:auto">Improve from last 7 days ▶</button></div>
     <div class="tabs2">${tabs.map(([k,l])=>`<button data-t="${k}" class="${k===agentTab?'on':''}">${l}</button>`).join('')}</div><div class="card">${body[tabs.find(t=>t[0]===agentTab)?agentTab:'context']}</div>`;
   $('#adetail').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{agentTab=b.dataset.t;openAgent(id)});
+  $('#aCycle').onclick=()=>{document.querySelector('nav button[data-v=vImprove]').click();loadScopes('agent:'+id).then(()=>{loadLineage();setTimeout(()=>$('#cycleBtn').click(),600)})};
   const sv=$('#eSave');if(sv)sv.onclick=async()=>{try{await api('/api/agents/'+id+'/override',{method:'PUT',body:JSON.stringify({notes:$('#eNotes').value,procedure:$('#eProc').value.split('\n'),template:$('#eTpl').value})});toast('Saved. Applies to you from your next message.');openAgent(id)}catch(e){toast('⛔ '+e.message)}};
   const rs=$('#eReset');if(rs)rs.onclick=async()=>{await api('/api/agents/'+id+'/override',{method:'DELETE'});toast('Back to the shared agent');openAgent(id)};
   const pg=$('#pGo');if(pg)pg.onclick=async()=>{pg.disabled=true;pg.textContent='Checking safety gate…';try{const r=await api('/api/agents/'+id+'/publish',{method:'POST',body:JSON.stringify({markdown:$('#pMd').value,reason:$('#pWhy').value})});toast(`Published: context v${r.context_version}, playbook v${r.harness_version} (passed ${r.safety_gate} leak checks)`);agentTab='timeline';openAgent(id)}catch(e){toast('⛔ '+e.message);pg.disabled=false;pg.textContent='Publish new version'}}}

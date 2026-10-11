@@ -56,6 +56,10 @@ roles:
         effect: Allow
         actions: ["agent:use"]
         resources: ["agent:developer/*"]
+      - sid: ImproveOwnAgentsFromLastCycle
+        effect: Allow
+        actions: ["improve:cycle"]
+        resources: ["harness:agent/developer/*"]
 
   product_manager:
     description: Owns problems, requirements and launches for a product area.
@@ -69,6 +73,10 @@ roles:
         effect: Allow
         actions: ["agent:use"]
         resources: ["agent:product_manager/*"]
+      - sid: ImproveOwnAgentsFromLastCycle
+        effect: Allow
+        actions: ["improve:cycle"]
+        resources: ["harness:agent/product_manager/*"]
 
   director:
     description: Runs a function through managers; owns delivery and team health.
@@ -84,7 +92,7 @@ roles:
         resources: ["agent:director/*"]
       - sid: ImproveAndApproveTeamPlaybooks
         effect: Allow
-        actions: ["improve:run", "harness:approve", "harness:freeze", "harness:rollback"]
+        actions: ["improve:run", "improve:cycle", "harness:approve", "harness:freeze", "harness:rollback"]
         resources: ["harness:agent/developer/*", "harness:agent/product_manager/*", "harness:agent/director/*"]
       - sid: SeeAllProjects
         effect: Allow
@@ -105,5 +113,5 @@ roles:
         resources: ["agent:*"]
       - sid: GovernEveryPlaybook
         effect: Allow
-        actions: ["improve:run", "harness:approve", "harness:freeze", "harness:rollback"]
+        actions: ["improve:run", "improve:cycle", "harness:approve", "harness:freeze", "harness:rollback"]
         resources: ["harness:*"]

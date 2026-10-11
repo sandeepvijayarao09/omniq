@@ -217,3 +217,120 @@ def tick() -> list[str]:
             run(uid)
             done.append(uid)
     return done
+
+
+# ================================================================ agent-level 7-day cycle
+
+def agent_ledger(agent_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, Any]:
+    """Everything every user did with this agent in the window."""
+    w = {"$gte": since, "$lt": until}
+    eps = list(db().episodes.find({"agent_id": agent_id, "source": "chat", "ts": w}, {"embedding": 0}))
+    fb = {f["event_id"]: f for f in db().feedback.find({"event_id": {"$in": [e["_id"] for e in eps]}})}
+    users = Counter(e["user_id"] for e in eps)
+    down = [e for e in eps if e["_id"] in fb and not fb[e["_id"]]["good"]]
+    regen = [e for e in down if fb[e["_id"]].get("comment_t") == "regenerated"]
+    not_found = [e for e in eps if ABSTAIN.search(e.get("answer_t", ""))]
+    pending = db().recommendations.count_documents({"scope": f"agent:{agent_id}", "status": "pending"})
+    return {"asks": len(eps), "users": len(users), "up": sum(1 for f in fb.values() if f["good"]), "down": len(down),
+            "regenerated": len(regen), "not_found": len(not_found), "pending_suggestions": pending,
+            "satisfaction": round(sum(1 for f in fb.values() if f["good"]) / len(fb), 3) if fb else None,
+            "worst_questions": [e["question_t"][:160] for e in (down + not_found)[:6]]}
+
+
+def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, actor: str = "scheduler") -> dict[str, Any]:
+    """Improve one agent from the last `days` of evidence: suggestions first (governed), then hard metrics."""
+    from . import evolve, improve
+    from .evolve import _log
+
+    scope = f"agent:{agent_id}"
+    until = _now()
+    since = until - dt.timedelta(days=days)
+    run_id = run_id or uuid.uuid4().hex[:10]
+    db().evolve_runs.insert_one({"_id": run_id, "role": scope, "kind": "agent_cycle", "status": "running",
+                                 "created": _now(), "updated": _now(), "events": [], "actor": actor})
+    L = agent_ledger(agent_id, since, until)
+    _log(run_id, "cycle_ledger", days=days, **L)
+    outcome: dict[str, Any] = {"ledger": L}
+
+    # 0) live signals: downvoted / regenerated answers become evidence when 2+ different people were unhappy
+    added = _live_signal_recommendations(agent_id, since, until)
+    if added:
+        _log(run_id, "cycle_step", step=f"Turning {added} downvoted or regenerated answers from real users into evidence")
+        L["pending_suggestions"] += added
+
+    # 1) what people asked for (governed: quorum, blind replay, eval guard, safety gate, approval for templates)
+    if L["pending_suggestions"]:
+        _log(run_id, "cycle_step", step="Learning from users' suggestions")
+        r = improve.run(scope)
+        kinds = [e["kind"] for e in r["events"]]
+        last = next((e for e in reversed(r["events"]) if e["kind"] in ("promoted", "rolled_back", "awaiting_approval",
+                                                                        "blocked", "done", "skipped")), {})
+        outcome["suggestions"] = last.get("kind")
+        _log(run_id, "cycle_result", step="suggestions", result=last.get("kind"),
+             detail=str(last.get("reason") or last.get("reasons") or last.get("replay") or "")[:200], run=r["_id"], kinds=kinds)
+
+    # 2) hard metrics, with last week's downvoted questions in the evidence the improver sees
+    _log(run_id, "cycle_step", step="Testing against graded questions and last week's failures")
+    r = evolve.run(scope, 2)
+    last = next((e for e in reversed(r["events"]) if e["kind"] in ("promoted", "rolled_back", "converged",
+                                                                    "awaiting_approval", "blocked", "skipped", "paused")), {})
+    scored = next((e for e in r["events"] if e["kind"] == "scored"), None)
+    outcome["metrics"] = last.get("kind")
+    _log(run_id, "cycle_result", step="metrics", result=last.get("kind"),
+         detail=(f"practice {scored['train']['pass_rate']:.0%}, unseen {scored['holdout']['pass_rate']:.0%}" if scored else str(last.get("reason", "")))[:200],
+         run=r["_id"])
+
+    from . import harness as hz
+
+    final = hz.active(scope)
+    db().agent_cycles.insert_one({"agent_id": agent_id, "since": since, "until": until, "created": _now(), "actor": actor,
+                                  "run": run_id, "final_version": final["version"], **outcome})
+    audit.record("agent_cycle_completed", actor, agent=agent_id, run=run_id, final_version=final["version"],
+                 asks=L["asks"], down=L["down"])
+    db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done", "final_version": final["version"]}})
+    _log(run_id, "done", final_version=final["version"])
+    return db().evolve_runs.find_one({"_id": run_id})
+
+
+LIVE_SIGNAL_TEXT = ("Real users rated this answer down or regenerated it. Give a more direct, complete and actionable "
+                    "answer: lead with what to do, fill every section of the output template with specifics from the "
+                    "sources (names, numbers, runbook steps), and say plainly what the sources do not cover.")
+
+
+def _live_signal_recommendations(agent_id: str, since: dt.datetime, until: dt.datetime) -> int:
+    from .assistant import Vault, name_registry
+
+    w = {"$gte": since, "$lt": until}
+    eps = {e["_id"]: e for e in db().episodes.find({"agent_id": agent_id, "source": "chat", "ts": w})}
+    bad = [f for f in db().feedback.find({"event_id": {"$in": list(eps)}, "good": False})]
+    if len({f["user_id"] for f in bad}) < 2:  # same quorum as suggestions: one unhappy person stays personal
+        return 0
+    have = {r["event_id"] for r in db().recommendations.find({"event_id": {"$in": [f["event_id"] for f in bad]}}, {"event_id": 1})}
+    v = Vault(name_registry())
+    n = 0
+    for f in bad:
+        if f["event_id"] in have:
+            continue
+        e = eps[f["event_id"]]
+        memory.recommend(agent_id, f"agent:{agent_id}", e["user_id"], e["_id"], v.detokenize(e["question_t"]),
+                         v.detokenize(e.get("answer_t", "")), LIVE_SIGNAL_TEXT, e["harness_version"])
+        db().recommendations.update_one({"event_id": e["_id"], "text": LIVE_SIGNAL_TEXT}, {"$set": {"source": "live_signal"}})
+        n += 1
+    return n
+
+
+def agent_due(agent_id: str) -> bool:
+    last = db().agent_cycles.find_one({"agent_id": agent_id}, sort=[("until", -1)])
+    return not last or last["until"].replace(tzinfo=dt.timezone.utc) <= _now() - dt.timedelta(days=CYCLE_DAYS)
+
+
+def agent_tick(limit: int = 1) -> list[str]:
+    """Scheduler: run the weekly cycle for agents that are due (oldest first), a few per tick."""
+    done = []
+    for a in db().agents.find({}, {"id": 1}):
+        if len(done) >= limit:
+            break
+        if agent_due(a["id"]):
+            run_agent(a["id"])
+            done.append(a["id"])
+    return done
