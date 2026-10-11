@@ -38,7 +38,8 @@ ANALYST = (
     "(what they asked, which agents they used, what they rated, regenerated or asked to change), work out what "
     "they actually need, and how each agent should improve for them. Be specific and evidence-based. Never include "
     "secrets, salaries, health or HR details; describe working patterns, not private facts. Implicit signals matter "
-    "most: 'rephrased' or 'followup_correction' mean the answer missed; 'copied' means it was useful. Never suggest weakening "
+    "most: 'rephrased' or 'followup_correction' mean the answer missed; 'copied' means it was useful; repeated "
+    "'extension' follow-ups show what the agent should start including proactively. Never suggest weakening "
     "access control or privacy."
 )
 
@@ -59,6 +60,7 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
                                  "kind": {"$in": ["harness_approved", "harness_rejected", "harness_frozen",
                                                   "harness_unfrozen", "harness_manual_rollback", "evolve_start"]}}))
     by_event = {f["event_id"]: f for f in fb}
+    intents = list(db().intent_events.find({"user_id": user_id, "ts": w}, {"_id": 0, "agent_id": 1, "intent": 1, "change_t": 1}))
     imp: dict[str, set[str]] = {}
     for x in db().implicit_signals.find({"user_id": user_id, "ts": w}):
         imp.setdefault(x["event_id"], set()).add(x["kind"])
@@ -89,7 +91,13 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
         if e["_id"] in flagged_ids:
             a["raindrop_flagged"] = next(f["signals"] for f in rd["flagged"] if f["event_id"] == e["_id"])
             per_agent[a["agent"]]["raindrop_flagged"] = per_agent[a["agent"]].get("raindrop_flagged", 0) + 1
+    for it in intents:
+        a = it.get("agent_id") or "assistant"
+        if a in per_agent:
+            per_agent[a][it["intent"]] = per_agent[a].get(it["intent"], 0) + 1
     return {"asks": asks, "per_agent": per_agent, "raindrop": rd,
+            "follow_up_intents": [{"agent": i.get("agent_id") or "assistant", "intent": i["intent"], "change": i["change_t"]}
+                                  for i in intents if i["intent"] != "new_task"][:30],
             "suggestions": [{"agent": r.get("agent_id"), "text": r["text"], "status": r.get("status")} for r in recs],
             "memories": [{"agent": m.get("agent_id"), "kind": m["kind"], "text": m["text"]} for m in mems],
             "governance_actions": [{"kind": a["kind"], "scope": a["data"].get("role")} for a in acts],
@@ -102,6 +110,7 @@ def _analyse(user_name: str, L: dict[str, Any]) -> dict[str, Any]:
     prompt = (f"Employee: {user_name}\nTotals: {json.dumps(L['totals'])}\nPer agent: {json.dumps(L['per_agent'])}\n"
               f"Questions (oldest first): {json.dumps(L['asks'][-40:])}\nSuggestions they made: {json.dumps(L['suggestions'])}\n"
               f"Preferences/memories: {json.dumps(L['memories'])}\nGovernance actions: {json.dumps(L['governance_actions'])}\n"
+              f"What they asked for on top of answers (classified follow-ups): {json.dumps(L.get('follow_up_intents', []))}\n"
               f"Raindrop monitoring (independent signals on their conversations): {json.dumps({k: L['raindrop'][k] for k in ('status', 'events', 'signals')})}\n\n"
               'Return {"summary": str (2 sentences), "learned": [3-6 short bullets about how they work and what they need], '
               '"agents": [{"agent": id, "why": str (evidence), "rules": [0-2 short rules], '

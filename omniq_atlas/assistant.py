@@ -175,14 +175,15 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             query = question
     turns = memory.recent_turns(convo_id, user.id) if source == "chat" else []
     improvement_logged = None
-    if turns and source == "chat":  # implicit signals: corrections and rephrasings say the last answer missed
+    prev_for_intent = None
+    if turns and source == "chat":  # implicit signals: rephrasing says the last answer missed; intent is classified later
         prev = db().episodes.find_one({"user_id": user.id, "convo_id": convo_id, "source": "chat"}, sort=[("ts", -1)])
-        if prev and IMPROVE_RX.search(question):
-            improvement_logged = request_improvement(prev["_id"], user.id, question, source="chat_followup")
-        elif prev:
+        if prev:
             a, b = embed.embed_one(question), embed.embed_one(turns[-1]["q"])
             if sum(x * y for x, y in zip(a, b)) >= 0.6:  # calibrated on Voyage: rephrasings 0.67-0.75, unrelated 0.12-0.24
                 implicit_signal(prev["_id"], user.id, "rephrased")
+            else:
+                prev_for_intent = prev  # correction / refinement / extension / new task: decided after we reply
     if turns:  # follow-ups ("and their renewal?") retrieve with the previous question for context
         query = f"{turns[-1]['q']} {query}"
 
@@ -257,6 +258,10 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
                "pii": vault.summary(), "blocked": bool(leaked), "memories_applied": len(mems), "error": error}
     if source == "chat":
         db().episodes.insert_one(episode)
+        if prev_for_intent:
+            from . import intent
+
+            intent.record_async(prev_for_intent, event_id, question, user.id)
         memory.remember_turn(convo_id, user.id, agent_id or "", question, answer)
         audit.record("ask", user.id, episode=event_id, scope=scope, harness_version=version, question=tq,
                      sources=episode["sources"], model=meta.get("model"), pii=vault.summary())
