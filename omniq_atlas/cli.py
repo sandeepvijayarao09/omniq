@@ -46,7 +46,7 @@ def main() -> None:
 
         uvicorn.run("omniq_atlas.api:app", host=args.host, port=args.port)
     elif args.cmd == "status":
-        _print({"mongodb": db().command("ping"), "voyage": embed.available(), "claude": llm.available(),
+        _print({"mongodb": db().command("ping"), "voyage": embed.available(), "llm": llm.provider(),
                 "raindrop": telemetry.available(), "elevenlabs": voice.available(),
                 "counts": {c: db()[c].estimated_document_count() for c in ("users", "chunks", "objects", "links", "harness", "episodes", "audit")}})
     elif args.cmd == "seed":

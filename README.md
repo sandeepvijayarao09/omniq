@@ -63,7 +63,8 @@ employee ─► JWT ─► active harness for their role (Atlas `harness`)
 - **Raindrop:** every answer is tracked, and employee feedback and eval failures are sent as signals.
 - **ElevenLabs:** push-to-talk (Scribe v2 speech-to-text) and spoken answers (Flash v2.5).
 - **Modelence:** a Node edge (`modelence/`) deployed to Modelence Cloud, which proxies to the Python API.
-- **Claude:** the assistant (`claude-haiku-5-5`) and the harness meta-agent (`claude-sonnet-5-5`).
+- **Models:** any OpenAI-compatible endpoint. The demo runs **Gemma 4 (e4b) locally through Ollama**, so employee data
+  never leaves the laptop. Set `ANTHROPIC_API_KEY` to switch to Claude.
 
 ## Run it
 

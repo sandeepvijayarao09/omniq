@@ -1,4 +1,5 @@
-"""Claude calls, with an extractive offline fallback so the pipeline always runs."""
+"""Model calls: Claude if a key is set, else any OpenAI-compatible endpoint (Ollama by default),
+else an extractive offline fallback so the pipeline always runs."""
 
 from __future__ import annotations
 
@@ -6,6 +7,8 @@ import json
 import re
 from functools import lru_cache
 from typing import Any
+
+import httpx
 
 from .config import settings
 
@@ -19,14 +22,46 @@ def _client():
     return anthropic.Anthropic(api_key=settings.anthropic_key)
 
 
+@lru_cache(maxsize=1)
+def _compat_up() -> bool:
+    if not settings.llm_base_url:
+        return False
+    try:
+        httpx.get(settings.llm_base_url.rstrip("/") + "/models", timeout=3,
+                  headers={"Authorization": f"Bearer {settings.llm_api_key}"}).raise_for_status()
+        return True
+    except Exception:
+        return False
+
+
+def provider() -> str:
+    return "anthropic" if _client() else "openai_compatible" if _compat_up() else "offline"
+
+
 def available() -> bool:
-    return _client() is not None
+    return provider() != "offline"
+
+
+def _compat(system: str, user: str, model: str, max_tokens: int, temperature: float) -> tuple[str, dict[str, Any]]:
+    r = httpx.post(settings.llm_base_url.rstrip("/") + "/chat/completions", timeout=180,
+                   headers={"Authorization": f"Bearer {settings.llm_api_key}"},
+                   json={"model": model, "max_tokens": max_tokens, "temperature": temperature,
+                         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]})
+    r.raise_for_status()
+    d = r.json()
+    text = d["choices"][0]["message"].get("content") or ""
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+    u = d.get("usage", {})
+    return text, {"model": d.get("model", model), "input_tokens": u.get("prompt_tokens", 0),
+                  "output_tokens": u.get("completion_tokens", 0)}
 
 
 def complete(system: str, user: str, *, model: str | None = None, max_tokens: int = 500,
              temperature: float = 0.2) -> tuple[str, dict[str, Any]]:
     c = _client()
     if c is None:
+        if _compat_up():
+            return _compat(system, user, model or settings.assistant_model, max_tokens, temperature)
         return _offline(user), {"model": "offline", "input_tokens": 0, "output_tokens": 0}
     msg = c.messages.create(model=model or settings.assistant_model, max_tokens=max_tokens,
                             temperature=temperature, system=system,
