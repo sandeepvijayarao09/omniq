@@ -94,6 +94,29 @@ def agent_task(cfg: dict[str, Any]) -> str:
             + (f"Start your reply with **{lead}**." if lead else ""))
 
 
+class _detokenizing_emitter:
+    """Streams model text to the user with masked names restored. A token like [PERSON_1] can arrive split across
+    chunks, so anything after an unclosed '[' is held back until it is complete."""
+
+    def __init__(self, vault: Vault, out):
+        self.vault, self.out, self.buf = vault, out, ""
+
+    def __call__(self, piece: str) -> None:
+        self.buf += piece
+        cut = self.buf.rfind("[")
+        if cut != -1 and "]" not in self.buf[cut:] and len(self.buf) - cut < 24:
+            ready, self.buf = self.buf[:cut], self.buf[cut:]
+        else:
+            ready, self.buf = self.buf, ""
+        if ready:
+            self.out(self.vault.detokenize(ready))
+
+    def flush(self) -> None:
+        if self.buf:
+            self.out(self.vault.detokenize(self.buf))
+            self.buf = ""
+
+
 def get_user(user_id: str) -> User:
     doc = db().users.find_one({"id": user_id})
     if not doc:
@@ -149,7 +172,7 @@ def scope_for(user: User, agent_id: str | None) -> tuple[str, dict[str, Any] | N
 
 def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_override: dict[str, Any] | None = None,
         harness_version: int | None = None, convo_id: str = "", source: str = "chat",
-        personal_memory: bool = True) -> dict[str, Any]:
+        personal_memory: bool = True, on_delta=None) -> dict[str, Any]:
     t0 = time.time()
     question = (question or "").strip()[:MAX_QUESTION_CHARS]
     if not question:
@@ -238,10 +261,13 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         try:
             private_cats = set(llm.registry().get("policy", {}).get("private_only_categories", []))
             private_only = any(cat in private_cats for cat in {h.get("category") for h in hits})
+            emit = _detokenizing_emitter(vault, on_delta) if on_delta else None
             answer_t, meta = llm.complete(t_system, t_user, max_tokens=int(cfg["model"]["max_tokens"]),
                                           temperature=float(cfg["model"]["temperature"]),
                                           model=(cfg.get("agent") or {}).get("llm_model") or None,
-                                          private_only=private_only)
+                                          private_only=private_only, on_text=emit)
+            if emit:
+                emit.flush()
         except Exception as e:  # model down or timed out: degrade, never 500
             error = str(e)[:200]
             answer_t, meta = ("The model is unavailable right now. The most relevant passages I can show you: "

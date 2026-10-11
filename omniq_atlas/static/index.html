@@ -280,7 +280,7 @@ async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!
   const pending=addTurn('a','<div class="text mute" data-steps>🔐 Checking your access…</div>');
   const STEPS=['🔐 Checking your access…','🔎 Searching MongoDB Atlas (filtered to what you may read)…','🕸 Adding company-graph facts…','🫥 Masking names before the model sees anything…','🧠 Asking the model…'];
   let si=0;const tick=setInterval(()=>{const el=pending.querySelector('[data-steps]');if(!el){clearInterval(tick);return}si=Math.min(si+1,STEPS.length-1);el.textContent=STEPS[si]},900);
-  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo})});clearInterval(tick);renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
+  try{const r=await askStream(q,pending,tick);clearInterval(tick);renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
   catch(e){clearInterval(tick);pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
 function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
   el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${esc(r.model_label||r.model)} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
@@ -296,6 +296,17 @@ function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)
   B.querySelector('.text').addEventListener('copy',()=>{api('/api/signal',{method:'POST',body:JSON.stringify({event_id:r.event_id,kind:'copied'})}).catch(()=>{})},{once:true});
   B.querySelector('[data-regen]').onclick=async()=>{api('/api/signal',{method:'POST',body:JSON.stringify({event_id:r.event_id,kind:'regenerated'})}).catch(()=>{});send((r.agent?'@'+(myAgents.find(a=>a.name===r.agent)||{}).id+' ':'')+(q.replace(/@[a-z_\-]+\s*/i,'')))};
   B.querySelector('[data-ctx]').onclick=()=>{const c=B.querySelector('.ctx');c.style.display=c.style.display==='none'?'block':'none'}}
+async function askStream(q,el,tick){
+  const resp=await fetch('/api/ask/stream',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({question:q,convo_id:convo})});
+  if(!resp.ok){let m=await resp.text();try{m=JSON.parse(m).detail||m}catch(e){}throw new Error(m)}
+  const reader=resp.body.getReader(),dec=new TextDecoder();let buf='',text='',started=false,final=null;
+  while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
+    let i;while((i=buf.indexOf('\n\n'))>=0){const block=buf.slice(0,i);buf=buf.slice(i+2);
+      const ev=(block.match(/^event: (.*)$/m)||[])[1],raw=(block.match(/^data: (.*)$/m)||[])[1];if(!raw)continue;const data=JSON.parse(raw);
+      if(ev==='delta'){if(!started){started=true;clearInterval(tick);el.querySelector('.bubble').innerHTML='<div class="who2"><b>…</b></div><div class="text" data-live></div>'}
+        text+=data;const t=el.querySelector('[data-live]');t.textContent=text;$('#thread').scrollTop=$('#thread').scrollHeight}
+      else if(ev==='done')final=data;else if(ev==='error')throw new Error(data)}}
+  if(!final)throw new Error('stream ended early');return final}
 async function showMyContext(){const d=$('#ctxDrawer');if(d.classList.contains('on')&&d.dataset.k==='ctx'){d.classList.remove('on');return}d.dataset.k='ctx';const c=await api('/api/me/context');
   d.innerHTML=`<b>Your context layers</b> <span class="mute small">(sent with every message, before any agent's file)</span>
     ${c.role_file?`<details open><summary>${esc(c.role_file)}</summary><pre>${esc(c.role_md)}</pre></details>`:''}

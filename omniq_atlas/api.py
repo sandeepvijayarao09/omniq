@@ -185,6 +185,42 @@ def ask(body: Ask, uid: str = Depends(current_user)) -> dict[str, Any]:
     return _jsonable(res)
 
 
+@app.post("/api/ask/stream")
+def ask_stream(body: Ask, uid: str = Depends(current_user)) -> StreamingResponse:
+    """Same as /api/ask, streamed: 'delta' events carry text as the model writes it (names already restored),
+    then one 'done' event with the full result (sources, model, context layers)."""
+    import queue
+
+    _rate_limit(uid)
+    user = assistant.get_user(uid)
+    allowed = {a["id"] for a in agents.for_user(user)}
+    mentioned, question = context.parse_mention(body.question, {a["id"] for a in db().agents.find({}, {"id": 1})})
+    if mentioned and mentioned not in allowed:
+        raise assistant.Forbidden(f"@{mentioned} isn't available to {user.name}'s role")
+    q: queue.Queue = queue.Queue()
+
+    def work() -> None:
+        try:
+            res = assistant.ask(uid, question, convo_id=body.convo_id, agent_id=mentioned or body.agent_id or None,
+                                on_delta=lambda t: q.put(("delta", t)))
+            res.pop("_context", None)
+            q.put(("done", _jsonable(res)))
+        except Exception as e:
+            q.put(("error", str(e)[:300]))
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def gen():
+        while True:
+            kind, data = q.get()
+            yield f"event: {kind}\ndata: {json.dumps(data)}\n\n"
+            if kind in ("done", "error"):
+                break
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 @app.post("/api/feedback")
 def feedback(body: Feedback, uid: str = Depends(current_user)) -> dict[str, Any]:
     return assistant.feedback(body.event_id, uid, body.good, body.comment, body.recommendation)

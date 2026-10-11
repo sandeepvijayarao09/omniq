@@ -160,8 +160,30 @@ def _call(name: str, system: str, user: str, max_tokens: int, temperature: float
                   "output_tokens": u.get("completion_tokens", 0)}
 
 
+def _stream_ollama(name: str, system: str, user: str, max_tokens: int, temperature: float, on_text) -> tuple[str, dict[str, Any]]:
+    p = _resolve(registry()["profiles"][name])
+    body = {"model": p["model"], "stream": True, "think": False,
+            "options": {"num_predict": max_tokens, "temperature": temperature, "num_ctx": 16384, "seed": 7},
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+    parts, meta = [], {"model": p["model"], "input_tokens": 0, "output_tokens": 0}
+    with httpx.stream("POST", p["base_url"].rstrip("/") + "/api/chat", json=body, timeout=300) as r:
+        r.raise_for_status()
+        for line in r.iter_lines():
+            if not line:
+                continue
+            d = json.loads(line)
+            piece = (d.get("message") or {}).get("content", "")
+            if piece:
+                parts.append(piece)
+                on_text(piece)
+            if d.get("done"):
+                meta.update(model=d.get("model", p["model"]), input_tokens=d.get("prompt_eval_count", 0),
+                            output_tokens=d.get("eval_count", 0))
+    return "".join(parts).strip(), meta
+
+
 def complete(system: str, user: str, *, model: str | None = None, max_tokens: int = 500, temperature: float = 0.2,
-             json_mode: bool = False, private_only: bool = False) -> tuple[str, dict[str, Any]]:
+             json_mode: bool = False, private_only: bool = False, on_text=None) -> tuple[str, dict[str, Any]]:
     """Call the best eligible profile; fall through the chain on errors. `model` may be a profile name or model id."""
     from . import usage
 
@@ -173,7 +195,12 @@ def complete(system: str, user: str, *, model: str | None = None, max_tokens: in
             return _offline(user), {"model": "offline", "profile": "offline", "label": "offline (extractive)",
                                     "input_tokens": 0, "output_tokens": 0, "skipped": skipped + errors}
         try:
-            text, meta = _call(name, system, user, max_tokens, temperature, json_mode)
+            if on_text and not json_mode and registry()["profiles"][name]["provider"] == "ollama":
+                text, meta = _stream_ollama(name, system, user, max_tokens, temperature, on_text)
+            else:
+                text, meta = _call(name, system, user, max_tokens, temperature, json_mode)
+                if on_text:
+                    on_text(text)
             usage.bump(f"llm_calls_{name.replace('-', '_')}")
             return text, {**meta, "profile": name, "label": registry()["profiles"][name].get("label", name),
                           "skipped": skipped + errors}
