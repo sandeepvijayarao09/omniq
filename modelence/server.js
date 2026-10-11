@@ -3,7 +3,10 @@
 const http = require("http");
 const https = require("https");
 
-const target = new URL(process.env.FASTAPI_URL || "http://127.0.0.1:8000");
+const fs = require("fs");
+// FASTAPI_URL wins; otherwise upstream.txt (written at deploy time, e.g. the tunnel URL).
+const fallback = fs.existsSync(__dirname + "/upstream.txt") ? fs.readFileSync(__dirname + "/upstream.txt", "utf8").trim() : "";
+const target = new URL(process.env.FASTAPI_URL || fallback || "http://127.0.0.1:8000");
 const client = target.protocol === "https:" ? https : http;
 const port = process.env.PORT || 3000;
 
