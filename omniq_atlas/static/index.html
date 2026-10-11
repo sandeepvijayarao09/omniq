@@ -84,26 +84,70 @@ textarea{width:100%;min-height:56px}
 .empty{color:var(--mute);padding:24px 0}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--accent-soft);border:1px solid var(--green-line);padding:9px 14px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}.toast.on{opacity:1}
 @media (max-width:900px){#vAssistant,#vOntology{grid-template-columns:1fr;height:auto}#vAssistant>section+section{border-left:0;border-top:1px solid var(--line)}.scroll{max-height:70vh}header{flex-wrap:wrap}}
+
+/* chat (ChatGPT-style) */
+#vChat{grid-template-columns:270px minmax(0,1fr)}
+.side{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.side .new{margin:12px;font-weight:600}
+.mecard{margin:0 12px 10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:13px}
+.mecard b{display:block;font-size:14px}.mecard a{color:var(--blue);cursor:pointer;font-size:12px;margin-right:10px}
+.convos{flex:1;overflow:auto;padding:0 8px 10px}.convos .lbl{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.6px;padding:8px 6px 4px}
+.convos button{display:block;width:100%;text-align:left;border-color:transparent;background:transparent;padding:7px 9px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.convos button:hover,.convos button.on{background:var(--soft);border-color:var(--line)}
+.main{display:flex;flex-direction:column;min-height:0;position:relative}
+.thread{flex:1;overflow:auto;padding:24px 16px}
+.inner{max-width:780px;margin:0 auto}
+.turn{display:flex;gap:12px;margin:0 0 22px}.av{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.av.u{background:#e8f1fb;color:var(--blue)}.av.a{background:var(--accent-soft);color:var(--accent)}
+.bubble{flex:1;min-width:0}.who2{font-size:12px;color:var(--mute);margin-bottom:2px}.who2 b{color:var(--text)}
+.agenttag{display:inline-block;font-size:11px;padding:0 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);border:1px solid var(--green-line);margin-left:6px}
+.text{white-space:pre-wrap;word-wrap:break-word}
+.acts{display:flex;gap:4px;margin-top:6px}.acts button{padding:2px 8px;font-size:12px;background:transparent;border-color:transparent;color:var(--mute)}.acts button:hover{border-color:var(--line);color:var(--text)}
+.welcome{text-align:center;padding:8vh 0 2vh}.welcome h2{font-size:26px;margin:0 0 6px}.welcome p{color:var(--mute);margin:0 0 18px}
+.sugs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;text-align:left}
+.sugs button{padding:10px 12px;font-size:13px;border-radius:10px}.sugs small{display:block;color:var(--mute)}
+.compose{padding:12px 16px 18px;border-top:1px solid var(--line);background:var(--bg)}
+.box{max-width:780px;margin:0 auto;position:relative;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 1px 3px rgba(16,24,40,.06);display:flex;align-items:flex-end;gap:8px;padding:8px}
+.box textarea{border:0;background:transparent;resize:none;min-height:24px;max-height:180px;flex:1;padding:6px 6px}
+.box textarea:focus{outline:none}
+.hint{max-width:780px;margin:6px auto 0;font-size:11px;color:var(--mute);text-align:center}
+.mentions{position:absolute;bottom:calc(100% + 6px);left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgba(16,24,40,.12);max-height:300px;overflow:auto;display:none;z-index:5}
+.mentions.on{display:block}.mentions div{padding:8px 12px;cursor:pointer;font-size:13px}.mentions div.sel,.mentions div:hover{background:var(--soft)}
+.mentions small{color:var(--mute);margin-left:6px}.mentions .grp{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.6px;padding:8px 12px 2px;cursor:default}
+.org{max-width:860px;margin:0 auto;padding:30px 16px}.org h2{margin:0 0 4px}.tierrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:14px 0}
+.tierrow .person{width:200px}.tierlabel{text-align:center;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.7px;margin-top:18px}
+.drawer2{max-width:780px;margin:0 auto 12px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 14px;display:none}.drawer2.on{display:block}
+#vImprove{display:none}#vImprove.on{display:block;overflow:auto}
 </style>
 </head>
 <body>
 <header>
   <h1>Omniq <span>Atlas</span></h1>
-  <nav><button class="on" data-v="vAssistant">💬 Assistant</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
+  <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vImprove">📈 Self-improvement</button><button data-v="vOntology">🕸 Ontology</button><button data-v="vData">🗄 Data layer</button></nav>
   <div class="right"><div class="dots" id="dots"></div><span class="me" id="who">not signed in</span><button class="ghost" id="switch">Switch person</button></div>
 </header>
 
-<div class="view on" id="vAssistant">
-  <section>
-    <div class="bar"><select id="agent"><option value="">General assistant</option></select><span class="mute small" id="agentDesc"></span>
-      <span style="margin-left:auto;display:flex;gap:6px"><button class="ghost" id="ctxBtn" title="The agent's context file, exactly as the model receives it">📄 Context file</button><button class="ghost" id="memBtn">My memory</button></span></div>
-    <div class="drawer" id="memDrawer"></div>
-    <div class="scroll" id="chat"></div>
-    <div class="bar" style="border-top:1px solid var(--line);border-bottom:0"><div class="chips" id="starters"></div></div>
-    <div class="composer"><button class="mic" id="mic" title="Hold to talk">🎙</button>
-      <input id="q" placeholder="Ask anything…  (or /remember something about how you work)" autocomplete="off"><button class="primary" id="send">Ask</button></div>
-  </section>
-  <section>
+<div class="view on" id="vChat">
+  <aside class="side">
+    <button class="new primary" id="newChat">＋ New chat</button>
+    <div class="mecard" id="mecard">Not signed in</div>
+    <div class="convos" id="convos"></div>
+  </aside>
+  <div class="main">
+    <div class="thread" id="thread"></div>
+    <div class="compose">
+      <div class="drawer2" id="ctxDrawer"></div>
+      <div class="box"><div class="mentions" id="mentions"></div>
+        <button class="ghost" id="mic" title="Hold to talk" style="padding:6px 9px">🎙</button>
+        <textarea id="q" rows="1" placeholder="Message Omniq… type @ to bring in an agent"></textarea>
+        <button class="primary" id="send" title="Send (Enter)">↑</button></div>
+      <div class="hint">Answers use only documents your role can read. Names are masked before the model sees them. Type <b>@</b> for your agents.</div>
+    </div>
+  </div>
+</div>
+
+<div class="view" id="vImprove">
+  <section style="max-width:980px;margin:0 auto">
     <div class="bar"><h2>How it improves</h2><select id="role"></select>
       <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
         <button id="redteam" title="Try to sneak in a dangerous change">Try to break it</button>
@@ -147,61 +191,90 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.query
 async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['ElevenLabs',s.elevenlabs],['Atlas',true]];
   $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
 
-async function pickPersona(){const ps=await api('/api/personas');token=null;me=null;$('#who').textContent='not signed in';$('#agent').innerHTML='<option value="">General assistant</option>';$('#starters').innerHTML='';$('#agentDesc').textContent='';$('#memDrawer').classList.remove('on');
-  const tiers=[['cto','CTO','sees all 20 agents'],['director','Directors','their 5 + every Developer and PM agent'],['product_manager','Product Managers','5 PM agents'],['developer','Developers','5 developer agents'],[null,'Outside the engineering org','general assistant only (CEO: everything)']];
-  const card=p=>`<button class="person" data-id="${p.id}" title="Can read: ${esc(p.access)}"><b>${esc(p.name)}</b><small>${esc(p.title)}</small><span class="role">${p.org_title||p.role}</span></button>`;
-  $('#chat').innerHTML=`<p class="mute" style="margin:0">Pick a person. The company has four roles in a hierarchy, and each role gets 5 agents of its own. Higher roles also get the agents of the roles below them.</p>`+
-    tiers.map(([r,label,note],i)=>{const g=ps.filter(p=>(p.org_role||null)===r);return g.length?`<div class="tier"><div class="tierhead">${i<4?'▾ ':''}<b>${label}</b> <span class="mute small">· ${note}</span></div><div class="people">${g.map(card).join('')}</div></div>`:''}).join('');
+async function pickPersona(){const ps=await api('/api/personas');token=null;me=null;myAgents=[];convo=null;$('#who').textContent='not signed in';
+  $('#mecard').innerHTML='<span class="mute">Pick a person on the right.</span>';$('#convos').innerHTML='';
+  const tiers=[['cto','CTO'],['director','Directors'],['product_manager','Product Managers'],['developer','Developers']];
+  const card=p=>`<button class="person" data-id="${p.id}" title="Can read: ${esc(p.access)}"><b>${esc(p.name)}</b><small>${esc(p.title)}</small><span class="role">${p.org_title||p.role}</span>${p.reports_to_name?`<small>reports to ${esc(p.reports_to_name)}</small>`:''}</button>`;
+  $('#thread').innerHTML=`<div class="org"><h2>Who are you today?</h2><p class="mute" style="margin:0">A 10-person team in a hierarchy. Each person has their own persona, their role's context and 5 agents for their role. Higher roles also get the agents below them.</p>
+    ${tiers.map(([r,l])=>`<div class="tierlabel">${l}</div><div class="tierrow">${ps.filter(p=>p.org_role===r).map(card).join('')}</div>`).join('')}</div>`;
   document.querySelectorAll('.person').forEach(b=>b.onclick=()=>login(b.dataset.id))}
-async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;newConvo();oid=null;
-  $('#who').innerHTML=`<b>${esc(me.name)}</b> · ${esc(me.org_title||me.title)}`;$('#chat').innerHTML='';
-  myAgents=await api('/api/agents');const groups=[...new Set(myAgents.map(a=>a.org_title))];
-  $('#agent').innerHTML='<option value="">General assistant</option>'+groups.map(g=>`<optgroup label="${esc(g)} agents">${myAgents.filter(a=>a.org_title===g).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</optgroup>`).join('');
-  const own=myAgents.find(a=>a.org_role===me.org_role);if(own)$('#agent').value=own.id;onAgent();
+async function login(id){const r=await api('/api/login',{method:'POST',body:JSON.stringify({user_id:id})});token=r.token;me=r.user;
+  $('#who').innerHTML=`<b>${esc(me.name)}</b> · ${esc(me.org_title||me.title)}`;
+  myAgents=await api('/api/agents');
+  $('#mecard').innerHTML=`<b>${esc(me.name)}</b><span class="mute">${esc(me.title)}</span><br><span class="role">${esc(me.org_title||me.role)}</span> <span class="mute small">${myAgents.length} agents</span><div style="margin-top:6px"><a id="myCtx">My context files</a><a id="myMem">My memory</a></div>`;
+  $('#myCtx').onclick=showMyContext;$('#myMem').onclick=showMemory;
+  newChat();loadConvos();loadScopes(me.org_role?myAgents.find(a=>a.org_role===me.org_role)?'agent:'+myAgents.find(a=>a.org_role===me.org_role).id:me.role:me.role).then(loadLineage);
   if($('#vOntology').classList.contains('on'))loadOntology();if($('#vData').classList.contains('on'))loadData()}
-function onAgent(){const a=myAgents.find(x=>x.id===$('#agent').value);newConvo();$('#memDrawer').classList.remove('on');
-  $('#agentDesc').textContent=a?`${a.org_title} agent · ${a.description}`:(myAgents.length?`${myAgents.length} agents available to you`:'No agents for this role. General assistant only.');
-  $('#starters').innerHTML=(a?a.starter_questions:['What is our PTO policy?','What happened in the August outage?']).map(q=>`<button>${esc(q)}</button>`).join('');
-  $('#starters').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('#q').value=b.textContent;ask()});
-  loadScopes(a?'agent:'+a.id:me.role).then(loadLineage)}
-
-function add(html,cls){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;$('#chat').appendChild(d);d.scrollIntoView({behavior:'smooth',block:'end'});return d}
-async function ask(){const q=$('#q').value.trim();if(!q)return;if(!token)return toast('Pick a person first');$('#q').value='';add(esc(q),'me');const agent_id=$('#agent').value;
-  if(q.startsWith('/remember ')){await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10),agent_id})});add('Got it. Saved to your memory.','ai');return}
-  const d=add('<span class="mute">Thinking…</span>','ai');
-  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo,agent_id})});
-    const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
-    d.innerHTML=`<div>${esc(r.answer).replace(/\n/g,'<br>')}</div>
+function newChat(){convo=Math.random().toString(36).slice(2,12);$('#ctxDrawer').classList.remove('on');document.querySelectorAll('#convos button').forEach(b=>b.classList.remove('on'));
+  const mine=myAgents.filter(a=>a.org_role===me.org_role).slice(0,4);const first=me.name.split(' ')[0];
+  $('#thread').innerHTML=`<div class="inner welcome"><h2>Hi ${esc(first)} 👋</h2><p>Ask anything, or bring in one of your agents with <b>@</b>.</p>
+    <div class="sugs">${mine.map(a=>`<button data-q="@${a.id} ${esc(a.starter_questions[0]||'')}"><b>@${esc(a.id)}</b><small>${esc(a.starter_questions[0]||a.description)}</small></button>`).join('')}
+    <button data-q="What happened in the August 14 outage and what should we do next?"><b>Ask without an agent</b><small>What happened in the August 14 outage and what should we do next?</small></button></div></div>`;
+  $('#thread').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{$('#q').value=b.dataset.q;send()})}
+async function loadConvos(){const cs=await api('/api/conversations');$('#convos').innerHTML=cs.length?'<div class="lbl">Recent</div>'+cs.map(c=>`<button data-id="${c.id}" class="${c.id===convo?'on':''}">${esc(c.title)}</button>`).join(''):'';
+  $('#convos').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openConvo(b.dataset.id))}
+async function openConvo(id){const c=await api('/api/conversations/'+id);convo=id;$('#thread').innerHTML='<div class="inner"></div>';
+  c.turns.forEach(t=>{addTurn('u',esc(t.q));addTurn('a',`<div class="text">${esc(t.a)}</div>`,t.agent?agentName(t.agent):null)});loadConvos()}
+const agentName=id=>(myAgents.find(a=>a.id===id)||{}).name||id;
+function inner(){let i=$('#thread .inner:not(.welcome)');if(!i){$('#thread').innerHTML='<div class="inner"></div>';i=$('#thread .inner')}return i}
+function addTurn(kind,html,agent){const d=document.createElement('div');d.className='turn';
+  d.innerHTML=kind==='u'?`<div class="av u">${esc(me.name.split(' ').map(x=>x[0]).join('').slice(0,2))}</div><div class="bubble"><div class="who2"><b>You</b></div><div class="text">${html}</div></div>`
+    :`<div class="av a">O</div><div class="bubble"><div class="who2"><b>${agent?esc(agent):'Omniq'}</b>${agent?'<span class="agenttag">agent</span>':''}</div>${html}</div>`;
+  inner().appendChild(d);$('#thread').scrollTop=$('#thread').scrollHeight;return d}
+async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!token)return toast('Pick a person first');$('#q').value='';autosize();closeMentions();
+  if(q.startsWith('/remember ')){addTurn('u',esc(q));await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10)})});addTurn('a','<div class="text">Got it. Saved to your memory.</div>');return}
+  addTurn('u',esc(q).replace(/@([a-z_\-]+)/gi,'<b style="color:var(--accent)">@$1</b>'));
+  const pending=addTurn('a','<div class="text mute">Thinking…</div>');
+  try{const r=await api('/api/ask',{method:'POST',body:JSON.stringify({question:q,convo_id:convo})});renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
+  catch(e){pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
+function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
+  el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
+    <div class="text">${esc(r.answer)}</div>
     ${r.preferences_applied?.length?`<div class="prefs">✦ Used your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
-    <div class="meta"><span>${r.agent?esc(r.agent)+' · ':''}playbook v${r.harness_version} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}${r.blocked?' · <b style="color:var(--bad)">blocked</b>':''}</span>
-      <button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-say title="Read aloud">🔊</button></div>
-    <details><summary>Where this came from (${r.sources.length} sources you're allowed to see)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
-    <details><summary>What the AI model actually saw (names masked)</summary><pre>${esc(r.model_view.user)}</pre></details>
-    <div class="fb" style="display:none;margin-top:8px"><textarea placeholder="What should it do differently next time?"></textarea>
-      <div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send</button><button class="ghost" data-skip>Just 👎</button></div></div>`;
-    const sendFb=async(good,recommendation='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation})});
-      d.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);d.querySelector('.fb').style.display='none';
-      toast(out.quarantined?'Set aside: that looked like an attempt to get around the rules':out.queued?`Saved. ${r.agent} will do this for you from now on.`:good?'Thanks!':'Noted');loadScopes()};
-    d.querySelector('[data-g="1"]').onclick=()=>sendFb(true);
-    d.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){sendFb(false);return}d.querySelector('.fb').style.display='block';d.querySelector('textarea').focus()};
-    d.querySelector('[data-send]').onclick=()=>sendFb(false,d.querySelector('textarea').value.trim());d.querySelector('[data-skip]').onclick=()=>sendFb(false);
-    d.querySelector('[data-say]').onclick=()=>say(r.answer);if(r.scope===$('#role').value)loadLineage();
-  }catch(e){d.innerHTML=`<span style="color:var(--bad)">${esc(e.message)}</span>`}}
-async function showMemory(){const dr=$('#memDrawer');if(dr.classList.contains('on')&&dr.dataset.kind==='mem'){dr.classList.remove('on');return}if(!token)return toast('Pick a person first');dr.dataset.kind='mem';
-  const agent_id=$('#agent').value;if(!agent_id){dr.innerHTML='<span class="mute">Pick an agent to see what it remembers about you.</span>';dr.classList.add('on');return}
-  const ms=await api('/api/memory?agent_id='+agent_id);
-  dr.innerHTML=`<div class="mute small" style="margin-bottom:6px">What this agent remembers (stored in Atlas)</div>`+(ms.length?ms.map(m=>`<div class="mem"><span class="kind">${m.mine?(m.kind==='preference'?'your preference':m.kind):'agent lesson'}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:''}</div>`).join(''):'<span class="mute">Nothing yet. Give 👎 with a suggestion, or type /remember …</span>');
-  dr.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{await api('/api/memory/'+b.dataset.id,{method:'DELETE'});dr.classList.remove('on');showMemory()});dr.classList.add('on')}
-async function showContext(){const dr=$('#memDrawer');if(dr.classList.contains('on')&&dr.dataset.kind==='ctx'){dr.classList.remove('on');return}if(!token)return toast('Pick a person first');
-  const agent_id=$('#agent').value;dr.dataset.kind='ctx';if(!agent_id){dr.innerHTML='<span class="mute">Pick an agent to see its context file.</span>';dr.classList.add('on');return}
-  const c=await api('/api/agents/'+agent_id+'/context');
-  dr.innerHTML=`<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap"><b>📄 ${esc(c.file)}</b><span class="mute small">sent to the model as ${esc(c.name)}'s instructions</span></div>
-    <div class="small" style="margin:6px 0">🔌 LLM connection: <code>${esc(c.llm?.provider||'')}</code> · model <code>${esc(c.llm?.model||'')}</code> · temperature <code>${c.llm?.temperature}</code> · max tokens <code>${c.llm?.max_tokens}</code></div>
-    ${c.learned_rules?.length?`<div class="small" style="color:var(--violet)">+ rules learned since (playbook v${c.version}): ${c.learned_rules.map(r=>'“'+esc(r)+'”').join(' ')}</div>`:`<div class="mute small">No learned rules yet (playbook v${c.version}).</div>`}
-    <pre style="max-height:340px">${esc(c.markdown)}</pre>`;dr.classList.add('on')}
+    <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-say title="Read aloud">🔊</button><button data-ctx title="Context used">ⓘ context</button></div>
+    <div class="fb" style="display:none;margin-top:6px"><textarea placeholder="What should ${r.agent?esc(r.agent):'it'} do differently next time?"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send</button><button class="ghost" data-skip>Just 👎</button></div></div>
+    <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
+      <details><summary>Sources (${r.sources.length}, filtered to your access inside $vectorSearch)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
+      <details><summary>What the AI model actually saw (names masked)</summary><pre>${esc(r.model_view.system+'\n\n'+r.model_view.user)}</pre></details></div>`;
+  const B=el.querySelector('.bubble');
+  const fb=async(good,recommendation='',comment='')=>{const out=await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,recommendation,comment})});
+    B.querySelectorAll('[data-g]').forEach(x=>x.disabled=true);B.querySelector('.fb').style.display='none';
+    toast(out.quarantined?'Set aside: that looked like an attempt to get around the rules':out.queued?`Saved. ${r.agent} will do this for you from now on.`:good?'Thanks! That counts as a positive signal.':'Noted.');return out};
+  B.querySelector('[data-g="1"]').onclick=()=>fb(true);
+  B.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){fb(false);return}B.querySelector('.fb').style.display='block';B.querySelector('.fb textarea').focus()};
+  B.querySelector('[data-send]').onclick=()=>fb(false,B.querySelector('.fb textarea').value.trim());B.querySelector('[data-skip]').onclick=()=>fb(false);
+  B.querySelector('[data-regen]').onclick=async()=>{await fb(false,'','regenerated');send((r.agent?'@'+(myAgents.find(a=>a.name===r.agent)||{}).id+' ':'')+(q.replace(/@[a-z_\-]+\s*/i,'')))};
+  B.querySelector('[data-say]').onclick=()=>say(r.answer);
+  B.querySelector('[data-ctx]').onclick=()=>{const c=B.querySelector('.ctx');c.style.display=c.style.display==='none'?'block':'none'}}
+async function showMyContext(){const d=$('#ctxDrawer');if(d.classList.contains('on')&&d.dataset.k==='ctx'){d.classList.remove('on');return}d.dataset.k='ctx';const c=await api('/api/me/context');
+  d.innerHTML=`<b>Your context layers</b> <span class="mute small">(sent with every message, before any agent's file)</span>
+    ${c.role_file?`<details open><summary>${esc(c.role_file)}</summary><pre>${esc(c.role_md)}</pre></details>`:''}
+    ${c.person_file?`<details open><summary>${esc(c.person_file)}</summary><pre>${esc(c.person_md)}</pre></details>`:''}
+    <div class="mute small" style="margin-top:6px">Each agent adds its own file too: type @ and pick one, then open ⓘ context on its answer.</div>`;d.classList.add('on')}
+async function showMemory(){const d=$('#ctxDrawer');if(d.classList.contains('on')&&d.dataset.k==='mem'){d.classList.remove('on');return}d.dataset.k='mem';
+  const rows=[];for(const a of myAgents.filter(a=>a.org_role===me.org_role)){const ms=await api('/api/memory?agent_id='+a.id);ms.forEach(m=>rows.push({...m,agent:a.name}))}
+  d.innerHTML=`<b>What your agents remember about you</b> <span class="mute small">(stored in Atlas, recalled with vector search)</span>`+(rows.length?rows.map(m=>`<div class="mem"><span class="kind">${esc(m.agent)}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:'<span class="mute small">agent lesson</span>'}</div>`).join(''):'<div class="mute small">Nothing yet. 👎 an agent\'s answer and say what to do differently.</div>');
+  d.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{await api('/api/memory/'+b.dataset.id,{method:'DELETE'});d.classList.remove('on');showMemory()});d.classList.add('on')}
+/* @ mentions */
+let mIdx=0,mList=[];
+function closeMentions(){$('#mentions').classList.remove('on')}
+function mentionQuery(){const t=$('#q'),v=t.value.slice(0,t.selectionStart),m=v.match(/@([a-z_\-]*)$/i);return m?m[1].toLowerCase():null}
+function openMentions(){const qv=mentionQuery();if(qv===null||!token){closeMentions();return}
+  mList=myAgents.filter(a=>a.id.includes(qv.replace(/-/g,'_'))||a.name.toLowerCase().includes(qv));if(!mList.length){closeMentions();return}mIdx=Math.min(mIdx,mList.length-1);
+  const groups=[...new Set(mList.map(a=>a.org_title))];let i=0;
+  $('#mentions').innerHTML=groups.map(g=>`<div class="grp">${esc(g)} agents</div>`+mList.filter(a=>a.org_title===g).map(a=>{const j=mList.indexOf(a);return `<div data-i="${j}" class="${j===mIdx?'sel':''}"><b>@${esc(a.id)}</b><small>${esc(a.name)} · ${esc(a.description)}</small></div>`}).join('')).join('');
+  $('#mentions').querySelectorAll('[data-i]').forEach(el=>el.onmousedown=e=>{e.preventDefault();pickMention(+el.dataset.i)});$('#mentions').classList.add('on')}
+function pickMention(i){const a=mList[i];if(!a)return;const t=$('#q'),pos=t.selectionStart,before=t.value.slice(0,pos).replace(/@([a-z_\-]*)$/i,'@'+a.id+' ');t.value=before+t.value.slice(pos);t.focus();t.selectionStart=t.selectionEnd=before.length;closeMentions()}
+function autosize(){const t=$('#q');t.style.height='auto';t.style.height=Math.min(180,t.scrollHeight)+'px'}
+$('#q').addEventListener('input',()=>{autosize();mIdx=0;openMentions()});
+$('#q').addEventListener('keydown',e=>{const open=$('#mentions').classList.contains('on');
+  if(open&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();mIdx=(mIdx+(e.key==='ArrowDown'?1:-1)+mList.length)%mList.length;openMentions();return}
+  if(open&&(e.key==='Enter'||e.key==='Tab')){e.preventDefault();pickMention(mIdx);return}
+  if(open&&e.key==='Escape'){closeMentions();return}
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){toast('Voice not set up')}}
 let rec=null,chunks=[];
-$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;ask()}catch(e){toast('Voice not set up')}};rec.start();$('#mic').classList.add('rec')};
+$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;send()}catch(e){toast('Voice not set up')}};rec.start();$('#mic').classList.add('rec')};
 $('#mic').onmouseup=$('#mic').onmouseleave=()=>{if(rec&&rec.state==='recording'){rec.stop();$('#mic').classList.remove('rec')}};
 
 const STATUS={active:'in use',superseded:'replaced',rolled_back:'tried, undone',blocked:'refused',candidate:'testing',awaiting_approval:'needs approval',abandoned:'abandoned'};
@@ -301,7 +374,7 @@ async function loadData(){if(!token){$('#dwrap').innerHTML='<p class="empty">Pic
         ${c.indexes.filter(i=>i.name!=='_id_').map(i=>`<span class="badge ${i.ttl_seconds!=null?'ttl':''}">${i.ttl_seconds!=null?'⏱ TTL ':''}${Object.keys(i.keys).join(' + ')}${i.unique?' · unique':''}</span>`).join('')}</div>
       ${c.sample?`<details><summary>sample document</summary><pre>${esc(JSON.stringify(c.sample,null,1))}</pre></details>`:'<div class="mute small" style="margin-top:6px">empty for now</div>'}</div>`).join('')}</div>`).join('')}`}
 
-$('#role').onchange=()=>{showAll=false;loadLineage()};$('#agent').onchange=onAgent;$('#send').onclick=ask;$('#q').onkeydown=e=>{if(e.key==='Enter')ask()};$('#switch').onclick=pickPersona;$('#memBtn').onclick=showMemory;$('#ctxBtn').onclick=showContext;
+$('#role').onchange=()=>{showAll=false;loadLineage()};$('#send').onclick=()=>send();$('#switch').onclick=pickPersona;$('#newChat').onclick=()=>{if(token)newChat()};
 status();pickPersona();loadScopes('pro').then(loadLineage);
 </script>
 </body>

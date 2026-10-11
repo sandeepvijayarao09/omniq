@@ -68,3 +68,30 @@ def watchdog() -> list[dict[str, Any]]:
             audit.record("harness_auto_rollback", "watchdog", role=scope, version=ver, restored=parent, reason=reason)
             actions.append({"scope": scope, "rolled_back": ver, "restored": parent, "reason": reason})
     return actions
+
+
+AUTO_EVOLVE_MINUTES = int(__import__("os").environ.get("OA_AUTO_EVOLVE_MINUTES", "20"))
+
+
+def auto_evolve() -> dict[str, Any] | None:
+    """Every AUTO_EVOLVE_MINUTES, give the agent that has waited longest one improvement round against its
+    graded cases. Skips while people are chatting (last 2 minutes) so live answers stay fast."""
+    if AUTO_EVOLVE_MINUTES <= 0:
+        return None
+    state = db().scope_policy.find_one({"_id": "__auto_evolve__"}) or {}
+    last = state.get("last")
+    if last and last.replace(tzinfo=dt.timezone.utc) > _now() - dt.timedelta(minutes=AUTO_EVOLVE_MINUTES):
+        return None
+    if db().episodes.find_one({"source": "chat", "ts": {"$gt": _now() - dt.timedelta(minutes=2)}}):
+        return None
+    from . import evolve
+
+    scopes = [f"agent:{a['id']}" for a in db().agents.find({}, {"id": 1})]
+    if not scopes:
+        return None
+    last_run = {r["_id"]: r["t"] for r in db().evolve_runs.aggregate([
+        {"$match": {"role": {"$in": scopes}}}, {"$group": {"_id": "$role", "t": {"$max": "$created"}}}])}
+    scope = min(scopes, key=lambda s: last_run.get(s) or dt.datetime(1970, 1, 1))
+    db().scope_policy.update_one({"_id": "__auto_evolve__"}, {"$set": {"last": _now(), "scope": scope}}, upsert=True)
+    run = evolve.run(scope, 1)
+    return {"scope": scope, "run": run["_id"], "events": [e["kind"] for e in run["events"]]}

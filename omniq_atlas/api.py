@@ -304,7 +304,7 @@ def _scheduler() -> None:
     def loop() -> None:
         while True:
             time.sleep(60)
-            for job in (improve.tick, maintenance.watchdog, maintenance.consolidate):
+            for job in (improve.tick, maintenance.watchdog, maintenance.consolidate, maintenance.auto_evolve):
                 try:
                     out = job()
                     if out:
