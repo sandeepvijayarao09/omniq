@@ -34,7 +34,7 @@ with 0 leaks across every version.
 
 **Built with:** MongoDB Atlas (Vector Search with ACL filters, `$graphLookup` ontology, change streams → live SSE,
 TTL locks, versioned config docs, audit chain), Voyage AI (voyage-4 embeddings, rerank-3), Raindrop (event + signal
-telemetry), ElevenLabs (Scribe STT / Flash TTS), Modelence (edge deploy), Gemma 4 via Ollama.
+telemetry), Modelence (edge deploy), Gemma 4 via Ollama.
 
 **Built today vs prior work:** all code was written during the hackathon. The fictional demo company dataset
 (`data/seed/`) is reused from the author's earlier prototype.

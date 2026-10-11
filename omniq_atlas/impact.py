@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from . import embed, llm, telemetry, usage, voice
+from . import embed, llm, raindrop_read, telemetry, usage
 from .db import db
 
 
@@ -84,14 +84,14 @@ def partners() -> dict[str, Any]:
                     "playbooks with rerank on": d.harness.count_documents({"status": "active", "config.retrieval.rerank": True})},
          "gaps": ["rerank is off in most active playbooks"]},
         {"partner": "Raindrop", "status": "in use" if telemetry.available() else "not configured", "depth": "telemetry",
-         "how": "Every real answer is an event; 👍/👎, regenerations, suggestions and quarantines are signals.",
-         "counts": {"events sent": u.get("raindrop_events", 0), "signals sent": u.get("raindrop_signals", 0)},
-         "gaps": ["signals are written to Raindrop but the loops read the Atlas copy: reading Raindrop issues back "
-                  "(Query API) into the 7-day cycle would close the loop"]},
-        {"partner": "ElevenLabs", "status": "in use" if voice.available() else "not configured", "depth": "feature",
-         "how": "Hold-to-talk (Scribe v2) and read-aloud (Flash v2.5) in chat.",
-         "counts": {"speech-to-text": u.get("elevenlabs_stt", 0), "text-to-speech": u.get("elevenlabs_tts", 0)},
-         "gaps": [] if voice.available() else ["no API key yet, so voice is off"]},
+         "how": "Every real answer is an event (event id = Atlas episode id); 👍/👎, regenerations, suggestions and "
+                "quarantines are signals. The 7-day cycle reads them back with the Query API as independent evidence.",
+         "counts": {"events sent": u.get("raindrop_events", 0), "signals sent": u.get("raindrop_signals", 0),
+                    "cycles that read Raindrop back": d.cycles.count_documents({"raindrop.status": "ok"})},
+         "features": ["write SDK: events + signals", "Query API read-back into the 7-day cycle"
+                      + ("" if raindrop_read.available() else " (waiting for RAINDROP_QUERY_API_KEY)")],
+         "gaps": [] if raindrop_read.available() else ["add RAINDROP_QUERY_API_KEY so each 7-day cycle reads "
+                                                       "Raindrop's events and detected signals back"]},
         {"partner": "Modelence", "status": "deployed", "depth": "deployment",
          "how": "Public URL omniq-mv4a4zfo47x-prod.cloud.modelence.app: a Node edge on Modelence Cloud proxying to the API.",
          "counts": {}, "gaps": ["thin proxy only; the app logic runs on the laptop because the model is local"]},

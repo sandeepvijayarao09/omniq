@@ -73,18 +73,28 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
         s["down"] += a["rating"] == "down"
         s["regenerated"] += a["regenerated"]
         s["not_found"] += a["not_found"]
-    return {"asks": asks, "per_agent": per_agent,
+    from . import raindrop_read
+
+    rd = raindrop_read.cycle_evidence(user_id, since, until)
+    flagged_ids = {f["event_id"] for f in rd["flagged"]}
+    for e, a in zip(eps, asks):
+        if e["_id"] in flagged_ids:
+            a["raindrop_flagged"] = next(f["signals"] for f in rd["flagged"] if f["event_id"] == e["_id"])
+            per_agent[a["agent"]]["raindrop_flagged"] = per_agent[a["agent"]].get("raindrop_flagged", 0) + 1
+    return {"asks": asks, "per_agent": per_agent, "raindrop": rd,
             "suggestions": [{"agent": r.get("agent_id"), "text": r["text"], "status": r.get("status")} for r in recs],
             "memories": [{"agent": m.get("agent_id"), "kind": m["kind"], "text": m["text"]} for m in mems],
             "governance_actions": [{"kind": a["kind"], "scope": a["data"].get("role")} for a in acts],
             "totals": {"decisions": len(asks) + len(fb) + len(recs) + len(mems) + len(acts), "asks": len(asks),
-                       "ratings": len(fb), "suggestions": len(recs), "memories": len(mems), "governance": len(acts)}}
+                       "ratings": len(fb), "suggestions": len(recs), "memories": len(mems), "governance": len(acts),
+                       "raindrop_events": rd["events"], "raindrop_flagged": len(rd["flagged"])}}
 
 
 def _analyse(user_name: str, L: dict[str, Any]) -> dict[str, Any]:
     prompt = (f"Employee: {user_name}\nTotals: {json.dumps(L['totals'])}\nPer agent: {json.dumps(L['per_agent'])}\n"
               f"Questions (oldest first): {json.dumps(L['asks'][-40:])}\nSuggestions they made: {json.dumps(L['suggestions'])}\n"
-              f"Preferences/memories: {json.dumps(L['memories'])}\nGovernance actions: {json.dumps(L['governance_actions'])}\n\n"
+              f"Preferences/memories: {json.dumps(L['memories'])}\nGovernance actions: {json.dumps(L['governance_actions'])}\n"
+              f"Raindrop monitoring (independent signals on their conversations): {json.dumps({k: L['raindrop'][k] for k in ('status', 'events', 'signals')})}\n\n"
               'Return {"summary": str (2 sentences), "learned": [3-6 short bullets about how they work and what they need], '
               '"agents": [{"agent": id, "why": str (evidence), "rules": [0-2 short rules], '
               '"procedure": [optional, up to 6 steps], "template": optional str}]}  '
@@ -154,9 +164,10 @@ def run(user_id: str, days: int = CYCLE_DAYS, until: dt.datetime | None = None) 
     items = [dict(i, agent=resolve(str(i.get("agent", "")))) for i in (A.get("agents") or []) if isinstance(i, dict)]
     covered = {i["agent"] for i in items}
     for aid, st in L["per_agent"].items():  # every agent with hard negative evidence gets reviewed
-        if aid in allowed_agents and aid not in covered and (st["down"] or st["regenerated"]):
+        if aid in allowed_agents and aid not in covered and (st["down"] or st["regenerated"] or st.get("raindrop_flagged")):
             own = [x["text"] for x in L["suggestions"] if x["agent"] == aid]
-            items.append({"agent": aid, "why": f"{st['down']} downvotes, {st['regenerated']} regenerations in {st['asks']} asks",
+            items.append({"agent": aid, "why": f"{st['down']} downvotes, {st['regenerated']} regenerations, "
+                                               f"{st.get('raindrop_flagged', 0)} Raindrop-flagged in {st['asks']} asks",
                           "rules": own[:2] or ["Lead with the direct answer and the exact numbers, then the steps."]})
     for item in items:
         aid = item["agent"]
@@ -181,7 +192,8 @@ def run(user_id: str, days: int = CYCLE_DAYS, until: dt.datetime | None = None) 
         db().recommendations.update_one({"event_id": ep["_id"], "text": text}, {"$set": {"source": "weekly_cycle", "cycle": cid}})
         queued.append({"agent": aid, "why": item.get("why", ""), "recommendation": text})
 
-    out = {"status": "done", "summary": A.get("summary", ""), "learned": learned, "quarantined": flagged,
+    out = {"status": "done", "raindrop": {k: L["raindrop"][k] for k in ("status", "events", "signals")},
+           "summary": A.get("summary", ""), "learned": learned, "quarantined": flagged,
            "persona_change": persona_change, "agent_recommendations": queued, "analyst_error": A.get("analyst_error")}
     db().cycles.update_one({"_id": cid}, {"$set": out})
     audit.record("cycle_completed", "system", user=user_id, cycle=cid, decisions=L["totals"]["decisions"],

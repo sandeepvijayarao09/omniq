@@ -156,7 +156,6 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
     <div class="compose">
       <div class="drawer2" id="ctxDrawer"></div>
       <div class="box"><div class="mentions" id="mentions"></div>
-        <button class="ghost" id="mic" title="Hold to talk" style="padding:6px 9px">🎙</button>
         <textarea id="q" rows="1" placeholder="Message Omniq… type @ to bring in an agent"></textarea>
         <button class="primary" id="send" title="Send (Enter)">↑</button></div>
       <div class="hint">Answers use only documents your role can read. Names are masked before the model sees them. Type <b>@</b> for your agents.</div>
@@ -216,7 +215,7 @@ const canApprove=()=>me&&['admin','executive'].includes(me.role);
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove')loadCycle();if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact()});
 
-async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['ElevenLabs',s.elevenlabs],['Atlas',true]];
+async function status(){const s=await api('/api/status');const d=[[s.model,s.llm!=='offline'],['Voyage',s.voyage],['Raindrop',s.raindrop],['Atlas',true]];
   $('#dots').innerHTML=d.map(([n,on])=>`<span title="${on?'connected':'not configured'}"><i class="${on?'on':''}"></i>${esc(n)}</span>`).join('')}
 
 async function pickPersona(){const ps=await api('/api/personas');token=null;me=null;myAgents=[];convo=null;$('#who').textContent='not signed in';
@@ -259,7 +258,7 @@ function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)
   el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
     <div class="text">${esc(r.answer)}</div>
     ${r.preferences_applied?.length?`<div class="prefs">✦ Used your preferences: ${r.preferences_applied.map(esc).join(' · ')}</div>`:''}
-    <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-say title="Read aloud">🔊</button><button data-ctx title="Context used">ⓘ context</button></div>
+    <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
     <div class="fb" style="display:none;margin-top:6px"><textarea placeholder="What should ${r.agent?esc(r.agent):'it'} do differently next time?"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="primary" data-send>Send</button><button class="ghost" data-skip>Just 👎</button></div></div>
     <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
       <details><summary>Sources (${r.sources.length}, filtered to your access inside $vectorSearch)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
@@ -272,7 +271,6 @@ function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)
   B.querySelector('[data-g="0"]').onclick=()=>{if(!r.agent){fb(false);return}B.querySelector('.fb').style.display='block';B.querySelector('.fb textarea').focus()};
   B.querySelector('[data-send]').onclick=()=>fb(false,B.querySelector('.fb textarea').value.trim());B.querySelector('[data-skip]').onclick=()=>fb(false);
   B.querySelector('[data-regen]').onclick=async()=>{await fb(false,'','regenerated');send((r.agent?'@'+(myAgents.find(a=>a.name===r.agent)||{}).id+' ':'')+(q.replace(/@[a-z_\-]+\s*/i,'')))};
-  B.querySelector('[data-say]').onclick=()=>say(r.answer);
   B.querySelector('[data-ctx]').onclick=()=>{const c=B.querySelector('.ctx');c.style.display=c.style.display==='none'?'block':'none'}}
 async function showMyContext(){const d=$('#ctxDrawer');if(d.classList.contains('on')&&d.dataset.k==='ctx'){d.classList.remove('on');return}d.dataset.k='ctx';const c=await api('/api/me/context');
   d.innerHTML=`<b>Your context layers</b> <span class="mute small">(sent with every message, before any agent's file)</span>
@@ -302,8 +300,6 @@ $('#q').addEventListener('keydown',e=>{const open=$('#mentions').classList.conta
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){toast('Voice not set up')}}
 let rec=null,chunks=[];
-$('#mic').onmousedown=async()=>{if(!token)return;const s=await navigator.mediaDevices.getUserMedia({audio:true});rec=new MediaRecorder(s);chunks=[];rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=async()=>{s.getTracks().forEach(t=>t.stop());const fd=new FormData();fd.append('file',new Blob(chunks,{type:'audio/webm'}),'q.webm');try{const r=await api('/api/voice/stt',{method:'POST',body:fd});$('#q').value=r.text;send()}catch(e){toast('Voice not set up')}};rec.start();$('#mic').classList.add('rec')};
-$('#mic').onmouseup=$('#mic').onmouseleave=()=>{if(rec&&rec.state==='recording'){rec.stop();$('#mic').classList.remove('rec')}};
 
 const STATUS={active:'in use',superseded:'replaced',rolled_back:'tried, undone',blocked:'refused',candidate:'testing',awaiting_approval:'needs approval',abandoned:'abandoned'};
 function plain(p){if(!p||!Object.keys(p).length)return 'starting playbook';const out=[];const r=p.retrieval||{},c=p.context||{},g=p.guardrails||{};
@@ -457,6 +453,7 @@ async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<h3>Your 7-day 
     ${c?`<div class="small" style="margin:8px 0">${esc(c.summary||'')}</div>
       <div class="kv"><div>Decisions reviewed</div><div><b>${t.decisions||0}</b> (${t.asks||0} questions, ${t.ratings||0} ratings, ${t.suggestions||0} suggestions, ${t.memories||0} memories, ${t.governance||0} governance actions)</div>
       <div>Per agent</div><div>${Object.entries(pa).map(([a,x])=>`<span class="badge" title="${x.up} up · ${x.down} down · ${x.regenerated} regenerated">${esc(a)}: ${x.asks} asks${x.down?` · ${x.down}👎`:''}${x.regenerated?` · ${x.regenerated}↻`:''}${x.up?` · ${x.up}👍`:''}</span>`).join('')}</div>
+      <div>Raindrop evidence</div><div>${c.raindrop?(c.raindrop.status==='ok'?`${c.raindrop.events} events read back · signals ${Object.entries(c.raindrop.signals||{}).map(([k,v])=>`${esc(k)} ×${v}`).join(', ')||'none'} · ${t.raindrop_flagged||0} flagged answers`:`<span class="mute">${esc(c.raindrop.status)}: add RAINDROP_QUERY_API_KEY to read Raindrop back</span>`):'<span class="mute">not read this cycle</span>'}</div>
       <div>Learned about you</div><div>${(c.learned||[]).map(l=>`<div>• ${esc(l)}</div>`).join('')||'<span class="mute">nothing new</span>'}</div>
       <div>Your context</div><div>${c.persona_change?`persona <b>v${c.persona_change.from} → v${c.persona_change.to}</b> in Atlas <code>context_layers</code>`:'<span class="mute">unchanged</span>'}</div>
       <div>Agent changes proposed</div><div>${(c.agent_recommendations||[]).map(r=>`<div>→ <b>@${esc(r.agent)}</b>: ${esc(r.recommendation)} <span class="mute small">(${esc(r.why)})</span></div>`).join('')||'<span class="mute">none needed</span>'}

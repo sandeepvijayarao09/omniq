@@ -167,6 +167,8 @@ def minimize(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     """Drop fields that wouldn't change anything, so every version's diff shows only real changes."""
     out: dict[str, Any] = {}
     for key, val in (patch or {}).items():
+        if key not in TUNABLE and key != "invariants":  # drop stray fields like 'rationale' or 'lesson'
+            continue
         cur = config.get(key)
         if isinstance(val, dict) and isinstance(cur, dict):
             sub = {k: v for k, v in val.items() if cur.get(k) != v}

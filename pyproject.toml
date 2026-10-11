@@ -15,6 +15,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
     "raindrop-ai>=0.0.20",
+    "raindrop-query>=0.1.14",
     "elevenlabs>=2.0",
 ]
 
