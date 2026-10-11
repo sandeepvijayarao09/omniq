@@ -47,7 +47,7 @@ def _ollama(system: str, user: str, model: str, max_tokens: int, temperature: fl
     """Ollama's native API, so reasoning models can be told not to think (it eats the token budget)."""
     base = settings.llm_base_url.rstrip("/").removesuffix("/v1")
     body: dict[str, Any] = {"model": model, "stream": False, "think": False,
-                            "options": {"num_predict": max_tokens, "temperature": temperature, "num_ctx": 16384},
+                            "options": {"num_predict": max_tokens, "temperature": temperature, "num_ctx": 16384, "seed": 7},
                             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
     if json_mode:
         body["format"] = "json"

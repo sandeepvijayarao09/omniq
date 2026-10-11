@@ -112,6 +112,23 @@ def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], tried: list[Any
 
 
 def run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str, Any]:
+    """One evolution run per scope at a time (Atlas TTL lock shared with the recommendation improver)."""
+    from .db import Locked, acquire, release
+
+    try:
+        acquire(f"improve:{role}")
+    except Locked as e:
+        rid = run_id or uuid.uuid4().hex[:10]
+        db().evolve_runs.insert_one({"_id": rid, "role": role, "status": "done", "created": _now(), "updated": _now(),
+                                     "events": [{"ts": _now(), "kind": "skipped", "reason": str(e)}]})
+        return db().evolve_runs.find_one({"_id": rid})
+    try:
+        return _run(role, generations, run_id)
+    finally:
+        release(f"improve:{role}")
+
+
+def _run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str, Any]:
     run_id = run_id or uuid.uuid4().hex[:10]
     state = db().evolve_runs.find_one({"_id": run_id})
     if state is None:
@@ -155,7 +172,8 @@ def run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str,
         except Exception as e:  # malformed meta-agent output: fall back rather than stall the run
             _log(run_id, "meta_error", error=str(e)[:200])
             prop = _heuristic(cfg, fails, tried)
-        patch = prop.get("patch") or {}
+        patch = harness.minimize(cfg, prop.get("patch") or {})
+        prop["patch"] = patch
         only_rules = set(patch) <= {"rules"}
         if patch in tried or not patch or (only_rules and all(f.get("attribution") == "retrieval_miss" for f in fails)):
             _log(run_id, "meta_overruled", patch=patch,

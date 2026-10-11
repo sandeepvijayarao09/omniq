@@ -50,10 +50,12 @@ class User:
         return self.manages or (self.team,)
 
 
-def vector_filter(user: User) -> dict[str, Any]:
-    """The $vectorSearch `filter` for everything this user may read."""
-    clauses: list[dict[str, Any]] = [{"category": {"$in": sorted(user.open_categories())}}]
-    if user.hr_scope():
+def vector_filter(user: User, focus: list[str] | None = None) -> dict[str, Any]:
+    """The $vectorSearch `filter` for everything this user may read, optionally narrowed to an agent's focus.
+    Focus can only ever narrow access: it is intersected with the user's grants, never added to them."""
+    open_cats = user.open_categories() & set(focus) if focus else user.open_categories()
+    clauses: list[dict[str, Any]] = [{"category": {"$in": sorted(open_cats) or ["__none__"]}}]
+    if user.hr_scope() and (not focus or "hr" in focus):
         clauses.append({"$and": [{"category": {"$eq": "hr"}}, {"team": {"$in": list(user.hr_scope())}}]})
     clauses.append({"$and": [{"category": {"$eq": "personal"}}, {"owner": {"$eq": user.id}}]})
     return {"$or": clauses}

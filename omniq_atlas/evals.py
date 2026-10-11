@@ -24,9 +24,17 @@ ABSTAIN = re.compile(r"(couldn'?t|could not|can'?t|cannot|unable to|wasn'?t able
                      r"(do|does|did) ?n[o']?t (contain|include|mention|cover|provide|specify)", re.I)
 
 
+AGENT_EVALS = settings.evals_file.parent / "agent_evals.yaml"
+
+
 @lru_cache(maxsize=1)
 def cases() -> list[dict[str, Any]]:
     return yaml.safe_load(settings.evals_file.read_text())
+
+
+@lru_cache(maxsize=1)
+def agent_cases() -> list[dict[str, Any]]:
+    return yaml.safe_load(AGENT_EVALS.read_text()) if AGENT_EVALS.exists() else []
 
 
 def roles_with_cases() -> list[str]:
@@ -39,6 +47,9 @@ def roles_with_cases() -> list[str]:
 
 
 def select(role: str, split: str | None = None) -> list[dict[str, Any]]:
+    """Cases for a scope: a role ("pro") or an agent ("agent:deal_coach")."""
+    if role.startswith("agent:"):
+        return [c for c in agent_cases() if c["agent"] == role[6:] and (not split or c.get("split") == split)]
     out = []
     for c in cases():
         if split and c.get("split") != split:
@@ -72,7 +83,8 @@ def grade(case: dict[str, Any], answer: str) -> dict[str, Any]:
 
 
 def run_case(case: dict[str, Any], cfg: dict[str, Any], version: int) -> dict[str, Any]:
-    res = assistant.ask(case["persona"], case["question"], cfg_override=cfg, harness_version=version, source="eval")
+    res = assistant.ask(case["persona"], case["question"], agent_id=case.get("agent"), cfg_override=cfg,
+                        harness_version=version, source="eval", personal_memory=False)
     g = grade(case, res["answer"])
     if not g["passed"] and case["kind"] == "answer":
         ctx = res.get("_context", "").lower()
@@ -86,12 +98,29 @@ def run_case(case: dict[str, Any], cfg: dict[str, Any], version: int) -> dict[st
             "tokens": res["tokens"], "latency": res["latency"], **g}
 
 
-def evaluate(cfg: dict[str, Any], role: str, split: str | None, version: int, workers: int = 6) -> dict[str, Any]:
+def _merge(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    """Average repeated runs of one case; it passes only if it passed every time (no lucky promotions)."""
+    first = dict(runs[0])
+    first["score"] = sum(r["score"] for r in runs) / len(runs)
+    first["passed"] = all(r["passed"] for r in runs)
+    first["leaked"] = any(r["leaked"] for r in runs)
+    first["tokens"] = sum(r["tokens"] for r in runs) / len(runs)
+    first["latency"] = sum(r["latency"] for r in runs) / len(runs)
+    if not first["passed"]:
+        first["why"] = next(r["why"] for r in runs if not r["passed"])
+    return first
+
+
+def evaluate(cfg: dict[str, Any], role: str, split: str | None, version: int, workers: int = 6,
+             repeats: int | None = None) -> dict[str, Any]:
     cs = select(role, split)
     if not cs:
         return {"score": 0.0, "pass_rate": 0.0, "n": 0, "results": []}
+    repeats = repeats or (2 if len(cs) < 8 else 1)  # small sets are noisy: score every case twice
+    jobs = [c for c in cs for _ in range(repeats)]
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        results = list(ex.map(lambda c: run_case(c, cfg, version), cs))
+        flat = list(ex.map(lambda c: run_case(c, cfg, version), jobs))
+    results = [_merge(flat[i * repeats:(i + 1) * repeats]) for i in range(len(cs))]
     n = len(results)
     leaks = sum(r["leaked"] for r in results)
     tokens = sum(r["tokens"] for r in results) / n

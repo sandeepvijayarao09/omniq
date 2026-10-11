@@ -1,6 +1,7 @@
 """The harness: everything around the model, stored as versioned documents in Atlas.
 
-One lineage per role. Each version records its parent, the patch that produced
+One lineage per *scope*: a role ("pro") or a role-specific agent ("agent:deal_coach").
+The `role` field on harness documents holds the scope. Each version records its parent, the patch that produced
 it, the evidence behind the patch, and its eval scores. The assistant reads the
 active version on every request, so a promotion changes behaviour immediately.
 
@@ -55,9 +56,29 @@ def active(role: str) -> dict[str, Any]:
     return doc
 
 
+MAX_RULES, MAX_RULE_CHARS = 12, 450
+
+
+def agent_scope(agent_id: str) -> str:
+    return f"agent:{agent_id}"
+
+
+def default_config(scope: str) -> dict[str, Any]:
+    cfg = copy.deepcopy(DEFAULT_HARNESS)
+    if scope.startswith("agent:"):
+        tpl = db().agents.find_one({"id": scope[6:]}, {"_id": 0}) or {}
+        # The template is fixed identity, not a tunable: the evolver adds rules on top of it.
+        cfg["agent"] = {"id": scope[6:], "name": tpl.get("name", scope[6:]),
+                        "instructions": tpl.get("instructions", ""),
+                        "focus_categories": tpl.get("focus_categories", []),
+                        "allowed_tools": tpl.get("tools", ["search_docs"])}
+        cfg["tools"] = list(tpl.get("tools", ["search_docs"]))
+    return cfg
+
+
 def bootstrap(role: str) -> dict[str, Any]:
     doc = {"role": role, "version": 1, "parent": None, "status": "active", "created": _now(),
-           "config": copy.deepcopy(DEFAULT_HARNESS), "patch": None, "rationale": "default harness",
+           "config": default_config(role), "patch": None, "rationale": "default harness",
            "evidence": [], "scores": {}}
     db().harness.update_one({"role": role, "version": 1}, {"$setOnInsert": doc}, upsert=True)
     return db().harness.find_one({"role": role, "version": 1})
@@ -67,6 +88,8 @@ def reset_all() -> None:
     db().harness.delete_many({})
     for r in ROLES:
         bootstrap(r)
+    for a in db().agents.find({}, {"id": 1}):
+        bootstrap(agent_scope(a["id"]))
 
 
 def reset_role(role: str) -> None:
@@ -93,7 +116,8 @@ def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
             problems.append(f"unknown harness field '{key}'")
             continue
         if key == "tools":
-            bad = set(val) - ALLOWED_TOOLS
+            allowed = set(config.get("agent", {}).get("allowed_tools") or ALLOWED_TOOLS) & ALLOWED_TOOLS
+            bad = set(val) - allowed
             if bad:
                 problems.append(f"tools not in allow-list: {sorted(bad)}")
             if "search_docs" not in val:
@@ -102,8 +126,11 @@ def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
             for g, on in val.items():
                 if g in GUARDRAILS_ONE_WAY and config["guardrails"].get(g) and not on:
                     problems.append(f"guardrail '{g}' may not be switched off")
-        if key == "rules" and not isinstance(val, list):
-            problems.append("rules must be a list")
+        if key == "rules":
+            if not isinstance(val, list) or not all(isinstance(r, str) for r in val):
+                problems.append("rules must be a list of strings")
+            elif len(val) > MAX_RULES or any(len(r) > MAX_RULE_CHARS for r in val):
+                problems.append(f"rules exceed limits ({MAX_RULES} rules, {MAX_RULE_CHARS} chars each)")
         if isinstance(val, dict):
             for k, v in val.items():
                 if k in LIMITS and isinstance(v, (int, float)):
@@ -111,10 +138,25 @@ def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
                     if not lo <= v <= hi:
                         problems.append(f"{key}.{k}={v} outside [{lo}, {hi}]")
     text = str(patch).lower()
-    for phrase in ("ignore access", "bypass", "disable pii", "reveal", "skip audit"):
+    for phrase in ("ignore access", "ignore previous", "bypass", "disable pii", "reveal", "skip audit",
+                   "without restriction", "all documents", "other employees' "):
         if phrase in text:
             problems.append(f"patch text contains forbidden instruction '{phrase}'")
     return problems
+
+
+def minimize(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Drop fields that wouldn't change anything, so every version's diff shows only real changes."""
+    out: dict[str, Any] = {}
+    for key, val in (patch or {}).items():
+        cur = config.get(key)
+        if isinstance(val, dict) and isinstance(cur, dict):
+            sub = {k: v for k, v in val.items() if cur.get(k) != v}
+            if sub:
+                out[key] = sub
+        elif val != cur:
+            out[key] = val
+    return out
 
 
 def apply_patch(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
@@ -125,6 +167,8 @@ def apply_patch(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]
         else:
             new[key] = val
     new["invariants"] = copy.deepcopy(config["invariants"])  # belt and braces
+    if "agent" in config:
+        new["agent"] = copy.deepcopy(config["agent"])
     return new
 
 

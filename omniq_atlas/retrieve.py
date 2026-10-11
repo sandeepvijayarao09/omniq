@@ -11,17 +11,27 @@ from .db import EPISODE_INDEX, LESSON_INDEX, VECTOR_INDEX, db
 from .policy import User, can_read, vector_filter
 
 
+def _vsearch(user: User, qvec: list[float], cfg: dict[str, Any], limit: int, focus: list[str] | None):
+    pipeline = [
+        {"$vectorSearch": {"index": VECTOR_INDEX, "path": "embedding", "queryVector": qvec,
+                           "numCandidates": max(int(cfg["retrieval"]["num_candidates"]), limit * 10),
+                           "limit": limit, "filter": vector_filter(user, focus)}},
+        {"$project": {"embedding": 0, "score": {"$meta": "vectorSearchScore"}}},
+    ]
+    return [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]  # second line of defence
+
+
 def search_docs(user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    """Agent focus first, then the rest of what the user may read to fill any gap."""
     r = cfg["retrieval"]
     top_k = int(r["top_k"])
     fetch = top_k * 4 if r.get("rerank") else top_k
-    pipeline = [
-        {"$vectorSearch": {"index": VECTOR_INDEX, "path": "embedding",
-                           "queryVector": embed.embed_one(query), "numCandidates": int(r["num_candidates"]),
-                           "limit": fetch, "filter": vector_filter(user)}},
-        {"$project": {"embedding": 0, "score": {"$meta": "vectorSearchScore"}}},
-    ]
-    hits = [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]  # second line of defence
+    qvec = embed.embed_one(query)
+    focus = (cfg.get("agent") or {}).get("focus_categories") or None
+    hits = _vsearch(user, qvec, cfg, fetch, focus)
+    if focus and len(hits) < fetch:
+        seen = {(h["doc_id"], h["chunk"]) for h in hits}
+        hits += [h for h in _vsearch(user, qvec, cfg, fetch, None) if (h["doc_id"], h["chunk"]) not in seen][: fetch - len(hits)]
     if r.get("rerank") and hits:
         order = embed.rerank(query, [h["text"] for h in hits], top_k)
         hits = [dict(hits[i], score=s) for i, s in order]

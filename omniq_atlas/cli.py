@@ -35,6 +35,9 @@ def main() -> None:
     v.add_argument("--resume", default=None, help="run id to resume")
     r = sub.add_parser("redteam")
     r.add_argument("--role", default="pro")
+    im = sub.add_parser("improve", help="improve an agent from its users' recommendations")
+    im.add_argument("--agent", required=True)
+    sub.add_parser("agents")
     rs = sub.add_parser("reset-harness", help="put a role back on the default harness (keeps lessons)")
     rs.add_argument("--role", default="pro")
     lg = sub.add_parser("lineage")
@@ -52,11 +55,14 @@ def main() -> None:
                 "raindrop": telemetry.available(), "elevenlabs": voice.available(),
                 "counts": {c: db()[c].estimated_document_count() for c in ("users", "chunks", "objects", "links", "harness", "episodes", "audit")}})
     elif args.cmd == "seed":
+        from .agents import load_templates
         from .seed import seed_all
         _print(seed_all())
+        print("agents:", load_templates())
         if not args.keep_harness:
             harness.reset_all()
-            for c in ("episodes", "lessons", "feedback", "evolve_runs", "audit", "memories"):
+            for c in ("episodes", "lessons", "feedback", "evolve_runs", "audit", "memories", "agent_memory",
+                      "recommendations", "conversations", "locks"):
                 db()[c].delete_many({})
         ensure_indexes()
     elif args.cmd == "ask":
@@ -86,6 +92,18 @@ def main() -> None:
         audit.record("harness_proposed", "redteam", role=args.role, version=doc["version"], status=doc["status"],
                      problems=doc["problems"])
         _print({"status": doc["status"], "problems": doc["problems"]})
+    elif args.cmd == "improve":
+        from . import improve
+
+        res = improve.run(harness.agent_scope(args.agent))
+        for ev in res["events"]:
+            print(ev["kind"], {k: v for k, v in ev.items() if k not in ("ts", "kind", "cases")})
+    elif args.cmd == "agents":
+        from . import agents as ag
+
+        for a in db().agents.find({}, {"_id": 0}):
+            h = harness.active(harness.agent_scope(a["id"]))
+            print(f"{a['id']:<22} v{h['version']:<3} {a['name']:<28} {a.get('audience')}")
     elif args.cmd == "reset-harness":
         harness.reset_role(args.role)
         db().evolve_runs.delete_many({"role": args.role})

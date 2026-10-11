@@ -15,12 +15,48 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from . import assistant, audit, embed, evolve, harness, llm, telemetry, voice
+import os
+import time
+from collections import defaultdict, deque
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+from . import agents, assistant, audit, embed, evolve, harness, improve, llm, memory, telemetry, voice
 from .config import settings
 from .db import db
 from .policy import describe
 
 app = FastAPI(title="Omniq Atlas")
+
+# ---- hardening: map domain errors to HTTP, rate-limit asks per user
+
+
+@app.exception_handler(assistant.Forbidden)
+async def _forbidden(_: Request, e: Exception) -> JSONResponse:
+    return JSONResponse({"detail": str(e)}, status_code=403)
+
+
+@app.exception_handler(KeyError)
+async def _missing(_: Request, e: Exception) -> JSONResponse:
+    return JSONResponse({"detail": f"not found: {e}"}, status_code=404)
+
+
+@app.exception_handler(ValueError)
+async def _bad(_: Request, e: Exception) -> JSONResponse:
+    return JSONResponse({"detail": str(e)}, status_code=400)
+
+
+_calls: dict[str, deque] = defaultdict(deque)
+
+
+def _rate_limit(uid: str, per_minute: int = 30) -> None:
+    q, now = _calls[uid], time.time()
+    while q and now - q[0] > 60:
+        q.popleft()
+    if len(q) >= per_minute:
+        raise HTTPException(429, "slow down: too many requests this minute")
+    q.append(now)
 STATIC = Path(__file__).parent / "static"
 
 FEATURED = ["emp-1005", "emp-1001", "emp-1002", "emp-1003", "emp-1012", "emp-1085", "emp-1091", "emp-1007"]
@@ -49,16 +85,23 @@ class Login(BaseModel):
 class Ask(BaseModel):
     question: str
     convo_id: str = ""
+    agent_id: str = ""
 
 
 class Feedback(BaseModel):
     event_id: str
     good: bool
     comment: str = ""
+    recommendation: str = ""
 
 
 class Remember(BaseModel):
     text: str
+    agent_id: str = ""
+
+
+class ImproveReq(BaseModel):
+    scope: str
 
 
 class EvolveReq(BaseModel):
@@ -105,21 +148,92 @@ def login(body: Login) -> dict[str, Any]:
 
 @app.post("/api/ask")
 def ask(body: Ask, uid: str = Depends(current_user)) -> dict[str, Any]:
-    res = assistant.ask(uid, body.question, convo_id=body.convo_id)
+    _rate_limit(uid)
+    res = assistant.ask(uid, body.question, convo_id=body.convo_id, agent_id=body.agent_id or None)
     res.pop("_context", None)
     return _jsonable(res)
 
 
 @app.post("/api/feedback")
-def feedback(body: Feedback, uid: str = Depends(current_user)) -> dict[str, str]:
-    assistant.feedback(body.event_id, uid, body.good, body.comment)
-    return {"ok": "recorded"}
+def feedback(body: Feedback, uid: str = Depends(current_user)) -> dict[str, Any]:
+    return assistant.feedback(body.event_id, uid, body.good, body.comment, body.recommendation)
 
 
 @app.post("/api/remember")
 def remember(body: Remember, uid: str = Depends(current_user)) -> dict[str, str]:
-    assistant.remember(uid, body.text)
+    assistant.remember(uid, body.text, body.agent_id or None)
     return {"ok": "remembered"}
+
+
+@app.get("/api/agents")
+def my_agents(uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    user = assistant.get_user(uid)
+    out = []
+    for a in agents.for_user(user):
+        h = harness.active(harness.agent_scope(a["id"]))
+        out.append({"id": a["id"], "name": a["name"], "description": a.get("description", ""),
+                    "starter_questions": a.get("starter_questions", []), "version": h["version"]})
+    return out
+
+
+@app.get("/api/scopes")
+def scopes() -> dict[str, Any]:
+    counts = memory.pending_counts()
+    ags = [{"scope": harness.agent_scope(a["id"]), "name": a["name"], "pending": counts.get(harness.agent_scope(a["id"]), 0)}
+           for a in db().agents.find({}, {"_id": 0, "id": 1, "name": 1}).sort("name", 1)]
+    return {"roles": [r for r in harness.ROLES if r != "admin"], "agents": ags}
+
+
+@app.get("/api/memory")
+def my_memory(agent_id: str, uid: str = Depends(current_user)) -> list[dict[str, Any]]:
+    return _jsonable([{**m, "_id": str(m["_id"]), "mine": m["user_id"] == uid}
+                      for m in memory.list_for(agent_id, uid)])
+
+
+@app.delete("/api/memory/{memory_id}")
+def forget(memory_id: str, uid: str = Depends(current_user)) -> dict[str, bool]:
+    ok = memory.forget(memory_id, uid)
+    audit.record("memory_forget", uid, memory=memory_id, ok=ok)
+    return {"ok": ok}
+
+
+@app.get("/api/recommendations/{scope}")
+def recommendations(scope: str) -> list[dict[str, Any]]:
+    rows = db().recommendations.find({"scope": scope}, {"embedding": 0, "answer": 0}).sort("ts", -1).limit(30)
+    return _jsonable([{**r, "_id": str(r["_id"])} for r in rows])
+
+
+@app.post("/api/improve")
+def start_improve(body: ImproveReq, uid: str = Depends(current_user)) -> dict[str, str]:
+    run_id = uuid.uuid4().hex[:10]
+    threading.Thread(target=_safe, args=(improve.run, body.scope, run_id), daemon=True).start()
+    return {"run_id": run_id}
+
+
+def _safe(fn, *args) -> None:
+    try:
+        fn(*args)
+    except Exception:
+        pass
+
+
+@app.on_event("startup")
+def _scheduler() -> None:
+    """Recurring improvement: every minute, agents with enough queued recommendations improve themselves."""
+    if os.environ.get("OA_AUTO_IMPROVE", "true").lower() == "false":
+        return
+
+    def loop() -> None:
+        while True:
+            time.sleep(60)
+            try:
+                started = improve.tick()
+                if started:
+                    audit.record("scheduler", "system", improved=started)
+            except Exception:
+                pass
+
+    threading.Thread(target=loop, daemon=True).start()
 
 
 @app.get("/api/harness/{role}")
@@ -131,7 +245,7 @@ def lineage(role: str) -> dict[str, Any]:
 @app.post("/api/evolve")
 def start_evolve(body: EvolveReq, uid: str = Depends(current_user)) -> dict[str, str]:
     run_id = uuid.uuid4().hex[:10]
-    threading.Thread(target=evolve.run, args=(body.role, body.generations, run_id), daemon=True).start()
+    threading.Thread(target=_safe, args=(evolve.run, body.role, body.generations, run_id), daemon=True).start()
     return {"run_id": run_id}
 
 
