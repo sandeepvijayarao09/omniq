@@ -171,7 +171,7 @@ Small eval sets are scored twice, and a case passes only if it passes every time
 ## Partners
 
 - **Voyage AI:** `voyage-4` embeddings and the `rerank-3` reranker. The reranker is a knob the harness learns to turn on.
-- **Raindrop:** every answer is tracked, and employee feedback and eval failures are sent as signals.
+- **Raindrop:** every answer is an event (event id = Atlas episode id) and every 👍/👎, regeneration and suggestion a signal; the 7-day cycle **reads them back with the Query API** (using Raindrop's own signal sentiment) and counts Raindrop-flagged answers as evidence against the agent that gave them, so Raindrop closes the self-improvement loop.
 - **Modelence:** a Node edge (`modelence/`) deployed to Modelence Cloud, which proxies to the Python API.
 - **Models:** any OpenAI-compatible endpoint. The demo runs **Gemma 4 (e4b) locally through Ollama**, so employee data
   never leaves the laptop. Set `ANTHROPIC_API_KEY` to switch to Claude.

@@ -81,13 +81,19 @@ def cycle_evidence(user_id: str, since: dt.datetime, until: dt.datetime) -> dict
         events = _items(c.events.list(user_id=user_id, limit=200))
     except Exception as e:
         return {"status": f"query failed: {str(e)[:120]}", "events": 0, "signals": {}, "flagged": []}
+    try:  # Raindrop's own sentiment for every signal type (instrumented or detected by Raindrop)
+        sentiment = {d.get("id"): (d.get("sentiment") or "") for d in _items(c.signals.list(limit=100)) if isinstance(d, dict)}
+    except Exception:
+        sentiment = {}
+    events = [e for e in events if not e.get("user_id") or e.get("user_id") == user_id]  # enforce the filter client-side
     in_window = [e for e in events if (t := _ts(e)) is None or since <= t < until]
     sig = Counter()
     flagged = []
     for e in in_window:
         names = _signal_names(e)
         sig.update(names)
-        if any(h in n.lower() for n in names for h in NEGATIVE_HINTS):
+        negative = any(sentiment.get(s.get("id")) == "NEGATIVE" for s in (e.get("signals") or []) if isinstance(s, dict))
+        if negative or any(h in n.lower() for n in names for h in NEGATIVE_HINTS):
             flagged.append({"event_id": e.get("event_id") or e.get("id"), "signals": names,
                             "input": str(e.get("input") or e.get("user_input") or "")[:160]})
     return {"status": "ok", "events": len(in_window), "signals": dict(sig), "flagged": flagged}

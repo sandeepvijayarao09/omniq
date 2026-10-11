@@ -33,8 +33,7 @@ pro 0.87 → 1.00, manager 0.62 → 0.87, executive 0.33 → 1.00, On-call Copil
 with 0 leaks across every version.
 
 **Built with:** MongoDB Atlas (Vector Search with ACL filters, `$graphLookup` ontology, change streams → live SSE,
-TTL locks, versioned config docs, audit chain), Voyage AI (voyage-4 embeddings, rerank-3), Raindrop (event + signal
-telemetry), Modelence (edge deploy), Gemma 4 via Ollama.
+TTL locks, versioned config docs, audit chain), Voyage AI (voyage-4 embeddings, rerank-3), Raindrop (events + signals written, and read back via the Query API into each 7-day cycle), Modelence (edge deploy), Gemma 4 via Ollama.
 
 **Built today vs prior work:** all code was written during the hackathon. The fictional demo company dataset
 (`data/seed/`) is reused from the author's earlier prototype.
