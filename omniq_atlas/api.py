@@ -77,7 +77,7 @@ def index() -> FileResponse:
 
 @app.get("/api/status")
 def status() -> dict[str, Any]:
-    return {"voyage": embed.available(), "claude": llm.available(), "llm": llm.provider(), "raindrop": telemetry.available(),
+    return {"voyage": embed.available(), "llm": llm.provider(), "model": settings.assistant_model, "raindrop": telemetry.available(),
             "elevenlabs": voice.available(), "chunks": db().chunks.estimated_document_count()}
 
 
