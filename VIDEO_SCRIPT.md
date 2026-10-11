@@ -1,51 +1,54 @@
 # 2-minute video script: Omniq Atlas
 
 Before recording: `.venv/bin/oa demo-reset`, restart with `OA_AUTO_EVOLVE_MINUTES=0 OA_CYCLES=off .venv/bin/oa serve`,
-hard-refresh, browser full-screen, mic on. About 310 spoken words. Say "MongoDB" and "Raindrop" out loud in every section.
+hard-refresh, browser full-screen, mic on. About 320 spoken words.
 
 ## 1. What is this (0:00–0:15)
 **On screen:** org-chart sign-in, then Diego's chat with his 5 agents.
-**Say:** "This is Omniq Atlas: every employee gets a team of specialist agents, and those agents improve themselves every
-week by watching how people actually work. One person plus a team of self-improving agents is 10×. MongoDB Atlas is their
-memory and their proof, and Raindrop tells them where they're failing."
+**Say:** "This is Omniq Atlas. Every employee gets a team of specialist agents, and those agents improve themselves every
+week by watching how people work. MongoDB Atlas is their memory and their proof. Raindrop is how they find out where
+they're failing."
 
-## 2. Model agnostic (0:15–0:30)
-**On screen:** ⋯ Under the hood → **Models**, then My agents → Release Agent → model choice.
-**Say:** "It's model agnostic. One gateway routes every agent to whichever model is configured: Gemma and Llama running
-locally, or Claude, OpenAI, Gemini or Groq by config. Each agent and each person can pick a model. Private data like board,
-HR and finance only ever goes to local models. What improves is the agent's playbook in MongoDB, not the model, so the
-gains carry over when you switch models."
+## 2. Model agnostic (0:15–0:20)
+**On screen:** ⋯ Under the hood → **Models**.
+**Say:** "It's model agnostic: local Gemma or Llama, or any cloud model by config, and private data stays on local models."
 
-## 3. How this works (0:30–1:15)
+## 3. How this works (0:20–1:20)
 **On screen:** as **Diego**: `@release_agent can I ship on friday afternoon` → rephrase `can I deploy on a Friday
-afternoon?` → `Now also write the rollback checklist for that deploy`. Then Release Agent → **🌧 Where it fails**. Then
-📈 Learning → **Improve from last 7 days ▶** (let the steps stream in).
-**Say:** "Diego asks his Release agent. Atlas Vector Search with Voyage embeddings grounds the answer, and IAM is compiled into
-the `$vectorSearch` filter. He rephrases: that's a miss. He builds on it: understood as an extension. Nobody fills in
-feedback forms. Every answer is a Raindrop event and every behaviour is a Raindrop signal.
-The agent reads that back through the Raindrop Query API: where it fails, by failure type and playbook version. A failure
-spike triggers a cycle immediately; otherwise every agent runs one every 7 days. MongoDB change streams stream each
-step: the week's ledger from Atlas, Raindrop failures, one proposed change, then a test on unseen cases and a blind
-side-by-side replay."
+afternoon?` → `Now also write the rollback checklist for that deploy`.
+**Say:** "Diego asks his Release agent. MongoDB grounds the answer with Atlas Vector Search, Voyage embeddings and
+`$rankFusion` hybrid search, and his access rights are compiled into the `$vectorSearch` pre-filter, so MongoDB itself
+enforces who sees what. He rephrases: that's a miss. He builds on the answer: understood as an extension. Nobody fills in a
+feedback form. Every answer is logged to Atlas and sent to Raindrop as an event, and every rephrase, correction and copy
+becomes a Raindrop signal."
 
-## 4. What is the overall outcome (1:15–1:30)
-**On screen:** the cycle's kept/undone result, then `/workflow` flowchart (gates column) and the agent's version timeline.
-**Say:** "The outcome: agents that get measurably better every week, and can't make themselves worse. A change is kept only if
-it wins on the data, passes an absolute leak test, and comes from two or more people. Otherwise it's undone. If Raindrop
-shows the new version failing more live, it rolls back automatically. Every version is in Atlas with its parent and evidence."
+**On screen:** My agents → Release Agent → **🌧 Where it fails**.
+**Say:** "Then the agent reads it back through the Raindrop Query API: which answers failed, why, and on which playbook
+version. A Raindrop failure spike triggers an improvement cycle immediately."
 
-## 5. What is the business value (1:30–1:45)
-**On screen:** 📊 **Impact** (top section), then ⋯ Under the hood → **🔐 Access** simulator showing a Deny.
-**Say:** "For a business, that means each person does the work of a team. Company knowledge is captured in playbooks instead
-of lost in chats, and the same mistakes stop repeating. It's safe by design, with zero data leaks, hash-chained audit and
-manager approval for big changes. And there's no model lock-in."
+**On screen:** 📈 Learning → **Improve from last 7 days ▶** (let the steps stream in).
+**Say:** "Every person and every agent also runs a 7-day cycle. MongoDB change streams push each step to the screen live.
+It builds the week's decision ledger from Atlas, pulls the Raindrop failures, works out whether retrieval or reasoning
+failed, and proposes one change to the agent's playbook. Then it has to beat the current version on unseen tests and a
+blind side-by-side replay. TTL locks in MongoDB make sure two cycles never collide."
 
-## 6. Results (1:45–2:00)
-**On screen:** 📊 **Impact** numbers, then `docs/RESULTS.md` on GitHub.
-**Say:** "Results, straight from MongoDB: 26 automatic decisions, 6 kept, 12 undone, 4 refused, plus 38 points on kept changes,
-zero leaks, and 78% of answers right the first time. Agents that get better every week and prove it, on MongoDB Atlas
-and Raindrop."
+## 4. What is the overall outcome (1:20–1:35)
+**On screen:** the cycle's kept/undone result, then the agent's version timeline.
+**Say:** "A change is kept only if the data proves it, it passes a leak test, and two or more people showed the same pattern.
+Otherwise it's undone. Every playbook and persona is versioned in Atlas with its parent and its evidence. After release,
+a watchdog compares Raindrop failure rates per version and rolls back automatically if the new one is worse."
+
+## 5. What is the business value (1:35–1:47)
+**On screen:** 📊 **Impact**, then ⋯ Under the hood → **🗄 Data layer**.
+**Say:** "For a business, each person does the work of a team. Knowledge is captured in agent playbooks instead of lost in
+chat, mistakes stop repeating, and every decision is in a hash-chained audit log in MongoDB."
+
+## 6. Results (1:47–2:00)
+**On screen:** 📊 **Impact** numbers.
+**Say:** "The results, queried straight from MongoDB: 26 automatic decisions, 6 kept, 12 undone, 4 refused, plus 38 points on kept
+changes, zero leaks, and 78% of answers right the first time. Agents that get better every week: memory and proof in MongoDB
+Atlas, failure insight from Raindrop."
 
 ## Backup lines if something is slow
-- A model answer is slow: "This runs on a local Gemma model, so private data never leaves the machine."
-- The improvement cycle is still running at 1:15: show the flowchart and come back for the result before Impact.
+- A model answer is slow: "This runs on a local model, so private data never leaves the machine."
+- The improvement cycle is still running at 1:20: show the version timeline, then come back for the result before Impact.
