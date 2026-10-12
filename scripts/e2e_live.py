@@ -1,6 +1,6 @@
-"""End-to-end test of Omniq Atlas through the real HTTP API (same calls as the UI).
+"""End-to-end test of Omniq through the real HTTP API (same calls as the UI).
 
-Run:  .venv/bin/python scripts/e2e_live.py [base_url]   (default http://127.0.0.1:8000; needs the API, Atlas and Ollama running)
+Run:  .venv/bin/python scripts/e2e_live.py [base_url]   (default http://127.0.0.1:8000; needs the API and Ollama running)
 """
 import json
 import sys
@@ -46,7 +46,7 @@ MAYA, DIEGO, BEN, NADIA, MARCUS = "emp-1001", "emp-1019", "emp-1048", "emp-1012"
 
 # 1. platform
 st = c.get("/api/status").json()
-check("Status: Atlas + Voyage + Raindrop + local model", st["chunks"] > 300 and st["voyage"] and st["raindrop"] and st["llm"] != "offline", st)
+check("Status: seeded store + semantic embeddings + local model", st["chunks"] > 300 and st["semantic_embeddings"] and st["llm"] != "offline", st)
 m = c.get("/api/models").json()
 check("Models: model-agnostic profiles, 2 local available", sum(p["available"] for p in m["profiles"]) >= 2, f"default={m['default']} profiles={len(m['profiles'])}")
 
@@ -95,11 +95,11 @@ check("Implicit: copy recorded as positive", "copied" in sig3, sig3)
 fb = c.post("/api/feedback", json={"event_id": r2["event_id"], "good": True}, headers=H[MAYA])
 check("👍 feedback accepted", fb.status_code == 200, fb.json())
 
-# 7. My agents: detail, Raindrop failures, timeline, personal model choice
+# 7. My agents: detail, failures from behaviour signals, timeline, personal model choice
 d = c.get("/api/agents/release_agent/detail", headers=H[MAYA]).json()
-check("Agent detail: context from Atlas + timeline", d.get("context_version") and len(d["timeline"]) > 0, f"context v{d.get('context_version')} · {len(d['timeline'])} updates")
+check("Agent detail: context layers + timeline", d.get("context_version") and len(d["timeline"]) > 0, f"context v{d.get('context_version')} · {len(d['timeline'])} updates")
 f = c.get("/api/agents/release_agent/failures", headers=H[MAYA]).json()
-check("Raindrop: where the agent fails", f.get("status") == "ok" and f.get("answers", 0) > 0, {k: f.get(k) for k in ("answers", "failing", "by_kind")})
+check("Where the agent fails (behaviour signals)", f.get("status") == "ok" and f.get("answers", 0) > 0, {k: f.get(k) for k in ("answers", "failing", "by_kind")})
 c.put("/api/agents/release_agent/override", json={"profile": "local-llama"}, headers=H[MAYA])
 code, ll = ask(H[MAYA], "@release_agent At what error rate should I roll back a canary?")
 check("Personal edit: same agent on a different model (Llama)", ll.get("profile") == "local-llama", ll.get("model_label"))
@@ -125,12 +125,13 @@ db().locks.delete_many({})
 rid = c.post("/api/agents/metrics_agent/improve-cycle", headers=H[BEN]).json()["run_id"]
 ev = stream(rid)
 kinds = [e["kind"] for e in ev]
-check("Agent 7-day cycle (triggered by a PM) runs: ledger → Raindrop → tests → done",
-      kinds[0] == "cycle_ledger" and "raindrop_failures" in kinds and kinds[-1] == "done", " → ".join(kinds))
+check("Agent 7-day cycle (triggered by a PM) runs: ledger → live failures → tests → done",
+      kinds[0] == "cycle_ledger" and "live_failures" in kinds and kinds[-1] == "done", " → ".join(kinds))
+ask(H[BEN], "What's on the Q4 product roadmap?")  # self-contained: the cycle needs at least one decision to review
 cyc = c.post("/api/cycles/run", json={}, headers=H[BEN])
 time.sleep(40)
 last = c.get("/api/cycles", headers=H[BEN]).json()[0]
-check("Person 7-day cycle: reviews decisions, updates persona in Atlas", last.get("status") == "done" and last["totals"]["decisions"] > 0,
+check("Person 7-day cycle: reviews decisions, updates persona", last.get("status") == "done" and last["totals"]["decisions"] > 0,
       f"{last['totals']} · persona {last.get('persona_change') and (last['persona_change']['from'], last['persona_change']['to'])}")
 rt = c.post("/api/redteam/agent:release_agent", headers=H[NADIA]).json()
 check("Red team: unsafe change refused", rt["status"] == "blocked", "; ".join(rt["problems"])[:150])

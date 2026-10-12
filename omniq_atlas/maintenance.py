@@ -15,7 +15,10 @@ from typing import Any
 from . import audit, harness
 from .db import db
 
-DUP_SIMILARITY = 0.92
+def _dup_similarity() -> float:
+    from .calibration import threshold
+
+    return threshold("duplicate")
 MIN_VOTES = 5          # live votes on the new version before the watchdog may judge it
 REGRESSION_MARGIN = 0.25  # thumbs-down rate must be this much worse than the parent's
 
@@ -36,7 +39,7 @@ def consolidate() -> int:
         kept: list[list[float]] = []
         for item in g["items"]:  # newest first
             v = item["v"]
-            if any(sum(a * b for a, b in zip(v, k)) >= DUP_SIMILARITY for k in kept):
+            if any(sum(a * b for a, b in zip(v, k)) >= _dup_similarity() for k in kept):
                 db().agent_memory.update_one({"_id": item["id"]}, {"$set": {"status": "superseded", "superseded_at": _now()}})
                 retired += 1
             else:
@@ -61,11 +64,11 @@ def watchdog() -> list[dict[str, Any]]:
         scope, ver, parent = cur["role"], cur["version"], cur["parent"]
         rate, n = _down_rate(scope, ver)
         base, n0 = _down_rate(scope, parent)
-        if scope.startswith("agent:"):  # Raindrop's failure rate per version, when it has more evidence
+        if scope.startswith("agent:"):  # behaviour-signal failure rate per version, when it has more evidence
             try:
-                from . import raindrop_read
+                from . import signals
 
-                f = raindrop_read.agent_failures(scope[6:], _now() - dt.timedelta(days=7), _now())
+                f = signals.agent_failures(scope[6:], _now() - dt.timedelta(days=7), _now())
                 bv = f.get("by_version") or {}
                 cur_v, par_v = bv.get(str(ver)), bv.get(str(parent))
                 if cur_v and par_v and cur_v["answers"] >= n and par_v["answers"]:
@@ -74,7 +77,7 @@ def watchdog() -> list[dict[str, Any]]:
             except Exception:
                 pass
         if n >= MIN_VOTES and rate - base >= REGRESSION_MARGIN:
-            reason = f"live failure rate {rate:.0%} on v{ver} (n={n}) vs {base:.0%} on v{parent} (n={n0}) (Atlas feedback + Raindrop)"
+            reason = f"live failure rate {rate:.0%} on v{ver} (n={n}) vs {base:.0%} on v{parent} (n={n0}) (feedback + behaviour signals)"
             harness.reject(scope, ver, cur.get("scores", {}), reason)
             db().harness.update_one({"role": scope, "version": parent}, {"$set": {"status": "active"}})
             audit.record("harness_auto_rollback", "watchdog", role=scope, version=ver, restored=parent, reason=reason)

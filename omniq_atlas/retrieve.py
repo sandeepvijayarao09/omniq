@@ -1,5 +1,9 @@
-"""Access-filtered retrieval: $vectorSearch with the ACL as a pre-filter, Voyage rerank,
-and ontology context via $graphLookup. All knobs come from the active harness."""
+"""Access-filtered retrieval. All knobs come from the active harness.
+
+- Dense: exact vector search with the ACL as a *pre-filter* (unauthorized chunks are never ranked).
+- Hybrid: reciprocal-rank fusion of dense search and BM25 over the same ACL-filtered pool.
+- Rerank: local fusion of dense and lexical scores (embed.rerank).
+- Ontology context: one hop around linked entities ($graphLookup), filtered by object category."""
 
 from __future__ import annotations
 
@@ -14,7 +18,7 @@ from .policy import User, can_read, vector_filter
 def _vsearch(user: User, qvec: list[float], cfg: dict[str, Any], limit: int, focus: list[str] | None):
     from . import usage
 
-    usage.bump("atlas_vector_searches")
+    usage.bump("vector_searches")
     pipeline = [
         {"$vectorSearch": {"index": VECTOR_INDEX, "path": "embedding", "queryVector": qvec,
                            "numCandidates": max(int(cfg["retrieval"]["num_candidates"]), limit * 10),
@@ -24,37 +28,29 @@ def _vsearch(user: User, qvec: list[float], cfg: dict[str, Any], limit: int, foc
     return [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]  # second line of defence
 
 
-def _search_acl(user: User, focus: list[str] | None) -> dict[str, Any]:
-    """The same access rule as vector_filter(), expressed for Atlas Search ($search compound filter)."""
-    cats = sorted(user.open_categories() & set(focus) if focus else user.open_categories()) or ["__none__"]
-    should: list[dict[str, Any]] = [{"in": {"path": "category", "value": cats}}]
-    if user.hr_scope() and (not focus or "hr" in focus):
-        should.append({"compound": {"must": [{"equals": {"path": "category", "value": "hr"}},
-                                             {"in": {"path": "team", "value": list(user.hr_scope())}}]}})
-    should.append({"compound": {"must": [{"equals": {"path": "category", "value": "personal"}},
-                                         {"equals": {"path": "owner", "value": user.id}}]}})
-    return {"compound": {"should": should, "minimumShouldMatch": 1}}
-
-
 def _hybrid(user: User, query: str, qvec: list[float], cfg: dict[str, Any], limit: int, focus: list[str] | None):
-    """Reciprocal-rank fusion of semantic ($vectorSearch) and keyword ($search) results in one Atlas query.
+    """Reciprocal-rank fusion of dense and BM25 keyword results over the same ACL-filtered pool.
     Exact identifiers ("ADR-007", "SEV1", "$42,000") that embeddings blur are caught by the keyword side."""
     from . import usage
+    from .lexical import BM25
 
-    usage.bump("atlas_rankfusion_queries")
-    pipeline = [
-        {"$rankFusion": {"input": {"pipelines": {
-            "vector": [{"$vectorSearch": {"index": VECTOR_INDEX, "path": "embedding", "queryVector": qvec,
-                                          "numCandidates": max(int(cfg["retrieval"]["num_candidates"]), limit * 10),
-                                          "limit": limit * 2, "filter": vector_filter(user, focus)}}],
-            "text": [{"$search": {"index": "chunks_text", "compound": {
-                "must": [{"text": {"query": query, "path": ["text", "title"]}}],
-                "filter": [_search_acl(user, focus)]}}}, {"$limit": limit * 2}]}},
-            "combination": {"weights": {"vector": 1, "text": 0.7}}}},
-        {"$limit": limit},
-        {"$project": {"embedding": 0}},
-    ]
-    return [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]  # second line of defence
+    usage.bump("hybrid_queries")
+    dense = _vsearch(user, qvec, cfg, limit * 2, focus)
+    pool = [c for c in db().chunks.find(vector_filter(user, focus), {"embedding": 0}) if can_read(user, c)]
+    if not pool:
+        return dense[:limit]
+    lex = BM25([f"{c.get('title', '')} {c['text']}" for c in pool]).scores(query)
+    text_rank = sorted(range(len(pool)), key=lambda i: -lex[i])[: limit * 2]
+    fused: dict[tuple[str, int], list[Any]] = {}
+    for r, h in enumerate(dense):  # weights as before: vector 1.0, text 0.7, RRF constant 60
+        fused.setdefault((h["doc_id"], h["chunk"]), [0.0, h])[0] += 1.0 / (60 + r)
+    for r, i in enumerate(text_rank):
+        if lex[i] <= 0:
+            continue
+        c = pool[i]
+        fused.setdefault((c["doc_id"], c["chunk"]), [0.0, c])[0] += 0.7 / (60 + r)
+    ranked = sorted(fused.values(), key=lambda x: -x[0])[:limit]
+    return [dict(h, score=s) for s, h in ranked]
 
 
 def search_docs(user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, Any]]:
@@ -63,8 +59,8 @@ def search_docs(user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, A
     if r.get("hybrid"):
         try:
             return _search_with(_hybrid, user, query, cfg)
-        except Exception:
-            pass  # index still building or unsupported: fall back to vector-only
+        except Exception:  # noqa: BLE001  (hybrid is an optimization; dense search is always available)
+            pass
     return _search_with(None, user, query, cfg)
 
 
@@ -105,7 +101,7 @@ def graph_context(user: User, query: str) -> list[dict[str, Any]]:
     from . import usage
 
     seeds = [o for o in link_entities(query) if can_read(user, o)]
-    usage.bump("atlas_graphlookups", 2 * len(seeds))
+    usage.bump("graph_lookups", 2 * len(seeds))
     out = []
     for o in seeds:
         res = list(db().objects.aggregate([
@@ -157,11 +153,14 @@ def similar_failures(role: str, text: str, k: int = 5) -> list[dict[str, Any]]:
 
 
 def project_context(user: User, query: str, have: set[tuple[str, int]], k: int = 2,
-                    min_sim: float = 0.3) -> list[dict[str, Any]]:
+                    min_sim: float | None = None) -> list[dict[str, Any]]:
     """Up to k extra passages from documents linked to the asker's projects (data/projects.yaml), ranked by
     similarity to the question. Every passage still has to pass the person's access control."""
     from . import iam
 
+    from .calibration import threshold
+
+    min_sim = threshold("project_doc") if min_sim is None else min_sim
     doc_ids = sorted({d for p in iam.user_projects(user.id) for d in p.get("docs", [])})
     if not doc_ids:
         return []

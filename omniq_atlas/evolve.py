@@ -2,7 +2,7 @@
 
 Each generation:
   1. score the active harness on the train split (hard metric signal)
-  2. gather evidence: failing cases, employee thumbs-down (also sent to Raindrop),
+  2. gather evidence: failing cases, employee thumbs-down,
      similar past failures and lessons via Atlas Vector Search (procedural memory)
   3. a meta-agent proposes a patch to the harness: rules, retrieval, context, tools, guardrails
   4. the validator rejects patches that touch invariants or loosen guardrails
@@ -18,7 +18,7 @@ import json
 import uuid
 from typing import Any
 
-from . import audit, embed, evals, governance, harness, llm, retrieve, telemetry
+from . import audit, embed, evals, governance, harness, llm, retrieve
 from .config import settings
 from .db import db
 
@@ -229,7 +229,6 @@ def _run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str
     final = harness.active(role)
     _log(run_id, "done", final_version=final["version"])  # log first: the live stream closes on status "done"
     db().evolve_runs.update_one({"_id": run_id}, {"$set": {"status": "done", "final_version": final["version"]}})
-    telemetry.flush()
     return db().evolve_runs.find_one({"_id": run_id})
 
 

@@ -1,4 +1,4 @@
-"""Read-only views for the UI: the ontology graph and the Atlas data layer, always as the signed-in user.
+"""Read-only views for the UI: the ontology graph and the data layer, always as the signed-in user.
 
 Nothing here bypasses access control: objects, links and documents are filtered with the same
 policy as the assistant, and samples are shortened, with vectors collapsed and personal fields left out.
@@ -15,12 +15,12 @@ from .policy import User, can_read, describe, vector_filter
 COLLECTIONS: list[tuple[str, str, str]] = [
     # (name, layer, plain-English purpose)
     ("users", "Directory", "Everyone in the company: role, department, team, who they manage."),
-    ("chunks", "Knowledge", "Company documents split into passages, each with a Voyage embedding and access labels."),
+    ("chunks", "Knowledge", "Company documents split into passages, each with a local embedding and access labels."),
     ("objects", "Ontology", "Things the company is made of: customers, deals, incidents, systems, people, teams."),
-    ("links", "Ontology", "How those things connect (owns, impacted, deal for, reports to…), walked with $graphLookup."),
+    ("links", "Ontology", "How those things connect (owns, impacted, deal for, reports to…), walked breadth-first."),
     ("agents", "Agents", "The 9 job-specific agent templates: who may use them, persona, focus, tools."),
     ("harness", "Self-improvement", "Every version of every playbook, with its parent, change, evidence and scores."),
-    ("evolve_runs", "Self-improvement", "Step-by-step log of each improvement run, streamed live via a change stream."),
+    ("evolve_runs", "Self-improvement", "Step-by-step log of each improvement run, streamed live to the UI."),
     ("episodes", "Memory", "Every answer given (tokenized), plus embedded failures the improver learns from."),
     ("lessons", "Memory", "What the improver learned works or doesn't, recalled with vector search."),
     ("agent_memory", "Memory", "Per-agent memory: each user's preferences, agent-wide lessons, remembered facts."),
@@ -28,11 +28,14 @@ COLLECTIONS: list[tuple[str, str, str]] = [
     ("recommendations", "Feedback", "Users' 'do this instead' suggestions waiting for, or handled by, the improver."),
     ("feedback", "Feedback", "Thumbs up and down, per version, which the regression watchdog reads."),
     ("scope_policy", "Governance", "Freeze switches, auto-pause state and run budgets per playbook."),
-    ("locks", "Governance", "One improvement run per playbook at a time (expires automatically via a TTL index)."),
+    ("locks", "Governance", "One improvement run per playbook at a time (expires automatically)."),
     ("audit", "Audit", "Tamper-evident, hash-chained log of every question and every change."),
 ]
 
 HIDE_FIELDS = {"embedding", "email", "phone", "answer", "question", "text_raw"}
+# Collections searched by vector, and the fields their pre-filter can use (the same ACL filter as retrieval).
+VECTOR_FIELDS = {"chunks": ["category", "team", "owner"], "lessons": ["role", "status"],
+                 "episodes": ["role", "failed"], "agent_memory": ["agent_id", "user_id", "status", "kind"]}
 
 
 # ---------------------------------------------------------------- ontology
@@ -136,7 +139,7 @@ def _shorten(v: Any, depth: int = 0) -> Any:
         out = {}
         for k, x in list(v.items())[:14]:
             if k == "embedding" and isinstance(x, list):
-                out[k] = f"[{len(x)} floats from Voyage]"
+                out[k] = f"[{len(x)} floats, local embedding]"
             elif k in ("email", "phone"):
                 out[k] = "(hidden)"
             else:
@@ -153,23 +156,17 @@ def _shorten(v: Any, depth: int = 0) -> Any:
 
 def data_layer(user: User) -> dict[str, Any]:
     d = db()
-    present = set(d.list_collection_names())
     rows = []
     for name, layer, purpose in COLLECTIONS:
-        if name not in present:
-            continue
         coll = d[name]
         idx = [{"name": i["name"], "keys": dict(i["key"]), **({"ttl_seconds": i["expireAfterSeconds"]} if "expireAfterSeconds" in i else {}),
                 **({"unique": True} if i.get("unique") else {})} for i in coll.list_indexes()]
-        try:
-            sidx = [{"name": s["name"], "type": s.get("type", "search"), "status": s.get("status"),
-                     "queryable": s.get("queryable"),
-                     "fields": [{"path": f.get("path"), "type": f.get("type"),
-                                 **({"dims": f["numDimensions"], "similarity": f.get("similarity")} if f.get("type") == "vector" else {})}
-                                for f in (s.get("latestDefinition") or {}).get("fields", [])]}
-                    for s in coll.list_search_indexes()]
-        except Exception:
-            sidx = []
+        sidx = []
+        if name in VECTOR_FIELDS:
+            vec = next((x.get("embedding") for x in coll.find({"embedding": {"$exists": True}}).limit(1)), None)
+            sidx = [{"name": "exact cosine", "type": "vectorSearch", "queryable": True,
+                     "fields": [{"path": "embedding", "type": "vector", "dims": len(vec or []), "similarity": "cosine"}]
+                               + [{"path": f, "type": "filter"} for f in VECTOR_FIELDS[name]]}]
         rows.append({"name": name, "layer": layer, "purpose": purpose, "count": coll.estimated_document_count(),
                      "indexes": idx, "search_indexes": sidx, "sample": _sample(name, user)})
     return {"database": d.name, "you": {"name": user.name, "role": user.role, "may_read": describe(user)},

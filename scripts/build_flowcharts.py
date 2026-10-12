@@ -78,15 +78,15 @@ class SVG:
 
 def agent_chart():
     s = SVG(1530, 640)
-    lanes = [(20, 115, "PEOPLE"), (135, 115, "SIGNALS|& RAINDROP"), (250, 115, "IMPROVEMENT|ENGINE"),
+    lanes = [(20, 115, "PEOPLE"), (135, 115, "BEHAVIOUR|SIGNALS"), (250, 115, "IMPROVEMENT|ENGINE"),
              (365, 115, "GATES|& PROOF"), (480, 140, "MONGODB|ATLAS")]
     for i, (y, h, n) in enumerate(lanes):
         s.lane(y, h, n, i)
     # nodes
     s.term(124, 52, 236, 46, "Person hands off a job")
     s.box(130, 160, 220, 66, "Behaviour signals", ["rephrase · correct · extend", "regenerate · copy · 👍👎"], "blue")
-    s.box(390, 160, 220, 66, "Raindrop: where it fails", ["failing answers by type", "and playbook version"], "blue")
-    s.box(390, 275, 220, 66, "7-day cycle ledger", ["every 7 days · Raindrop spike", "or 'Improve from last 7 days'"], "amber")
+    s.box(390, 160, 220, 66, "Where it fails", ["failing answers by type", "and playbook version"], "blue")
+    s.box(390, 275, 220, 66, "7-day cycle ledger", ["every 7 days · failure spike", "or 'Improve from last 7 days'"], "amber")
     s.diamond(735, 308, 190, 92, "Same pattern", ["from 2+ people?"])
     s.box(640, 44, 190, 62, "Personal preference only", ["applies to that person now"], "grey")
     s.box(880, 275, 210, 66, "Propose ONE change", ["rules · retrieval · workflow", "output template"], "violet")
@@ -132,7 +132,7 @@ def context_chart():
     s.term(125, 100, 150, 46, "💬 Question")
     s.diamond(360, 123, 150, 92, "Allowed?", ["IAM policy"], "red")
     s.box(310, 30, 100, 40, "403", [], "red")
-    s.box(470, 90, 200, 66, "🔎 Atlas retrieval", ["$vectorSearch + $search", "$graphLookup · project docs"], "teal")
+    s.box(470, 90, 200, 66, "🔎 Local retrieval", ["ACL pre-filtered vectors + BM25", "ontology graph · project docs"], "teal")
     # context stack
     s.add(f'<rect x="700" y="34" width="296" height="180" rx="12" fill="#fbfcfd" stroke="#c9d4df" stroke-width="1.5" stroke-dasharray="6 5"/>')
     s.text(848, 54, "CONTEXT LAYERS · context_layers", 10.5, 800, C["mute"])
@@ -148,7 +148,7 @@ def context_chart():
     s.box(1205, 30, 170, 40, "Local model only", [], "violet")
     s.box(1390, 150, 180, 60, "✅ Streamed answer", ["names restored · cited"], "green")
     s.box(1390, 270, 180, 62, "📡 What they do next", ["rephrase · correct · extend", "copy · ↻ · 👍👎"], "blue")
-    s.box(1070, 270, 220, 62, "🔁 Person 7-day cycle", ["reviews every decision", "+ Raindrop signals"], "amber")
+    s.box(1070, 270, 220, 62, "🔁 Person 7-day cycle", ["reviews every decision", "+ behaviour signals"], "amber")
     s.cyl(740, 260, 216, 84, "🍃 New persona version", ["'learned from my last cycle'", "screened · with reason"], "green")
     s.box(430, 275, 230, 56, "→ Agent improvement", ["same patterns, 2-person quorum"], "violet")
     # edges

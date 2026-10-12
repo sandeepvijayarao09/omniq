@@ -30,7 +30,7 @@ DEFAULT_HARNESS: dict[str, Any] = {
     "model": {"temperature": 0.0, "max_tokens": 500},
     "guardrails": {"abstain_when_unsupported": False, "cite_sources": False},
     "invariants": {
-        "acl_prefilter": True,       # ACL enforced inside $vectorSearch
+        "acl_prefilter": True,       # ACL applied as the retrieval pre-filter, before ranking
         "pii_tokenization": True,    # nothing raw reaches a model
         "outbound_guard": True,      # re-scan payload before the call
         "audit": True,               # hash-chained log

@@ -1,22 +1,16 @@
 [project]
-name = "omniq-atlas"
+name = "omniq"
 version = "0.1.0"
-description = "Omniq rebuilt on MongoDB Atlas: a governed org AI assistant whose harness improves itself."
+description = "Omniq: ontology-grounded, governed organizational agents whose harness improves itself, on a fully local stack."
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "anthropic>=0.69",
     "fastapi>=0.115",
     "uvicorn>=0.30",
-    "pymongo>=4.10",
-    "voyageai>=0.3",
     "httpx>=0.27",
     "pyyaml>=6.0",
     "pyjwt>=2.9",
     "python-dotenv>=1.0",
-    "python-multipart>=0.0.9",
-    "raindrop-ai>=0.0.20",
-    "raindrop-query>=0.1.14",
-    "elevenlabs>=2.0",
 ]
 
 [project.optional-dependencies]

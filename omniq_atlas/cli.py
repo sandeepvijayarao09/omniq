@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from . import assistant, audit, embed, evals, evolve, harness, llm, telemetry, voice
+from . import assistant, audit, embed, evals, evolve, harness, llm
 from .db import db, ensure_indexes
 
 
@@ -56,8 +56,7 @@ def main() -> None:
 
         uvicorn.run("omniq_atlas.api:app", host=args.host, port=args.port)
     elif args.cmd == "status":
-        _print({"mongodb": db().command("ping"), "voyage": embed.available(), "llm": llm.provider(),
-                "raindrop": telemetry.available(), "elevenlabs": voice.available(),
+        _print({"store": str(db().path), "embedder": embed.describe(), "llm": llm.provider(),
                 "counts": {c: db()[c].estimated_document_count() for c in ("users", "chunks", "objects", "links", "harness", "episodes", "audit")}})
     elif args.cmd == "seed":
         from .agents import load_templates

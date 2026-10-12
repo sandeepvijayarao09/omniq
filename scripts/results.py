@@ -1,11 +1,11 @@
-"""Write docs/RESULTS.md from what is actually in Atlas (re-run any time: .venv/bin/python scripts/results.py)."""
+"""Write docs/RESULTS.md from what is actually in the local store (re-run any time: .venv/bin/python scripts/results.py)."""
 import datetime as dt
 import os
 import sys
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from omniq_atlas import config, impact, raindrop_read  # noqa: E402,F401
+from omniq_atlas import config, impact  # noqa: E402,F401
 from omniq_atlas.db import db  # noqa: E402
 
 D = impact.decisions()
@@ -18,9 +18,8 @@ for v in db().harness.find({"status": {"$in": ["active", "superseded"]}}):
     leaks_kept += (sc.get("train") or {}).get("leaks", 0) + (sc.get("holdout") or {}).get("leaks", 0) + (sc.get("evals") or {}).get("leaks", 0)
 imp = Counter(x["kind"] for x in db().implicit_signals.find({}, {"kind": 1}))
 intents = Counter(x["intent"] for x in db().intent_events.find({}, {"intent": 1}))
-rd_total = raindrop_read.event_total()
 lines = [
-    "# Results (generated from MongoDB Atlas)", "",
+    "# Results (generated from the local store)", "",
     f"_Generated {dt.datetime.now(dt.timezone.utc):%Y-%m-%d %H:%M} UTC by `scripts/results.py`. Every number below is a query over the live data._", "",
     "## Data-driven decisions", "",
     "| | |", "|---|---|",
@@ -43,13 +42,12 @@ lines = [
     *[f"| follow-up understood as {k} | {v} |" for k, v in intents.most_common()],
     f"| 7-day person cycles run | {S['cycles']} (reviewing {S['decisions_reviewed_in_cycles']} decisions) |",
     f"| Agent 7-day cycles run | {db().agent_cycles.count_documents({})} |",
-    f"| Events stored in Raindrop | {rd_total if rd_total is not None else 'n/a'} |",
     f"| Graded test cases | {S['graded_eval_cases']} |", "",
     "## Safety", "",
     f"- Leak test cases across roles and agents: all pass on every kept version (absolute safety gate).",
     f"- Suggestions quarantined as injection attempts: {S['quarantined']}.",
     f"- Hash-chained audit log: {db().audit.estimated_document_count()} events, verified end to end.",
-    "- End-to-end suite `scripts/e2e_live.py`: **29/29** through the public Modelence URL.", "",
+    "",
 ]
 open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "RESULTS.md"), "w").write("\n".join(lines))
 print("\n".join(lines))

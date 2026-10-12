@@ -1,7 +1,0 @@
-{
-  "name": "omniq-atlas-edge",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=20" }
-}

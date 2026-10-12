@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Omniq Atlas</title>
+<title>Omniq</title>
 <style>
 :root{--bg:#f6f8fa;--panel:#ffffff;--panel2:#f3f5f7;--line:#dfe3e8;--text:#1b2733;--mute:#5e6b78;--accent:#00a35c;--accent-ink:#ffffff;--accent-soft:#e3f6ec;
 --warn:#b26b00;--bad:#c62f35;--blue:#0b65c2;--violet:#7a3fb8;--btn:#ffffff;--btn-hover:#f0f3f6;--soft:#eef2f5;--r:12px;
@@ -164,10 +164,10 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
 </head>
 <body>
 <header>
-  <h1>Omniq <span>Atlas</span></h1>
+  <h1>Omniq</h1>
   <nav><button class="on" data-v="vChat">💬 Chat</button><button data-v="vAgents">🤖 My agents</button><button data-v="vImprove">📈 Learning</button><button data-v="vImpact">📊 Impact</button>
     <span class="hood"><button class="hoodbtn" id="hoodBtn">⋯ Under the hood</button><span class="hoodmenu" id="hoodMenu">
-      <button data-v="vWorkflow">🔁 Improvement workflow</button><button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer (Atlas)</button><button data-v="vModels">🔌 Models</button></span></span></nav>
+      <button data-v="vWorkflow">🔁 Improvement workflow</button><button data-v="vAccess">🔐 Access (IAM)</button><button data-v="vOntology">🕸 Company graph</button><button data-v="vData">🗄 Data layer</button><button data-v="vModels">🔌 Models</button></span></span></nav>
   <div class="right"><span class="pill" id="dots">…</span><span class="me" id="who">not signed in</span><span class="sw"><button class="ghost" id="switch">Switch person ▾</button><span class="swmenu" id="swMenu"></span></span></div>
 </header>
 
@@ -201,7 +201,7 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
     <div class="scroll">
       <details class="card" id="cycleWrap"><summary><b>Your personal 7-day cycle</b> <span class="mute small">what it learned about you this week</span></summary><div id="cycleCard" style="margin-top:8px"><span class="mute small">Pick a person to see their cycle.</span></div></details>
       <details class="how"><summary><b>How it works</b> (30 seconds)</summary><ol>
-        <li><b>Every team and agent has a playbook</b>: how much to read, which rules to follow, when to say "I don't know". Every version is saved in MongoDB Atlas.</li>
+        <li><b>Every team and agent has a playbook</b>: how much to read, which rules to follow, when to say "I don't know". Every version is saved, with its parent and evidence.</li>
         <li><b>It tests itself</b> on practice questions with known answers.</li>
         <li><b>It learns from you.</b> 👎 + "do this instead" changes your answers at once. If 2+ people ask for the same thing, it tries it for everyone.</li>
         <li><b>It keeps a change only if it's proven better</b> on unseen questions with zero privacy leaks. Otherwise the change is undone.</li>
@@ -234,19 +234,19 @@ table.dt{width:100%;border-collapse:collapse;font-size:12.5px}table.dt th{text-a
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="wfAgent"></select><button class="primary" id="wfGo">Watch it run ▶</button><a href="/workflow" target="_blank" style="font-size:13px;color:var(--blue)">Open the flowcharts ↗</a><span class="mute small">opens 📈 Learning and runs the agent's 7-day cycle live</span></div></div>
   <div class="card" style="padding:4px 0 10px"><div class="wf" id="wf2"></div></div>
   <div class="grid">
-    <div class="card" style="margin:0"><h3>① → ② Signals (never asked for)</h3><div class="small">• <b>Rephrased</b>: the next question means the same (Voyage similarity ≥ 0.6)<br>• <b>Correction / refinement / extension</b>: the follow-up's intent, classified in the background<br>• <b>Regenerated</b>, <b>copied</b>, optional 👍👎<br>All stored in Atlas and sent to Raindrop.</div></div>
-    <div class="card" style="margin:0"><h3>③ Raindrop: where it fails</h3><div class="small">Raindrop's Query API returns each agent's failing answers by type and playbook version. The cycle starts from this; a failure spike (≥30% of ≥5 answers in 24h) triggers it immediately.</div></div>
+    <div class="card" style="margin:0"><h3>① → ② Signals (never asked for)</h3><div class="small">• <b>Rephrased</b>: the next question means the same (embedding similarity above a calibrated threshold)<br>• <b>Correction / refinement / extension</b>: the follow-up's intent, classified in the background<br>• <b>Regenerated</b>, <b>copied</b>, optional 👍👎<br>All recorded against the answer they are about.</div></div>
+    <div class="card" style="margin:0"><h3>③ Where it fails</h3><div class="small">Behaviour signals give returns each agent's failing answers by type and playbook version. The cycle starts from this; a failure spike (≥30% of ≥5 answers in 24h) triggers it immediately.</div></div>
     <div class="card" style="margin:0"><h3>④ Evidence</h3><div class="small">Every 7 days, per person (persona learns how they work) and per agent (what keeps failing). One person's taste stays personal; a change for everyone needs the same pattern from <b>2+ people</b>.</div></div>
-    <div class="card" style="margin:0"><h3>⑤ Proposed change</h3><div class="small">The improver (any model, via the gateway) proposes one patch: rules, retrieval (top-k, hybrid <code>$rankFusion</code>, rerank), workflow or output template. The agent's context file never changes.</div></div>
+    <div class="card" style="margin:0"><h3>⑤ Proposed change</h3><div class="small">The improver (any model, via the gateway) proposes one patch: rules, retrieval (top-k, hybrid dense + BM25, rerank), workflow or output template. The agent's context file never changes.</div></div>
     <div class="card" style="margin:0"><h3>⑥ Gates</h3><div class="small">• Locked invariants: access filter, name masking, audit<br>• Injection screen + LLM safety review of new rules<br>• Type and bounds checks, per-agent tool allow-list<br>• <b>Every leak test must pass</b>, whatever the score</div></div>
     <div class="card" style="margin:0"><h3>⑦ Proof</h3><div class="small">Must beat the current version on <b>unseen</b> graded questions, or win a <b>blind, order-randomised side-by-side replay</b> of the real questions that failed, with the eval guard showing no regression.</div></div>
     <div class="card" style="margin:0"><h3>⑧ Decision</h3><div class="small">Kept · undone · refused · or <b>waits for a manager</b> (template or tool changes). Undone is a decision too, with its numbers recorded. After 3 failures in a row it pauses itself.</div></div>
-    <div class="card" style="margin:0"><h3>⑨ Saved in Atlas</h3><div class="small">A new playbook version with parent, change, evidence and scores, plus an audit entry. Live after promotion: a watchdog compares real failure rates per version (Atlas + Raindrop) and restores the parent if the new one is worse.</div></div>
+    <div class="card" style="margin:0"><h3>⑨ Saved as a new version</h3><div class="small">A new playbook version with parent, change, evidence and scores, plus an audit entry. Live after promotion: a watchdog compares real failure rates per version (feedback + behaviour signals) and restores the parent if the new one is worse.</div></div>
   </div></div></div>
 
 <div class="view" id="vModels"><div class="wrap" id="mwrap"></div></div>
 
-<div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the MongoDB Atlas data layer as them.</p></div></div>
+<div class="view" id="vData"><div class="wrap" id="dwrap"><p class="empty">Pick a person first to see the data layer as them.</p></div></div>
 
 <div class="toast" id="toast"></div>
 <script>
@@ -270,7 +270,7 @@ $('#hoodBtn').onclick=e=>{e.stopPropagation();$('.hood').classList.toggle('open'
 document.querySelectorAll('nav button[data-v]').forEach(b=>b.onclick=()=>{$('.hood').classList.remove('open');document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b||(x.id==='hoodBtn'&&!!b.closest('.hoodmenu'))));
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===b.dataset.v));if(b.dataset.v==='vOntology')loadOntology();if(b.dataset.v==='vData')loadData();if(b.dataset.v==='vAccess')loadAccess();if(b.dataset.v==='vImprove'){loadCycle();renderWorkflow()}if(b.dataset.v==='vAgents')loadAgents();if(b.dataset.v==='vImpact')loadImpact();if(b.dataset.v==='vModels')loadModels();if(b.dataset.v==='vWorkflow')loadWorkflowView()});
 
-async function status(){const s=await api('/api/status');const d=[['MongoDB Atlas',true],['Voyage AI',s.voyage],['Raindrop',s.raindrop],[s.model+' (local)',s.llm!=='offline']];
+async function status(){const s=await api('/api/status');const d=[['Local store',s.chunks>0],['Embeddings: '+s.embedder,s.semantic_embeddings],[s.model+' (local)',s.llm!=='offline']];
   const all=d.every(x=>x[1]);$('#dots').innerHTML=`<i class="${all?'on':''}"></i>${all?'All connected':'Partly connected'}`;$('#dots').title=d.map(([n,on])=>`${on?'●':'○'} ${n}`).join('\n')}
 
 async function pickPersona(){const ps=await api('/api/personas');token=null;me=null;myAgents=[];convo=null;$('#who').textContent='not signed in';
@@ -313,7 +313,7 @@ async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!
   if(q.startsWith('/remember ')){addTurn('u',esc(q));await api('/api/remember',{method:'POST',body:JSON.stringify({text:q.slice(10)})});addTurn('a','<div class="text">Got it. Saved to your memory.</div>');return}
   addTurn('u',esc(q).replace(/@([a-z_\-]+)/gi,'<b style="color:var(--accent)">@$1</b>'));
   const pending=addTurn('a','<div class="text mute" data-steps>🔐 Checking your access…</div>');
-  const STEPS=['🔐 Checking your access…','🔎 Searching MongoDB Atlas (filtered to what you may read)…','🕸 Adding company-graph facts…','🫥 Masking names before the model sees anything…','🧠 Asking the model…'];
+  const STEPS=['🔐 Checking your access…','🔎 Searching documents (filtered to what you may read)…','🕸 Adding company-graph facts…','🫥 Masking names before the model sees anything…','🧠 Asking the model…'];
   let si=0;const tick=setInterval(()=>{const el=pending.querySelector('[data-steps]');if(!el){clearInterval(tick);return}si=Math.min(si+1,STEPS.length-1);el.textContent=STEPS[si]},900);
   try{const r=await askStream(q,pending,tick);clearInterval(tick);renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
   catch(e){clearInterval(tick);pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
@@ -322,7 +322,7 @@ function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)
     <div class="text md">${md(r.answer)}</div>
     <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
     <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
-      <details><summary>Sources (${r.sources.length}, filtered to your access inside $vectorSearch)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
+      <details><summary>Sources (${r.sources.length}, filtered to your access before ranking)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>
       <details><summary>What the AI model actually saw (names masked)</summary><pre>${esc(r.model_view.system+'\n\n'+r.model_view.user)}</pre></details></div>`;
   const B=el.querySelector('.bubble');
   const fb=async(good,comment='')=>{await api('/api/feedback',{method:'POST',body:JSON.stringify({event_id:r.event_id,good,comment})});
@@ -349,7 +349,7 @@ async function showMyContext(){const d=$('#ctxDrawer');if(d.classList.contains('
     <div class="mute small" style="margin-top:6px">Each agent adds its own file too: type @ and pick one, then open ⓘ context on its answer.</div>`;d.classList.add('on')}
 async function showMemory(){const d=$('#ctxDrawer');if(d.classList.contains('on')&&d.dataset.k==='mem'){d.classList.remove('on');return}d.dataset.k='mem';
   const rows=[];for(const a of myAgents.filter(a=>a.org_role===me.org_role)){const ms=await api('/api/memory?agent_id='+a.id);ms.forEach(m=>rows.push({...m,agent:a.name}))}
-  d.innerHTML=`<b>What your agents remember about you</b> <span class="mute small">(stored in Atlas, recalled with vector search)</span>`+(rows.length?rows.map(m=>`<div class="mem"><span class="kind">${esc(m.agent)}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:'<span class="mute small">agent lesson</span>'}</div>`).join(''):'<div class="mute small">Nothing yet. 👎 an agent\'s answer and say what to do differently.</div>');
+  d.innerHTML=`<b>What your agents remember about you</b> <span class="mute small">(recalled with vector search)</span>`+(rows.length?rows.map(m=>`<div class="mem"><span class="kind">${esc(m.agent)}</span><span>${esc(m.text)}</span>${m.mine?`<button data-id="${m._id}">forget</button>`:'<span class="mute small">agent lesson</span>'}</div>`).join(''):'<div class="mute small">Nothing yet. 👎 an agent\'s answer and say what to do differently.</div>');
   d.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{await api('/api/memory/'+b.dataset.id,{method:'DELETE'});d.classList.remove('on');showMemory()});d.classList.add('on')}
 /* @ mentions */
 let mIdx=0,mList=[];
@@ -368,7 +368,6 @@ $('#q').addEventListener('keydown',e=>{const open=$('#mentions').classList.conta
   if(open&&(e.key==='Enter'||e.key==='Tab')){e.preventDefault();pickMention(mIdx);return}
   if(open&&e.key==='Escape'){closeMentions();return}
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-async function say(text){try{const r=await api('/api/voice/tts',{method:'POST',body:JSON.stringify({text})});new Audio(URL.createObjectURL(await r.blob())).play()}catch(e){toast('Voice not set up')}}
 let rec=null,chunks=[];
 
 const STATUS={active:'in use',superseded:'replaced',rolled_back:'tried, undone',blocked:'refused',candidate:'testing',awaiting_approval:'needs approval',abandoned:'abandoned'};
@@ -425,7 +424,7 @@ const STEP={
   paused:ev=>['⏸️','Paused',ev.reason],skipped:ev=>['⏭️','Skipped',ev.reason],meta_error:ev=>['⚠️','Hiccup','Using a safe built-in fix instead.'],
   cycle_ledger:ev=>['📒','Last 7 days',`${ev.asks} answers to ${ev.users} people · ${ev.rephrased||0} rephrased · ${ev.corrected||0} corrected · ${ev.regenerated} regenerated · ${ev.copied||0} copied · ${ev.up} 👍 · ${ev.down} 👎 · ${ev.not_found} "not in sources"`+(ev.satisfaction!=null?` · satisfaction ${pct(ev.satisfaction)}`:'')+(ev.worst_questions?.length?`\nWeakest: `+ev.worst_questions.map(q=>'“'+q.slice(0,90)+'”').join('; '):'')],
   cycle_step:ev=>['▶️','Step',ev.step+'…'],
-  raindrop_failures:ev=>['🌧','Raindrop',ev.status?`unavailable (${ev.status})`:`${ev.failing} of ${ev.answers} answers failing (${pct(ev.failure_rate)})`+(Object.keys(ev.by_kind||{}).length?` · ${Object.entries(ev.by_kind).map(([k,v])=>k+' ×'+v).join(', ')}`:'')+(ev.examples?.length?`\nStruggled with: `+ev.examples.map(q=>'“'+q+'”').join('; '):'')],
+  live_failures:ev=>['📉','Where it fails',`${ev.failing} of ${ev.answers} answers failing (${pct(ev.failure_rate)})`+(Object.keys(ev.by_kind||{}).length?` · ${Object.entries(ev.by_kind).map(([k,v])=>k+' ×'+v).join(', ')}`:'')+(ev.examples?.length?`\nStruggled with: `+ev.examples.map(q=>'“'+q+'”').join('; '):'')],
   cycle_result:ev=>[{promoted:'✅',rolled_back:'↩️',awaiting_approval:'🙋',converged:'🏁',blocked:'🛑',done:'·',skipped:'⏭️',paused:'⏸️'}[ev.result]||'•',ev.step==='suggestions'?'From suggestions':'From scores',`${({promoted:'kept a change',rolled_back:'tried a change, undone (not better)',awaiting_approval:'better, waiting for a manager',converged:'already perfect on its tests',blocked:'refused by safety rules',done:'no agent-wide change needed',skipped:'skipped',paused:'paused'})[ev.result]||ev.result}${ev.detail?' · '+ev.detail:''}`],
   done:ev=>['🏁','Finished',ev.final_version?`Using v${ev.final_version}.`:(ev.reason||'')]};
 const fmt=ev=>(STEP[ev.kind]||(e=>['•',e.kind,'']))(ev);
@@ -456,7 +455,7 @@ async function openObject(id){oid=id;$('#olist').querySelectorAll('button').forE
     ${Object.keys(o.props).length?`<div class="card"><h3>Properties</h3><div class="kv">${Object.entries(o.props).map(([k,v])=>`<div>${esc(k.replace(/_/g,' '))}</div><div>${esc(v)}</div>`).join('')}</div></div>`:''}
     <div class="card"><h3>Linked to</h3>${Object.entries(groups).map(([k,ls])=>`<div style="margin:4px 0"><span class="mute small" style="display:inline-block;min-width:130px">${esc(k)}</span>${ls.map(l=>`<button class="link" data-id="${l.id}">${TYPE_ICON[l.otype]||'•'} ${esc(l.name)}</button>`).join('')}</div>`).join('')||'<span class="mute">No connections you can see.</span>'}</div>
     <div class="card"><h3>Documents that mention it</h3>${o.documents.map(d=>`<div class="small">📄 ${esc(d.title)} <span class="mute">· ${d.category}</span></div>`).join('')||'<span class="mute">None you can read.</span>'}</div>
-    <details class="card"><summary>How this was fetched from Atlas</summary><pre>db.objects.aggregate([\n  { $match: { id: "${esc(o.id)}" } },\n  { $graphLookup: { from: "links", startWith: "$id",\n      connectFromField: "dst", connectToField: "src", as: "out", maxDepth: 0 } },\n  { $graphLookup: { from: "links", startWith: "$id",\n      connectFromField: "src", connectToField: "dst", as: "in", maxDepth: 0 } }\n])\n// then every linked object is checked against ${esc(me.name)}'s access rules</pre></details>`;
+    <details class="card"><summary>How this was fetched</summary><pre>db.objects.aggregate([\n  { $match: { id: "${esc(o.id)}" } },\n  { $graphLookup: { from: "links", startWith: "$id",\n      connectFromField: "dst", connectToField: "src", as: "out", maxDepth: 0 } },\n  { $graphLookup: { from: "links", startWith: "$id",\n      connectFromField: "src", connectToField: "dst", as: "in", maxDepth: 0 } }\n])\n// then every linked object is checked against ${esc(me.name)}'s access rules</pre></details>`;
   $('#odetail').querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>openObject(b.dataset.id))}
 function graphSVG(o){const W=760,H=340,cx=W/2,cy=H/2,ls=o.links.slice(0,18),R=Math.min(140,60+ls.length*7);
   const nodes=ls.map((l,i)=>{const a=(i/Math.max(1,ls.length))*Math.PI*2-Math.PI/2;return {...l,x:cx+Math.cos(a)*R*1.6,y:cy+Math.sin(a)*R}});
@@ -468,9 +467,9 @@ function graphSVG(o){const W=760,H=340,cx=W/2,cy=H/2,ls=o.links.slice(0,18),R=Ma
 
 
 
-/* ---------- impact: data-driven decisions + partners ---------- */
+/* ---------- impact: data-driven decisions + the local stack ---------- */
 async function loadImpact(){if(!token){$('#iwrap').innerHTML='<p class="empty">Pick a person first.</p>';return}
-  $('#iwrap').innerHTML='<p class="empty">Reading Atlas…</p>';const {decisions:D,partners:P}=await api('/api/impact');const o=D.outcomes,S=D.signals;
+  $('#iwrap').innerHTML='<p class="empty">Reading…</p>';const {decisions:D,components:P}=await api('/api/impact');const o=D.outcomes,S=D.signals;
   const kept=(o.active||0)+(o.superseded||0),undone=o.rolled_back||0,refused=o.blocked||0,waiting=o.awaiting_approval||0;
   const DEC={active:'✅ kept',superseded:'✅ kept, later improved',rolled_back:'↩️ undone',blocked:'🛑 refused',awaiting_approval:'🙋 needs approval',candidate:'🧪 testing',abandoned:'· abandoned'};
   $('#iwrap').innerHTML=`<div class="card"><h3>Data-driven decisions</h3>
@@ -486,11 +485,11 @@ async function loadImpact(){if(!token){$('#iwrap').innerHTML='<p class="empty">P
       ${D.decisions.map(r=>`<tr><td class="mute">${new Date(r.created).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td><td>${esc(r.name)} <span class="mute">v${r.version}</span></td><td>${DEC[r.decision]||r.decision}</td>
         <td>${r.before!=null||r.after!=null?`${pct(r.before)} → <b>${pct(r.after)}</b>`:''}${r.replay!=null?`<div class="mute">replay won ${pct(r.replay)}</div>`:''}</td>
         <td class="mute">${r.sample?`${r.sample} graded cases`:''}${r.evidence?` · ${r.evidence} signals`:''}${r.leak_checks?` · ${r.leak_checks} leak checks`:''}<div>${esc(r.source)}</div></td><td class="small">${esc(r.why)}</td></tr>`).join('')}</table></div>
-    <div class="card"><h3>How well each partner is used</h3><div class="grid">${P.map(p=>`<div class="card pcard" style="margin:0"><div class="hdr"><b>${esc(p.partner)}</b><span class="role">${esc(p.depth)}</span><span class="${p.status.startsWith('not')?'no':'ok'} small" style="margin-left:auto">● ${esc(p.status)}</span></div>
+    <div class="card"><h3>The local stack, and how much each part is used</h3><div class="grid">${P.map(p=>`<div class="card pcard" style="margin:0"><div class="hdr"><b>${esc(p.component)}</b><span class="role">${esc(p.depth)}</span><span class="${String(p.status).startsWith('offline')?'no':'ok'} small" style="margin-left:auto">● ${esc(p.status)}</span></div>
       <div class="small" style="margin:4px 0">${esc(p.how)}</div>${(p.features||[]).map(f=>`<span class="badge">${esc(f)}</span>`).join('')}
       <div class="kv" style="margin-top:6px">${Object.entries(p.counts).map(([k,v])=>`<div>${esc(k)}</div><div><b>${Number(v).toLocaleString()}</b></div>`).join('')}</div>
-      ${p.gaps.length?`<div class="small no" style="margin-top:6px">Gaps: ${p.gaps.map(esc).join(' · ')}</div>`:''}</div>`).join('')}</div>
-      <div class="mute small" style="margin-top:6px">Live counters are stored in Atlas (<code>usage</code>, one document per day) and bumped on every external call.</div></div>`}
+      </div>`).join('')}</div>
+      <div class="mute small" style="margin-top:6px">Live counters are stored in the <code>usage</code> collection, one document per day.</div></div>`}
 
 
 /* ---------- models ---------- */
@@ -513,12 +512,12 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
   const tabs=[['failing','🌧 Where it fails'],['context','📄 Context'],['learned','🧠 What it learned'],['timeline',`🕒 Updates (${d.timeline.length})`],['edit','✏️ My edit'],...(d.can_publish?[['publish','🚀 Publish for everyone']]:[])];
   let F={};if(agentTab==='failing'){try{F=await api('/api/agents/'+id+'/failures')}catch(e){F={status:e.message}}}
   const body={
-    failing:F.status!=='ok'?`<span class="mute">Raindrop: ${esc(F.status||'loading…')}</span>`:`<div class="small mute">From Raindrop (Query API), last 7 days. This is what the agent's improvement cycle starts from.</div>
-      <div class="kpis" style="margin-top:8px"><div class="kpi"><b>${F.answers}</b><span>answers seen by Raindrop</span></div><div class="kpi"><b class="${F.failing?'no':'ok'}">${F.failing}</b><span>failing</span></div><div class="kpi"><b>${F.failure_rate!=null?Math.round(F.failure_rate*100)+'%':'–'}</b><span>failure rate</span></div></div>
+    failing:F.status!=='ok'?`<span class="mute">${esc(F.status||'loading…')}</span>`:`<div class="small mute">From behaviour signals on this agent's answers, last 7 days. This is what the agent's improvement cycle starts from.</div>
+      <div class="kpis" style="margin-top:8px"><div class="kpi"><b>${F.answers}</b><span>answers in the last 7 days</span></div><div class="kpi"><b class="${F.failing?'no':'ok'}">${F.failing}</b><span>failing</span></div><div class="kpi"><b>${F.failure_rate!=null?Math.round(F.failure_rate*100)+'%':'–'}</b><span>failure rate</span></div></div>
       <div class="kv"><div>How it fails</div><div>${Object.entries(F.by_kind).map(([k,v])=>`<span class="badge">${esc(k)} ×${v}</span>`).join('')||'<span class="ok">no failures</span>'}</div>
       <div>By playbook version</div><div>${Object.entries(F.by_version).map(([v,x])=>`<span class="badge">v${esc(v)}: ${x.failing}/${x.answers} failing</span>`).join('')}</div></div>
       ${F.examples.length?`<div class="small" style="margin-top:8px"><b>Where it struggled</b>${F.examples.map(x=>`<div>• “${esc(x.question)}” <span class="mute">(v${esc(x.version)} · ${esc(x.why.join(', '))})</span></div>`).join('')}</div>`:''}`,
-    context:`<div class="small mute">Active context file in Atlas <code>context_layers</code> (v${d.context_version}) · playbook v${d.playbook_version} · 🔌 model profile <code>${esc(d.profile||d.llm?.model)}</code> · temp ${d.llm?.temperature} · ${d.llm?.max_tokens} tokens</div><pre style="max-height:520px">${esc(d.markdown)}</pre>${o.version?`<div class="prefs">+ your personal edit v${o.version} is applied on top for you</div>`:''}`,
+    context:`<div class="small mute">Active context file in <code>context_layers</code> (v${d.context_version}) · playbook v${d.playbook_version} · 🔌 model profile <code>${esc(d.profile||d.llm?.model)}</code> · temp ${d.llm?.temperature} · ${d.llm?.max_tokens} tokens</div><pre style="max-height:520px">${esc(d.markdown)}</pre>${o.version?`<div class="prefs">+ your personal edit v${o.version} is applied on top for you</div>`:''}`,
     learned:`<div class="kv"><div>Learned rules</div><div>${d.rules.length?d.rules.map(r=>`<div>• ${esc(r)}</div>`).join(''):'<span class="mute">none yet</span>'}</div>
       <div>Learned workflow</div><div>${d.workflow?`${(d.workflow.procedure||[]).map((x,i)=>`<div>${i+1}. ${esc(x)}</div>`).join('')}${d.workflow.template?`<pre>${esc(d.workflow.template)}</pre>`:''}`:'<span class="mute">uses the procedure and template in its context file</span>'}</div>
       <div>Retrieval</div><div>reads ${d.retrieval.top_k} passages${d.retrieval.rerank?', re-ranked':''}${d.retrieval.graph_context?', + company graph':''}</div></div>`,
@@ -530,7 +529,7 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
       <label class="small">Model for me (optional)</label><select id="eModel" style="width:100%"><option value="">Agent default (${esc(d.profile||'')})</option></select>
       <label class="small">Output template (optional)</label><textarea id="eTpl" placeholder="**Verdict** · **Checks** · **Fixes**">${esc(o.template||'')}</textarea>
       <div style="display:flex;gap:6px;margin-top:8px"><button class="primary" id="eSave">Save my edit</button>${o.version?'<button class="ghost" id="eReset">Reset to shared agent</button>':''}</div></div>`,
-    publish:`<div class="editor"><div class="small mute">Edits the agent's context file <b>for everyone who uses it</b>. Allowed by your IAM role. It must pass the injection screen and the leak safety gate, and it becomes a new version in Atlas you can roll back.</div>
+    publish:`<div class="editor"><div class="small mute">Edits the agent's context file <b>for everyone who uses it</b>. Allowed by your IAM role. It must pass the injection screen and the leak safety gate, and it becomes a new version you can roll back.</div>
       <textarea id="pMd" style="min-height:360px">${esc(d.markdown)}</textarea><input id="pWhy" placeholder="Why are you changing it?" style="width:100%;margin-top:6px">
       <button class="primary" id="pGo" style="margin-top:8px">Publish new version</button></div>`};
   $('#adetail').innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 style="margin:0">🤖 ${esc(d.name)}</h2><span class="role">${esc(d.org_role)}</span><span class="mute small">${esc(d.description)}</span><button class="primary small" id="aCycle" style="margin-left:auto">Improve from last 7 days ▶</button></div>
@@ -547,31 +546,30 @@ async function openAgent(id){curAgent=id;$('#alist').querySelectorAll('[data-id]
 const WF=[
   ['use','① People just work','chat and @agents; nobody is asked for feedback'],
   ['signals','② Signals','rephrased · corrected · extended · ↻ · copied · 👍👎'],
-  ['raindrop','③ Raindrop','where each agent fails, by type and version'],
+  ['failures','③ Where it fails','failing answers by type and playbook version'],
   ['evidence','④ Evidence','7-day cycle per person + per agent; patterns in 2+ people'],
   ['propose','⑤ Proposed change','rules · retrieval · workflow · output template'],
-  ['atlas','⑨ Saved in Atlas','new playbook version, with parent, evidence, scores'],
+  ['saved','⑨ Saved as a version','new playbook version, with parent, evidence, scores'],
   ['decide','⑧ Decision','kept · undone · refused · needs a manager'],
   ['proof','⑦ Proof','unseen tests · blind side-by-side replay · eval guard'],
   ['gates','⑥ Gates','locked safety rules · injection screen · leak tests (absolute)'],
   ['spacer','','']];
-async function renderWorkflow(sel='#wf'){if(!token){$(sel).innerHTML='';return}let D={};try{const I=await api('/api/impact');D=I.decisions;const R=(I.partners||[]).find(p=>p.partner==='Raindrop');window._rdTotal=R?R.counts['events stored in Raindrop (Query API)']:null}catch(e){}
+async function renderWorkflow(sel='#wf'){if(!token){$(sel).innerHTML='';return}let D={};try{const I=await api('/api/impact');D=I.decisions}catch(e){}
   const S=D.signals||{},o=D.outcomes||{},im=S.implicit||{};const sigs=(im.rephrased||0)+(im.followup_correction||0)+(im.copied||0)+(im.regenerated||0)+(S.ratings||0);
-  const rd=(window._rdTotal!=null)?window._rdTotal:'';
-  const num={use:`${S.answers||0} answers`,signals:`${sigs} signals`,raindrop:rd?`${rd} events`:'live',evidence:`${(S.cycles||0)+(S.agent_cycles||0)} cycles`,
+  const num={use:`${S.answers||0} answers`,signals:`${sigs} signals`,failures:'live',evidence:`${(S.cycles||0)+(S.agent_cycles||0)} cycles`,
     propose:`${D.total||0} proposals`,gates:`${o.blocked||0} refused`,proof:`${S.graded_eval_cases||84} tests`,
-    decide:`${(o.active||0)+(o.superseded||0)} kept · ${o.rolled_back||0} undone`,atlas:D.first_time_right?.rate!=null?`${Math.round(D.first_time_right.rate*100)}% right 1st time`:''};
-  const order=['use','signals','raindrop','evidence','propose','atlas','decide','proof','gates'];
+    decide:`${(o.active||0)+(o.superseded||0)} kept · ${o.rolled_back||0} undone`,saved:D.first_time_right?.rate!=null?`${Math.round(D.first_time_right.rate*100)}% right 1st time`:''};
+  const order=['use','signals','failures','evidence','propose','saved','decide','proof','gates'];
   $(sel).innerHTML=WF.filter(w=>w[0]!=='spacer').map(([k,t,d],i)=>{const row2=i>=5;const cls=['n',row2?'row2':'',k==='propose'?'down last':'',k==='gates'?'last':''].join(' ');
     return `<div class="${cls}" data-n="${k}" style="grid-row:${row2?2:1};grid-column:${row2?(5-(i-5)):(i+1)}"><span class="step">${t.split(' ')[0]}</span><b>${t.slice(2)}</b><div class="num">${esc(num[k]||'')}</div><span>${d}</span><div class="now"></div></div>`}).join('')+
-    `<div class="loop">↺ the new version serves the next answer, and the loop starts again (every 7 days, on a Raindrop failure spike, or when someone presses Improve)</div>`}
+    `<div class="loop">↺ the new version serves the next answer, and the loop starts again (every 7 days, on a failure spike, or when someone presses Improve)</div>`}
 function wfMark(node,state,text){const el=$(`#wf [data-n="${node}"]`);if(!el)return;$('#wf').querySelectorAll('.n.live').forEach(x=>{if(x!==el){x.classList.remove('live');x.classList.add('ok')}});
   el.classList.remove('live','ok','warn','bad');el.classList.add(state);if(text)el.querySelector('.now').textContent=text}
 function wfReset(){$('#wf')?.querySelectorAll('.n').forEach(x=>{x.classList.remove('live','ok','warn','bad');x.querySelector('.now').textContent=''})}
 function wfEvent(ev){const k=ev.kind;
   if(k==='cycle_ledger'){wfMark('use','ok',`${ev.asks} answers to ${ev.users} people`);wfMark('signals','live',`${(ev.rephrased||0)+(ev.corrected||0)} rephrased/corrected · ${ev.regenerated} ↻ · ${ev.down} 👎`)}
-  else if(k==='raindrop_failures'){wfMark('signals','ok');wfMark('raindrop',ev.status?'warn':'live',ev.status?'unavailable':`${ev.failing}/${ev.answers} failing (${pct(ev.failure_rate)})`)}
-  else if(k==='cycle_step'){wfMark('raindrop','ok');wfMark('evidence','live',ev.step.slice(0,70))}
+  else if(k==='live_failures'){wfMark('signals','ok');wfMark('failures','live',`${ev.failing}/${ev.answers} failing (${pct(ev.failure_rate)})`)}
+  else if(k==='cycle_step'){wfMark('failures','ok');wfMark('evidence','live',ev.step.slice(0,70))}
   else if(k==='recommendations'||k==='themes'||k==='triaged'||k==='below_quorum'){wfMark('evidence','live',k==='below_quorum'?'only 1 person: stays personal':k==='triaged'?`${ev.agent_wide} agent-wide · ${ev.personal} personal`:'grouping patterns…')}
   else if(k==='scored'){wfMark('evidence','ok');wfMark('proof','live',`baseline ${pct(ev.train.pass_rate)} practice · ${pct(ev.holdout.pass_rate)} unseen`)}
   else if(k==='proposed'||k==='repair'||k==='meta_overruled'){wfMark('propose','live',k==='meta_overruled'?'overruled the improver':plain(ev.patch).slice(0,80))}
@@ -602,12 +600,12 @@ async function loadCycle(){if(!token){$('#cycleCard').innerHTML='<span class="mu
     ${c?`<div class="small" style="margin:8px 0">${esc(c.summary||'')}</div>
       <div class="kv"><div>Decisions reviewed</div><div><b>${t.decisions||0}</b> (${t.asks||0} questions, ${t.ratings||0} ratings, ${t.suggestions||0} suggestions, ${t.memories||0} memories, ${t.governance||0} governance actions)</div>
       <div>Per agent</div><div>${Object.entries(pa).map(([a,x])=>`<span class="badge">${esc(a)}: ${x.asks} asks${x.rephrased?` · ${x.rephrased} rephrased`:''}${x.corrected?` · ${x.corrected} corrected`:''}${x.regenerated?` · ${x.regenerated}↻`:''}${x.copied?` · ${x.copied} copied`:''}${x.down?` · ${x.down}👎`:''}${x.up?` · ${x.up}👍`:''}</span>`).join('')}</div>
-      <div>Raindrop evidence</div><div>${c.raindrop?(c.raindrop.status==='ok'?`${c.raindrop.events} events read back · signals ${Object.entries(c.raindrop.signals||{}).map(([k,v])=>`${esc(k)} ×${v}`).join(', ')||'none'} · ${t.raindrop_flagged||0} flagged answers`:`<span class="mute">${esc(c.raindrop.status)}: add RAINDROP_QUERY_API_KEY to read Raindrop back</span>`):'<span class="mute">not read this cycle</span>'}</div>
+      <div>Negative signals</div><div>${c.signals?`${c.signals.events} answers · ${Object.entries(c.signals.signals||{}).map(([k,v])=>`${esc(k)} ×${v}`).join(', ')||'none'} · ${t.flagged||0} flagged answers`:'<span class="mute">not read this cycle</span>'}</div>
       <div>Learned about you</div><div>${(c.learned||[]).map(l=>`<div>• ${esc(l)}</div>`).join('')||'<span class="mute">nothing new</span>'}</div>
-      <div>Your context</div><div>${c.persona_change?`persona <b>v${c.persona_change.from} → v${c.persona_change.to}</b> in Atlas <code>context_layers</code>`:'<span class="mute">unchanged</span>'}</div>
+      <div>Your context</div><div>${c.persona_change?`persona <b>v${c.persona_change.from} → v${c.persona_change.to}</b> in <code>context_layers</code>`:'<span class="mute">unchanged</span>'}</div>
       <div>Agent changes it is testing</div><div>${(c.agent_recommendations||[]).map(r=>`<div>→ <b>@${esc(r.agent)}</b>: ${esc(r.recommendation)} <span class="mute small">(${esc(r.why)})</span></div>`).join('')||'<span class="mute">none needed</span>'}
         <div class="mute small">Inferred from behaviour, never asked for. They reach everyone only if the same pattern shows up for 2+ people, the change wins a blind replay and leaks nothing.</div></div></div>`:'<div class="mute small" style="margin-top:6px">The cycle reviews every decision you made in the last 7 days, updates your context, and proposes agent improvements.</div>'}
-    <details style="margin-top:8px"><summary>Context versions in Atlas (${hist.length})</summary>${hist.map(h=>`<div class="small">v${h.version} · ${h.status} · ${esc(h.source)} · ${new Date(h.created).toLocaleString()} · ${esc(h.reason||'')}</div>`).join('')}</details>`;
+    <details style="margin-top:8px"><summary>Context versions (${hist.length})</summary>${hist.map(h=>`<div class="small">v${h.version} · ${h.status} · ${esc(h.source)} · ${new Date(h.created).toLocaleString()} · ${esc(h.reason||'')}</div>`).join('')}</details>`;
   $('#runCycle').onclick=async()=>{await api('/api/cycles/run',{method:'POST',body:JSON.stringify({})});toast('Cycle started: reviewing your last 7 days…');setTimeout(loadCycle,15000);setTimeout(loadCycle,35000)}}
 
 /* ---------- IAM / access ---------- */
@@ -624,7 +622,7 @@ async function loadAccess(){if(!token){$('#awrap').innerHTML='<p class="empty">P
       <div>HR notes for teams</div><div>${m.hr_teams.length?m.hr_teams.map(c=>`<span class="badge">${c}</span>`).join(''):'<span class="mute">none</span>'}</div>
       <div>Agents you can use</div><div>${m.agents_usable.length}</div>
       <div>Playbooks you can improve</div><div>${m.agents_improvable.length||'<span class="mute">none (developers and PMs can suggest, directors and the CTO run improvements)</span>'}</div></div>
-      <div class="mute small" style="margin-top:6px">Document access is enforced by MongoDB itself: these become your <code>$vectorSearch</code> filter (see 🗄 Data layer).</div></div>
+      <div class="mute small" style="margin-top:6px">Document access is enforced inside retrieval: these become your search pre-filter (see 🗄 Data layer).</div></div>
     <div class="card"><h3>Try it: would this be allowed?</h3>
       <div class="sim"><input id="simA" placeholder="action, e.g. docs:read" value="docs:read"><input id="simR" placeholder="resource, e.g. doc:category/board" value="doc:category/board"><button class="primary" id="simGo">Check</button></div>
       <div class="chips" style="margin-top:8px">${SIM_PRESETS.map(([a,r])=>`<button data-a="${a}" data-r="${r}">${a} → ${r}</button>`).join('')}</div><div id="simOut"></div></div>
@@ -638,12 +636,12 @@ async function loadAccess(){if(!token){$('#awrap').innerHTML='<p class="empty">P
   $('#simGo').onclick=go;$('#awrap').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{$('#simA').value=b.dataset.a;$('#simR').value=b.dataset.r;go()})}
 
 async function loadData(){if(!token){$('#dwrap').innerHTML='<p class="empty">Pick a person first (Assistant tab). The data layer is shown as that person.</p>';return}
-  $('#dwrap').innerHTML='<p class="empty">Reading MongoDB Atlas…</p>';const d=await api('/api/datalayer');const layers=[...new Set(d.collections.map(c=>c.layer))];
+  $('#dwrap').innerHTML='<p class="empty">Reading the store…</p>';const d=await api('/api/datalayer');const layers=[...new Set(d.collections.map(c=>c.layer))];
   $('#dwrap').innerHTML=`<div class="card"><h3>Your access, enforced inside the database</h3>
       <div>Signed in as <b>${esc(d.you.name)}</b> (${d.you.role}). May read: ${esc(d.you.may_read)}.</div>
-      <div class="mute small" style="margin-top:6px">Every document search runs <code>$vectorSearch</code> with this filter, so Atlas never returns anything outside it:</div>
+      <div class="mute small" style="margin-top:6px">Every document search applies this filter before ranking, so nothing outside it is ever scored or returned:</div>
       <pre>${esc(JSON.stringify(d.your_vector_filter,null,2))}</pre></div>
-    <div class="mute small" style="margin:0 0 10px">Database <code>${esc(d.database)}</code> on the MongoDB Atlas Hackathon Sandbox · ${d.collections.length} collections · open a card for a sample document</div>
+    <div class="mute small" style="margin:0 0 10px">Local store <code>${esc(d.database)}</code> · ${d.collections.length} collections · open a card for a sample document</div>
     ${layers.map(L=>`<h3 class="layer" style="margin:16px 0 8px">${esc(L)}</h3><div class="grid">${d.collections.filter(c=>c.layer===L).map(c=>`<div class="card coll" style="margin:0">
       <div class="top"><b>${esc(c.name)}</b><span class="n">${c.count.toLocaleString()} docs</span></div>
       <div class="small" style="margin:4px 0 2px">${esc(c.purpose)}</div>

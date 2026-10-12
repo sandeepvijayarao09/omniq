@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pymongo import ASCENDING, DESCENDING
+from .docstore import ASCENDING, DESCENDING
 
 from .config import ROOT
 from .db import db

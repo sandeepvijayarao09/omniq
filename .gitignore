@@ -6,3 +6,5 @@ __pycache__/
 var/
 node_modules/
 .modelence/
+.env.*
+!.env.example

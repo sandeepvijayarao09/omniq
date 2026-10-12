@@ -45,8 +45,8 @@ def recall(agent_id: str, user_id: str, query: str, k: int = 6) -> list[dict[str
     """Most relevant active memories for this agent: the user's own plus agent-wide lessons."""
     from . import usage
 
-    usage.bump("atlas_vector_searches")
-    usage.bump("atlas_memory_recalls")
+    usage.bump("vector_searches")
+    usage.bump("memory_recalls")
     try:
         rows = list(db().agent_memory.aggregate([
             {"$vectorSearch": {"index": MEMORY_INDEX, "path": "embedding", "queryVector": embed.embed_one(query),
@@ -75,9 +75,7 @@ def list_for(agent_id: str, user_id: str) -> list[dict[str, Any]]:
 
 def forget(memory_id: Any, user_id: str) -> bool:
     """Users can delete their own memories (never agent-wide lessons)."""
-    from bson import ObjectId
-
-    res = db().agent_memory.update_one({"_id": ObjectId(str(memory_id)), "user_id": user_id},
+    res = db().agent_memory.update_one({"_id": str(memory_id), "user_id": user_id},
                                        {"$set": {"status": "deleted"}})
     return res.modified_count == 1
 

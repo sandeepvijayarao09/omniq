@@ -83,19 +83,19 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
         s["rephrased"] = s.get("rephrased", 0) + ("rephrased" in a["implicit"])
         s["corrected"] = s.get("corrected", 0) + ("followup_correction" in a["implicit"])
         s["copied"] = s.get("copied", 0) + ("copied" in a["implicit"])
-    from . import raindrop_read
+    from . import signals
 
-    rd = raindrop_read.cycle_evidence(user_id, since, until)
+    rd = signals.cycle_evidence(user_id, since, until)
     flagged_ids = {f["event_id"] for f in rd["flagged"]}
     for e, a in zip(eps, asks):
         if e["_id"] in flagged_ids:
-            a["raindrop_flagged"] = next(f["signals"] for f in rd["flagged"] if f["event_id"] == e["_id"])
-            per_agent[a["agent"]]["raindrop_flagged"] = per_agent[a["agent"]].get("raindrop_flagged", 0) + 1
+            a["flagged"] = next(f["signals"] for f in rd["flagged"] if f["event_id"] == e["_id"])
+            per_agent[a["agent"]]["flagged"] = per_agent[a["agent"]].get("flagged", 0) + 1
     for it in intents:
         a = it.get("agent_id") or "assistant"
         if a in per_agent:
             per_agent[a][it["intent"]] = per_agent[a].get(it["intent"], 0) + 1
-    return {"asks": asks, "per_agent": per_agent, "raindrop": rd,
+    return {"asks": asks, "per_agent": per_agent, "signals": rd,
             "follow_up_intents": [{"agent": i.get("agent_id") or "assistant", "intent": i["intent"], "change": i["change_t"]}
                                   for i in intents if i["intent"] != "new_task"][:30],
             "suggestions": [{"agent": r.get("agent_id"), "text": r["text"], "status": r.get("status")} for r in recs],
@@ -103,7 +103,7 @@ def ledger(user_id: str, since: dt.datetime, until: dt.datetime) -> dict[str, An
             "governance_actions": [{"kind": a["kind"], "scope": a["data"].get("role")} for a in acts],
             "totals": {"decisions": len(asks) + len(fb) + len(recs) + len(mems) + len(acts), "asks": len(asks),
                        "ratings": len(fb), "suggestions": len(recs), "memories": len(mems), "governance": len(acts),
-                       "raindrop_events": rd["events"], "raindrop_flagged": len(rd["flagged"])}}
+                       "answers_in_window": rd["events"], "flagged": len(rd["flagged"])}}
 
 
 def _analyse(user_name: str, L: dict[str, Any]) -> dict[str, Any]:
@@ -111,7 +111,7 @@ def _analyse(user_name: str, L: dict[str, Any]) -> dict[str, Any]:
               f"Questions (oldest first): {json.dumps(L['asks'][-40:])}\nSuggestions they made: {json.dumps(L['suggestions'])}\n"
               f"Preferences/memories: {json.dumps(L['memories'])}\nGovernance actions: {json.dumps(L['governance_actions'])}\n"
               f"What they asked for on top of answers (classified follow-ups): {json.dumps(L.get('follow_up_intents', []))}\n"
-              f"Raindrop monitoring (independent signals on their conversations): {json.dumps({k: L['raindrop'][k] for k in ('status', 'events', 'signals')})}\n\n"
+              f"Negative signals on their answers (local monitoring): {json.dumps({k: L['signals'][k] for k in ('events', 'signals')})}\n\n"
               'Return {"summary": str (2 sentences), "learned": [3-6 short bullets about how they work and what they need], '
               '"agents": [{"agent": id, "why": str (evidence), "rules": [0-2 short rules], '
               '"procedure": [optional, up to 6 steps], "template": optional str}]}  '
@@ -181,12 +181,12 @@ def run(user_id: str, days: int = CYCLE_DAYS, until: dt.datetime | None = None) 
     items = [dict(i, agent=resolve(str(i.get("agent", "")))) for i in (A.get("agents") or []) if isinstance(i, dict)]
     covered = {i["agent"] for i in items}
     for aid, st in L["per_agent"].items():  # every agent with hard negative evidence gets reviewed
-        if aid in allowed_agents and aid not in covered and (st["down"] or st["regenerated"] or st.get("raindrop_flagged")
+        if aid in allowed_agents and aid not in covered and (st["down"] or st["regenerated"] or st.get("flagged")
                                                              or st.get("rephrased") or st.get("corrected")):
             own = [x["text"] for x in L["suggestions"] if x["agent"] == aid]
             items.append({"agent": aid, "why": f"{st['down']} downvotes, {st['regenerated']} regenerations, "
                                                f"{st.get('rephrased', 0)} rephrased, {st.get('corrected', 0)} corrected, "
-                                               f"{st.get('raindrop_flagged', 0)} Raindrop-flagged in {st['asks']} asks",
+                                               f"{st.get('flagged', 0)} flagged in {st['asks']} asks",
                           "rules": own[:2] or ["Lead with the direct answer and the exact numbers, then the steps."]})
     for item in items:
         aid = item["agent"]
@@ -211,7 +211,7 @@ def run(user_id: str, days: int = CYCLE_DAYS, until: dt.datetime | None = None) 
         db().recommendations.update_one({"event_id": ep["_id"], "text": text}, {"$set": {"source": "weekly_cycle", "cycle": cid}})
         queued.append({"agent": aid, "why": item.get("why", ""), "recommendation": text})
 
-    out = {"status": "done", "raindrop": {k: L["raindrop"][k] for k in ("status", "events", "signals")},
+    out = {"status": "done", "signals": {k: L["signals"][k] for k in ("status", "events", "signals")},
            "summary": A.get("summary", ""), "learned": learned, "quarantined": flagged,
            "persona_change": persona_change, "agent_recommendations": queued, "analyst_error": A.get("analyst_error")}
     db().cycles.update_one({"_id": cid}, {"$set": out})
@@ -290,18 +290,15 @@ def run_agent(agent_id: str, days: int = CYCLE_DAYS, run_id: str | None = None, 
     _log(run_id, "cycle_ledger", days=days, **L)
     outcome: dict[str, Any] = {"ledger": L}
 
-    # 0a) Raindrop's view: where this agent is failing, by kind and by playbook version
-    from . import raindrop_read
+    # 0a) where this agent is failing, by kind and by playbook version (local behaviour signals)
+    from . import signals
 
-    rd = raindrop_read.agent_failures(agent_id, since, until)
-    outcome["raindrop"] = {k: rd.get(k) for k in ("status", "answers", "failing", "failure_rate", "by_kind", "by_version")}
-    if rd.get("status") == "ok":
-        _log(run_id, "raindrop_failures", answers=rd["answers"], failing=rd["failing"], failure_rate=rd["failure_rate"],
-             by_kind=rd["by_kind"], by_version=rd["by_version"], examples=[x["question"][:90] for x in rd["examples"][:4]])
-    else:
-        _log(run_id, "raindrop_failures", status=rd.get("status"))
+    rd = signals.agent_failures(agent_id, since, until)
+    outcome["failures"] = {k: rd.get(k) for k in ("status", "answers", "failing", "failure_rate", "by_kind", "by_version")}
+    _log(run_id, "live_failures", answers=rd["answers"], failing=rd["failing"], failure_rate=rd["failure_rate"],
+         by_kind=rd["by_kind"], by_version=rd["by_version"], examples=[x["question"][:90] for x in rd["examples"][:4]])
 
-    # 0b) live evidence: answers people (or Raindrop) marked as failing become evidence when 2+ people are affected
+    # 0b) live evidence: answers people marked as failing become evidence when 2+ people are affected
     added = _live_signal_recommendations(agent_id, since, until, extra_event_ids=rd.get("failing_event_ids", []))
     if added:
         _log(run_id, "cycle_step", step=f"Found {added} answers that real users rephrased, corrected, regenerated or rated down")
@@ -352,7 +349,7 @@ def _live_signal_recommendations(agent_id: str, since: dt.datetime, until: dt.da
     w = {"$gte": since, "$lt": until}
     eps = {e["_id"]: e for e in db().episodes.find({"agent_id": agent_id, "source": "chat", "ts": w})}
     bad = [f for f in db().feedback.find({"event_id": {"$in": list(eps)}, "good": False})]
-    bad += [{"event_id": i, "user_id": eps[i]["user_id"]} for i in (extra_event_ids or []) if i in eps]  # Raindrop-flagged
+    bad += [{"event_id": i, "user_id": eps[i]["user_id"]} for i in (extra_event_ids or []) if i in eps]  # flagged by local signals
     bad += [{"event_id": x["event_id"], "user_id": x["user_id"]} for x in
             db().implicit_signals.find({"event_id": {"$in": list(eps)}, "positive": False})]
     if len({f["user_id"] for f in bad}) < 2:  # same quorum as suggestions: one unhappy person stays personal
@@ -381,11 +378,11 @@ def agent_due(agent_id: str) -> bool:
 SPIKE_MIN_ANSWERS, SPIKE_RATE, SPIKE_COOLDOWN_H = 5, 0.3, 6
 
 
-def raindrop_spikes() -> list[dict[str, Any]]:
-    """Agents whose Raindrop failure rate over the last 24h crossed the threshold, not improved in the cooldown."""
-    from . import raindrop_read
+def failure_spikes() -> list[dict[str, Any]]:
+    """Agents whose failure rate over the last 24h crossed the threshold, not improved in the cooldown."""
+    from . import signals
 
-    rates = raindrop_read.failure_rates(_now() - dt.timedelta(hours=24))
+    rates = signals.failure_rates(_now() - dt.timedelta(hours=24))
     out = []
     for aid, r in rates.items():
         if r["answers"] >= SPIKE_MIN_ANSWERS and r["rate"] >= SPIKE_RATE:
@@ -396,11 +393,11 @@ def raindrop_spikes() -> list[dict[str, Any]]:
 
 
 def agent_tick(limit: int = 1) -> list[str]:
-    """Scheduler: first any agent Raindrop shows failing (event-driven), then weekly cycles that are due."""
+    """Scheduler: first any agent whose failure rate spiked (event-driven), then weekly cycles that are due."""
     done = []
-    for spike in raindrop_spikes()[:limit]:
-        audit.record("raindrop_spike", "raindrop", agent=spike["agent"], rate=spike["rate"], answers=spike["answers"])
-        run_agent(spike["agent"], actor=f"raindrop spike: {spike['failing']}/{spike['answers']} failing in 24h")
+    for spike in failure_spikes()[:limit]:
+        audit.record("failure_spike", "signals", agent=spike["agent"], rate=spike["rate"], answers=spike["answers"])
+        run_agent(spike["agent"], actor=f"failure spike: {spike['failing']}/{spike['answers']} failing in 24h")
         done.append(spike["agent"])
     if done:
         return done

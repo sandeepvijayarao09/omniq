@@ -22,7 +22,7 @@ import random
 import uuid
 from typing import Any
 
-from . import assistant, audit, embed, evals, governance, harness, llm, memory, telemetry
+from . import assistant, audit, embed, evals, governance, harness, llm, memory
 from .config import settings
 from .db import Locked, acquire, db, release
 from .evolve import KNOBS, _log, _slim
@@ -49,7 +49,10 @@ def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def _themes(recs: list[dict[str, Any]], threshold: float = 0.78) -> list[list[dict[str, Any]]]:
+def _themes(recs: list[dict[str, Any]], threshold: float | None = None) -> list[list[dict[str, Any]]]:
+    from .calibration import threshold as calibrated
+
+    threshold = calibrated("theme") if threshold is None else threshold
     groups: list[tuple[list[float], list[dict[str, Any]]]] = []
     for r in recs:
         v = r.get("embedding") or embed.embed_one(r["text"], "document")
@@ -134,7 +137,6 @@ def run(scope: str, run_id: str | None = None, min_pending: int = 1) -> dict[str
         raise
     finally:
         release(f"improve:{scope}")
-        telemetry.flush()
 
 
 def _close(recs: list[dict[str, Any]], status: str, version: int | None) -> None:

@@ -1,7 +1,7 @@
 """One assistant turn, end to end, driven entirely by the role's active harness.
 
 question → harness → (rewrite) → ACL-filtered $vectorSearch (+rerank, +graph, +lessons, +memories)
-→ PII tokenization → outbound guard → Claude → de-tokenize → episode + audit + Raindrop
+→ PII tokenization → outbound guard → model gateway → de-tokenize → episode + audit
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import uuid
 from functools import lru_cache
 from typing import Any
 
-from . import agents, audit, context, embed, harness, llm, memory, retrieve, telemetry
+from . import agents, audit, context, embed, harness, llm, memory, retrieve
 from .db import db
 from .pii import Names, Vault
 from .policy import User, describe
@@ -205,7 +205,9 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         prev = db().episodes.find_one({"user_id": user.id, "convo_id": convo_id, "source": "chat"}, sort=[("ts", -1)])
         if prev:
             a, b = embed.embed_one(question), embed.embed_one(turns[-1]["q"])
-            if sum(x * y for x, y in zip(a, b)) >= 0.6:  # calibrated on Voyage: rephrasings 0.67-0.75, unrelated 0.12-0.24
+            from .calibration import threshold
+
+            if sum(x * y for x, y in zip(a, b)) >= threshold("rephrase"):  # calibrated per embedder
                 implicit_signal(prev["_id"], user.id, "rephrased")
             else:
                 prev_for_intent = prev  # correction / refinement / extension / new task: decided after we reply
@@ -293,10 +295,6 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         memory.remember_turn(convo_id, user.id, agent_id or "", question, answer)
         audit.record("ask", user.id, episode=event_id, scope=scope, harness_version=version, question=tq,
                      sources=episode["sources"], model=meta.get("model"), pii=vault.summary())
-    if source == "chat":  # only real conversations go to Raindrop (eval traffic would drown the signal and quota)
-        telemetry.track_answer(event_id, user.id, tq, answer_t, meta.get("model", ""), convo_id or event_id,
-                           {"scope": scope, "agent": agent_id or "", "harness_version": version, "source": source,
-                            "n_sources": len(sources), "latency": latency, "memories_applied": len(mems)})
     return {"answer": answer, "event_id": event_id, "harness_version": version, "scope": scope, "role": user.role,
             "agent": (tpl or {}).get("name"), "sources": [s["title"] for s in sources], "model": meta.get("model"),
             "profile": meta.get("profile"), "model_label": meta.get("label") or meta.get("model"),
@@ -334,7 +332,6 @@ def feedback(event_id: str, user_id: str, good: bool, comment: str = "", recomme
         flags = governance.screen(rec)
         if flags or not governance.recommendation_allowed(user_id, ep["agent_id"]):
             audit.record("recommendation_quarantined", user_id, episode=event_id, reasons=flags or ["daily limit"])
-            telemetry.signal(event_id, "recommendation_quarantined", negative=True, comment=vault.tokenize(rec))
             return {"queued": False, "preference": False, "quarantined": True,
                     "reasons": flags or ["daily recommendation limit reached"]}
         q = vault.detokenize(ep["question_t"])
@@ -342,10 +339,6 @@ def feedback(event_id: str, user_id: str, good: bool, comment: str = "", recomme
         memory.recommend(ep["agent_id"], ep["role"], user_id, event_id, q, vault.detokenize(ep["answer_t"]), rec,
                          ep["harness_version"])
         out = {"queued": True, "preference": True}
-    telemetry.signal(event_id, "thumbs_down" if not good else "thumbs_up", negative=not good,
-                     comment=c_t or vault.tokenize(rec))
-    if rec:
-        telemetry.signal(event_id, "recommendation", negative=True, comment=vault.tokenize(rec))
     audit.record("feedback", user_id, episode=event_id, good=good, recommendation=bool(rec))
     return out
 
@@ -365,12 +358,11 @@ def implicit_signal(event_id: str, user_id: str, kind: str) -> None:
         {"$setOnInsert": {"event_id": event_id, "kind": kind, "positive": IMPLICIT[kind], "user_id": user_id,
                           "agent_id": ep.get("agent_id"), "scope": ep["role"], "harness_version": ep["harness_version"],
                           "ts": dt.datetime.now(dt.timezone.utc)}}, upsert=True)
-    telemetry.signal(event_id, kind, negative=not IMPLICIT[kind])
 
 
 def request_improvement(event_id: str, user_id: str, request: str, source: str = "improve_button") -> dict[str, Any]:
     """Log an explicit improvement request against the answer it is about. It becomes this person's preference
-    for the agent right away, a governed recommendation for the agent's development, and a Raindrop signal."""
+    for the agent right away and a governed recommendation for the agent's development."""
     from . import governance
 
     ep = db().episodes.find_one({"_id": event_id})
@@ -392,7 +384,6 @@ def request_improvement(event_id: str, user_id: str, request: str, source: str =
         memory.recommend(ep["agent_id"], ep["role"], user_id, event_id, vault.detokenize(ep["question_t"]),
                          vault.detokenize(ep.get("answer_t", "")), request, ep["harness_version"])
         db().recommendations.update_one({"event_id": event_id, "text": request}, {"$set": {"source": source}})
-    telemetry.signal(event_id, "improvement_request", negative=True, comment=vault.tokenize(request))
     audit.record("improvement_request", user_id, episode=event_id, agent=ep.get("agent_id") or "", source=source,
                  quarantined=bool(flags))
     return {"logged": True, "agent": ep.get("agent_id"), "source": source, "quarantined": bool(flags)}

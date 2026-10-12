@@ -8,7 +8,7 @@ After an answer, the person's next message in the same conversation is classifie
                                                                            should start doing it proactively
   new_task     unrelated                                                 → nothing
 Runs in the background after the reply is sent. Everything is logged in Atlas `intent_events`, mirrored to
-`implicit_signals` / `improvement_requests` / governed `recommendations`, and sent to Raindrop.
+`implicit_signals` / `improvement_requests` / governed `recommendations`.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import re
 import threading
 from typing import Any
 
-from . import audit, llm, memory, telemetry
+from . import audit, llm, memory
 from .db import db
 
 INTENTS = ("correction", "refinement", "extension", "new_task")
@@ -100,8 +100,6 @@ def record(prev: dict[str, Any], followup_event_id: str, followup_text: str, use
         text = f"People often follow this kind of request by asking to: {change}. Offer or include it when relevant."
         memory.recommend(aid, prev["role"], user_id, prev["_id"], prev_q, prev_a, text, prev["harness_version"])
         db().recommendations.update_one({"event_id": prev["_id"], "text": text}, {"$set": {"source": "intent:extension"}})
-    telemetry.signal(prev["_id"], f"followup_{c['intent']}", negative=c["intent"] in ("correction", "refinement"),
-                     comment=v.tokenize(change))
     audit.record("followup_intent", user_id, episode=prev["_id"], agent=aid or "", intent=c["intent"], by=c["by"])
     doc.pop("_id", None)
     return doc

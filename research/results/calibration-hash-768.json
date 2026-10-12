@@ -1,0 +1,156 @@
+{
+  "embedder": "hash:768",
+  "tasks": {
+    "rephrase": {
+      "threshold": 0.1678,
+      "balanced_accuracy": 0.8125,
+      "n_pos": 16,
+      "n_neg": 16,
+      "pos": {
+        "min": 0.0,
+        "mean": 0.319,
+        "max": 0.5477
+      },
+      "neg": {
+        "min": 0.0,
+        "mean": 0.1528,
+        "max": 0.8333
+      },
+      "errors": {
+        "missed_pos": [
+          [
+            "How do I roll back a bad deploy?",
+            "What's the rollback procedure for a broken release?"
+          ],
+          [
+            "Why did we move sessions to Postgres?",
+            "What was the reason for moving session storage off Redis?"
+          ]
+        ],
+        "false_pos": [
+          [
+            "What are the API rate limits for Business?",
+            "What did the board decide about Bluefin?"
+          ],
+          [
+            "Who is on call this week?",
+            "Who is on call next week?"
+          ],
+          [
+            "What happened in the August outage?",
+            "Now draft the customer email about the outage"
+          ],
+          [
+            "Who owns the ingest gateway?",
+            "What does the ingest gateway depend on?"
+          ]
+        ]
+      }
+    },
+    "theme": {
+      "threshold": 0.2541,
+      "balanced_accuracy": 0.7,
+      "n_pos": 10,
+      "n_neg": 10,
+      "pos": {
+        "min": 0.0,
+        "mean": 0.2599,
+        "max": 0.6667
+      },
+      "neg": {
+        "min": 0.0,
+        "mean": 0.1441,
+        "max": 0.6
+      },
+      "errors": {
+        "missed_pos": [
+          [
+            "Keep answers shorter",
+            "Make the reply more concise"
+          ],
+          [
+            "Always list the owners",
+            "Include who owns each item"
+          ],
+          [
+            "Don't include customer names",
+            "Leave out the names of customers"
+          ],
+          [
+            "Give dates for every milestone",
+            "Include the date of each milestone"
+          ],
+          [
+            "Mention the SLA clock",
+            "State how much SLA time is left"
+          ]
+        ],
+        "false_pos": [
+          [
+            "Lead with the biggest risks",
+            "Lead with the good news"
+          ]
+        ]
+      }
+    },
+    "duplicate": {
+      "threshold": 0.833,
+      "balanced_accuracy": 0.875,
+      "n_pos": 8,
+      "n_neg": 10,
+      "pos": {
+        "min": 0.3536,
+        "mean": 0.7956,
+        "max": 1.0
+      },
+      "neg": {
+        "min": 0.0,
+        "mean": 0.5379,
+        "max": 0.8
+      },
+      "errors": {
+        "missed_pos": [
+          [
+            "I prefer bullet points",
+            "I prefer bullets"
+          ],
+          [
+            "No emoji",
+            "Don't use emoji"
+          ]
+        ],
+        "false_pos": []
+      }
+    },
+    "project_doc": {
+      "threshold": 0.0386,
+      "balanced_accuracy": 0.8333,
+      "n_pos": 6,
+      "n_neg": 6,
+      "pos": {
+        "min": 0.0,
+        "mean": 0.2645,
+        "max": 0.4903
+      },
+      "neg": {
+        "min": 0.0,
+        "mean": 0.0417,
+        "max": 0.25
+      },
+      "errors": {
+        "missed_pos": [
+          [
+            "What does ADR-007 change?",
+            "Store sessions in the primary Postgres cluster with Redis as a read-through cache."
+          ]
+        ],
+        "false_pos": [
+          [
+            "What's the plan for anomaly detection noise?",
+            "Promotions happen in the January and July cycles."
+          ]
+        ]
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-"""FastAPI server: the assistant, voice, feedback, the live evolution loop, harness lineage and audit."""
+"""FastAPI server: the assistant, feedback, the live evolution loop, harness lineage and audit."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import jwt
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 import os
@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from . import agentedit, agents, assistant, audit, impact, context, contextdb, cycles, explore, iam, governance, maintenance, embed, evolve, harness, improve, llm, memory, telemetry, voice
+from . import agentedit, agents, assistant, audit, impact, context, contextdb, cycles, explore, iam, governance, maintenance, embed, evolve, harness, improve, llm, memory
 from .config import settings
 from .db import db
 from .policy import describe
@@ -124,8 +124,6 @@ class EvolveReq(BaseModel):
     generations: int = 3
 
 
-class Speak(BaseModel):
-    text: str
 
 
 @app.get("/")
@@ -150,14 +148,14 @@ def workflow_stats() -> dict[str, Any]:
 
 @app.get("/workflow")
 def workflow_page() -> FileResponse:
-    """Full-screen flowcharts of agent improvement and context improvement (for demos and judges)."""
+    """Full-screen flowcharts of agent improvement and context improvement."""
     return FileResponse(STATIC / "workflow.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/status")
 def status() -> dict[str, Any]:
-    return {"voyage": embed.available(), "llm": llm.provider(), "model": llm.default_profile(), "raindrop": telemetry.available(),
-            "elevenlabs": voice.available(), "chunks": db().chunks.estimated_document_count()}
+    return {"embedder": embed.describe(), "semantic_embeddings": embed.available(), "llm": llm.provider(),
+            "model": llm.default_profile(), "chunks": db().chunks.estimated_document_count()}
 
 
 @app.get("/api/models")
@@ -469,7 +467,7 @@ def agent_publish(agent_id: str, body: PublishReq, uid: str = Depends(current_us
 
 @app.get("/api/impact")
 def impact_view(uid: str = Depends(current_user)) -> dict[str, Any]:
-    return _jsonable({"decisions": impact.decisions(), "partners": impact.partners()})
+    return _jsonable({"decisions": impact.decisions(), "components": impact.components()})
 
 
 @app.post("/api/agents/{agent_id}/improve-cycle")
@@ -484,14 +482,14 @@ def agent_improve_cycle(agent_id: str, uid: str = Depends(current_user)) -> dict
 
 @app.get("/api/agents/{agent_id}/failures")
 def agent_failures(agent_id: str, uid: str = Depends(current_user)) -> dict[str, Any]:
-    """Where this agent is failing, according to Raindrop (last 7 days)."""
+    """Where this agent is failing, from behaviour signals on its answers (last 7 days)."""
     import datetime as _dt
 
-    from . import raindrop_read
+    from . import signals
 
     _my_agent(uid, agent_id)
     now = _dt.datetime.now(_dt.timezone.utc)
-    return _jsonable(raindrop_read.agent_failures(agent_id, now - _dt.timedelta(days=7), now + _dt.timedelta(minutes=1)))
+    return _jsonable(signals.agent_failures(agent_id, now - _dt.timedelta(days=7), now + _dt.timedelta(minutes=1)))
 
 
 @app.get("/api/agents/{agent_id}/cycles")
@@ -660,9 +658,9 @@ def evolve_state(run_id: str) -> dict[str, Any]:
 
 @app.get("/api/evolve/{run_id}/stream")
 async def evolve_stream(run_id: str) -> StreamingResponse:
-    """Server-sent events fed by a MongoDB change stream on the run document (polling fallback).
-    Sends heartbeats so proxies (Modelence edge, Cloudflare) keep the connection open, and ends
-    immediately for runs that are already finished."""
+    """Server-sent events fed by a change stream on the run document (polling fallback).
+    Sends heartbeats so proxies keep the connection open, and ends immediately for runs that are
+    already finished."""
 
     async def gen():
         doc = db().evolve_runs.find_one({"_id": run_id}) or {"events": [], "status": "done"}
@@ -675,7 +673,7 @@ async def evolve_stream(run_id: str) -> StreamingResponse:
         loop = asyncio.get_running_loop()
         from . import usage
 
-        usage.bump("atlas_change_streams")
+        usage.bump("change_streams")
         try:
             stream = db().evolve_runs.watch([{"$match": {"documentKey._id": run_id}}], full_document="updateLookup",
                                             max_await_time_ms=1000)
@@ -797,22 +795,3 @@ def audit_tail(uid: str = Depends(current_user)) -> dict[str, Any]:
     return _jsonable({"verify": audit.verify(), "events": audit.tail(40)})
 
 
-@app.post("/api/voice/stt")
-async def stt(file: UploadFile = File(...), uid: str = Depends(current_user)) -> dict[str, str]:
-    try:
-        return {"text": voice.transcribe(await file.read())}
-    except RuntimeError as e:
-        raise HTTPException(503, str(e))
-
-
-@app.post("/api/voice/tts")
-def tts(body: Speak, uid: str = Depends(current_user)) -> Response:
-    try:
-        return Response(voice.speak(body.text), media_type="audio/mpeg")
-    except RuntimeError as e:
-        raise HTTPException(503, str(e))
-
-
-@app.on_event("shutdown")
-def _flush() -> None:
-    telemetry.flush()

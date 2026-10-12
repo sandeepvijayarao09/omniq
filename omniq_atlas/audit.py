@@ -10,8 +10,7 @@ import hashlib
 import json
 from typing import Any
 
-from pymongo import DESCENDING
-from pymongo.errors import DuplicateKeyError
+from .docstore import DESCENDING, DuplicateKeyError
 
 from .db import db
 

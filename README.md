@@ -1,30 +1,38 @@
-# Omniq Atlas
+# Omniq: ontology-grounded, governed organizational agents
 
-**Every person gets a team of agents that makes them 10×, and the team gets better every week by watching how they work.**
+**Research question.** Can an organization give every employee a team of AI agents that (1) answer from the
+company's own structured knowledge more accurately than document retrieval alone, (2) never reveal anything the
+employee may not see, and (3) improve themselves from how people use them, without ever being able to weaken those
+access and privacy guarantees?
 
-A developer works with Build, Verifier, Debug, Release and Code Review agents. A PM has Spec, Prioritization, Research,
-Launch and Metrics. A director gets their own five plus every agent below them (15), and the CTO gets all 20. You @-hand off
-a job, they do it in *your* context (role, persona, projects, access), and every agent improves itself over time from how
-people actually use it: rephrasing, corrections, follow-ups, Raindrop's failure signals. A change is kept only when the data
-proves it better, on unseen tests and blind replays, with zero leaks. The agents can tune themselves, but they can never
-unlock themselves: IAM policy compiled into `$vectorSearch` means MongoDB itself enforces who sees what.
+Omniq is the research system built to answer it. Every employee works with role-specific agents (a developer has
+Build, Verifier, Debug, Release and Code Review; a PM has Spec, Prioritization, Research, Launch and Metrics; a
+director gets their own five plus every agent below them; the CTO gets all 20). Agents answer in the person's own
+context: role, persona, projects and exactly the documents their access policy allows. Each agent's *harness* (its
+rules, retrieval settings, workflow and output template) improves itself from behaviour signals (rephrasing,
+corrections, follow-ups, regenerations), and a change is kept only when it is proven better on unseen tests or blind
+replays with zero leaks. The harness can tune itself, but it can never unlock itself: access control is compiled into
+the retrieval pre-filter, names are masked before any model call, and those invariants are outside what the
+improver may change.
 
-**Live:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app · **Results:** [docs/RESULTS.md](docs/RESULTS.md) (generated from Atlas) ·
-**Demo script:** [DEMO.md](DEMO.md) · **End-to-end:** `scripts/e2e_live.py` (29/29)
+**Everything runs locally**, with no hosted services or accounts: an embedded document store on one SQLite file
+(`omniq_atlas/docstore.py`), exact pre-filtered vector search, BM25, local embeddings through Ollama, and local models
+by default. That makes every experiment reproducible on a laptop.
+
+**Status.** Research build in progress on the `research` branch. The living architecture and plan, with what is built,
+what is planned, the research design, roadmap and decision log, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```mermaid
 flowchart LR
   U[Employee<br/>CTO · Director · PM · Dev] -->|chat, @agent| A[Assistant]
-  A -->|role + persona + agent context<br/>from Atlas context_layers| P[Prompt]
-  A -->|IAM → $vectorSearch filter<br/>+ $rankFusion hybrid| K[(Atlas: chunks<br/>Voyage embeddings)]
-  A -->|$graphLookup| G[(Atlas: ontology)]
+  A -->|role + persona + agent context<br/>versioned context layers| P[Prompt]
+  A -->|IAM → retrieval pre-filter<br/>+ dense/BM25 hybrid| K[(chunks<br/>local embeddings)]
+  A -->|graph traversal| G[(ontology:<br/>objects + links)]
   P -->|names masked, private-only data stays local| M{{Model gateway<br/>Gemma · Llama · Claude · OpenAI…}}
   M --> A
-  A -->|events + signals| R[Raindrop]
-  U -. rephrase · correct · extend · copy · 👍👎 .-> S[(Atlas: implicit signals,<br/>intents, episodes)]
-  R -->|Query API: where each agent fails| C[7-day cycles<br/>per person + per agent]
-  S --> C
-  C -->|propose| H[(Atlas: versioned playbooks)]
+  U -. rephrase · correct · extend · copy · 👍👎 .-> S[(behaviour signals:<br/>episodes, implicit signals, intents)]
+  S --> C[7-day cycles<br/>per person + per agent]
+  C -->|propose| H[(versioned playbooks)]
   H -->|safety gate · quorum · blind replay · eval guard| D{Keep / undo / refuse / ask a manager}
   D --> H
   H --> A
@@ -39,11 +47,11 @@ Also full-screen at `/workflow` in the running app (for demos).
 ```mermaid
 flowchart LR
   A["👩‍💻 People use agents<br/>@build · @verifier · @debug …"] --> B["📡 Behaviour signals<br/>rephrased · corrected · extended<br/>regenerated · copied · 👍👎"]
-  A --> R["🌧 Raindrop<br/>where the agent fails<br/>by type + playbook version"]
+  A --> R["📉 Where it fails<br/>failing answers<br/>by type + playbook version"]
   B --> E{"📒 7-day evidence<br/>same pattern in<br/>2+ people?"}
   R --> E
   E -- "no: one person's taste" --> P["👤 Stays that person's<br/>preference only"]
-  E -- yes --> C["💡 Improver proposes ONE change<br/>rules · retrieval ($rankFusion, top-k)<br/>workflow · output template"]
+  E -- yes --> C["💡 Improver proposes ONE change<br/>rules · retrieval (hybrid, rerank, top-k)<br/>workflow · output template"]
   C --> G{"🛡 Gates<br/>locked invariants · injection screen<br/>tool allow-list · ALL leak tests"}
   G -- fail --> X["🛑 Refused<br/>(audited)"]
   G -- pass --> T{"🧪 Proof<br/>beats current on unseen tests<br/>or wins blind side-by-side replay?"}
@@ -51,7 +59,7 @@ flowchart LR
   T -- "yes, small change" --> K["✅ Kept"]
   T -- "yes, template/tools" --> M["🙋 Manager approves<br/>(IAM harness:approve)"]
   M --> K
-  K --> S[("🍃 MongoDB Atlas<br/>new playbook version<br/>parent · change · evidence · scores")]
+  K --> S[("🗂 Versioned playbook<br/>parent · change · evidence · scores")]
   S --> W{"👀 Watchdog<br/>live failure rate worse<br/>than parent?"}
   W -- yes --> RB["⏪ Auto-rollback"]
   W -- no --> A
@@ -71,9 +79,9 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  Q["💬 Question<br/>(optionally @agent)"] --> IAM{"🔐 IAM policy<br/>role → allowed docs<br/>compiled into $vectorSearch filter"}
-  IAM --> RET["🔎 Atlas retrieval<br/>vector + full-text ($rankFusion)<br/>+ $graphLookup ontology<br/>+ your project docs"]
-  subgraph CTX["🧩 Context layers (versioned in Atlas context_layers)"]
+  Q["💬 Question<br/>(optionally @agent)"] --> IAM{"🔐 IAM policy<br/>role → allowed docs<br/>compiled into the retrieval pre-filter"}
+  IAM --> RET["🔎 Local retrieval<br/>vector + BM25 hybrid<br/>+ ontology graph<br/>+ your project docs"]
+  subgraph CTX["🧩 Context layers (versioned in context_layers)"]
     direction TB
     L1["📄 Role file<br/>what a CTO / Director / PM / Dev needs"]
     L2["🧑 Persona file<br/>projects · scope of work · how you like answers<br/>+ 'learned from my last cycle'"]
@@ -85,8 +93,8 @@ flowchart LR
   MASK --> GW{"🔌 Model gateway<br/>Gemma · Llama · Claude · OpenAI<br/>private data → local models only"}
   GW --> ANS["✅ Answer<br/>streamed, names restored, sources cited"]
   ANS --> SIG["📡 What you do next<br/>rephrase · correct · extend · copy"]
-  SIG --> CY["🔁 Your 7-day cycle<br/>reviews every decision you made<br/>+ Raindrop signals"]
-  CY --> NV[("🍃 New persona version in Atlas<br/>'learned from my last cycle'")]
+  SIG --> CY["🔁 Your 7-day cycle<br/>reviews every decision you made<br/>+ behaviour signals"]
+  CY --> NV[("🗂 New persona version<br/>'learned from my last cycle'")]
   NV --> L2
   CY --> AG["→ evidence for agent improvement<br/>(diagram 1)"]
   classDef sec fill:#fdecec,stroke:#f2b8bb
@@ -109,7 +117,7 @@ temperature, max tokens) and a context layer (persona, mission, priorities, rece
 output format, glossary), and the model receives it verbatim.
 
 Every agent and access level follows a **playbook**: how many documents to read, which rules to follow, when to say "I don't know".
-Each version of every playbook is saved in **MongoDB Atlas**, and the playbooks **improve themselves**:
+Each version of every playbook is saved with its parent and evidence, and the playbooks **improve themselves**:
 
 1. **Test.** Practice questions with known answers give each playbook a score.
 2. **Find the mistake.** For each wrong answer it asks: did it never find the right document, or did it find it and miss the fact?
@@ -135,31 +143,31 @@ Enterprise assistants are tuned by hand. Someone edits the prompt, retrieval set
 each team, then hopes nothing regresses. Nobody wants an agent that tunes *itself*, because it could
 also loosen its own access controls.
 
-Omniq Atlas splits the harness into two parts:
+Omniq splits the harness into two parts:
 
 - **Tunable:** rules, retrieval and context policy, tools and output guardrails. These are versioned
-  per role in Atlas and evolve from hard eval scores and employee feedback.
-- **Locked invariants:** ACL pre-filtering inside `$vectorSearch`, PII tokenization, the outbound leak
+  per role and evolve from hard eval scores and employee feedback.
+- **Locked invariants:** ACL pre-filtering inside retrieval, PII tokenization, the outbound leak
   guard and the hash-chained audit log. A patch that touches these is **blocked** and recorded.
 
 ## How a request works
 
 ```
-employee ─► JWT ─► active harness for their role (Atlas `harness`)
-         ─► $vectorSearch with the ACL as a pre-filter  (+ Voyage rerank, + $graphLookup ontology,
+employee ─► JWT ─► active harness for their role (`harness`)
+         ─► vector search with the ACL as a pre-filter  (+ BM25 hybrid, + local rerank, + ontology graph,
             + adopted lessons, + personal memories, as the harness allows)
-         ─► PII → [PERSON_1] tokens ─► outbound guard ─► Claude ─► de-tokenize
-         ─► episode (Atlas) + hash-chained audit (Atlas) + Raindrop event
+         ─► PII → [PERSON_1] tokens ─► outbound guard ─► model gateway ─► de-tokenize
+         ─► episode + hash-chained audit
 ```
 
 ## It learns from behaviour, not from asking (implicit signals)
 
 Users are never asked for suggestions and never shown recommendation lists. The system watches how people actually work,
-and every signal is logged in Atlas (`implicit_signals`, `improvement_requests`) and sent to Raindrop:
+and every signal is recorded against the answer it is about (`implicit_signals`, `intent_events`, `improvement_requests`):
 
 | Signal | Meaning | How it's detected |
 |---|---|---|
-| rephrased | the last answer missed | the next question is semantically the same (Voyage cosine ≥ 0.6, calibrated: rephrasings 0.67–0.75, unrelated 0.12–0.24) |
+| rephrased | the last answer missed | the next question is semantically the same (embedding cosine ≥ the calibrated threshold, 0.675 for BGE-base) |
 | followup_correction | the last answer missed something specific | "shorter", "add the owners", "that's wrong"… right after an answer |
 | regenerated | not good enough | ↻ |
 | copied | useful | copying the answer's text |
@@ -174,7 +182,7 @@ pass the eval guard and leak nothing.
 Each request is stored in `improvement_requests` against the exact answer and playbook version it was about, whichever
 way it arrives: **✨ Improve** on an answer, a follow-up like "make it shorter / add the owners" (detected automatically),
 or 👎 with "do this instead". It applies to that person immediately (preference memory), joins the agent's development log
-(My agents → Updates), goes to Raindrop as an `improvement_request` signal, and feeds the agent's 7-day cycle and the governed
+(My agents → Updates), counts as a failure signal on that answer, and feeds the agent's 7-day cycle and the governed
 loop that changes the agent for everyone.
 
 ## IAM: role-based access control (`data/iam/policies.yaml`, `omniq_atlas/iam.py`)
@@ -184,7 +192,7 @@ Access follows AWS-IAM-style policies: **explicit Deny > Allow > implicit deny**
 `doc:hr/${user.manages}` means "HR notes for the teams I manage" and `project:${user.projects}` means "my projects".
 
 - **Documents:** for org members, read access is *compiled from the policies* into the categories and HR teams that
-  become the `$vectorSearch` pre-filter, so MongoDB enforces exactly what the policy says.
+  become the retrieval pre-filter, so search itself enforces exactly what the policy says.
 - **Actions:** `agent:use` (who can @ an agent), `improve:run` (directors improve Developer, PM and Director playbooks;
   the CTO improves all), `harness:approve|freeze|rollback`, `memory:delete` (own only). `iam:edit` and
   `harness:edit-invariants` are explicitly denied to everyone, including the CTO.
@@ -215,14 +223,14 @@ Both loops end in one function, `governance.decide()`.
 
 1. Score the active harness for a role on the **train** split of `data/evals.yaml`. Each case is an
    answer, leak or abstain case, graded with exact checks. A leak costs extra.
-2. Gather evidence: failing cases, employee 👎 (also sent to **Raindrop** as signals), similar past failures
-   and lessons recalled with **Atlas Vector Search** (episodic and procedural memory).
+2. Gather evidence: failing cases, employee 👎, similar past failures
+   and lessons recalled with vector search (episodic and procedural memory).
 3. A Claude meta-agent proposes **one** patch, for example `{"retrieval": {"rerank": true, "top_k": 6}}`.
 4. The validator rejects anything that touches invariants, removes guardrails or adds tools outside the allow-list.
 5. The candidate runs on train **and holdout**. It's promoted only if it wins with no new leaks.
    Otherwise it's rolled back. Either way the outcome becomes a lesson.
 6. Every step is appended to an `evolve_runs` document, which **checkpoints** the run (`oa evolve --resume <id>`).
-   The UI streams it live through a **MongoDB change stream**.
+   The UI streams it live through a change stream on the run document.
 
 ## Role-specific agents that keep improving from their users (`agents.py`, `memory.py`, `improve.py`)
 
@@ -243,7 +251,7 @@ Each agent has:
   The persona and allow-list are fixed identity; the evolver can only add rules and tune knobs.
 - **its own context policy**: retrieval searches the agent's focus categories first, intersected with the user's
   grants (focus can narrow access, never widen it), then fills from everything else the user may read.
-- **its own memory layer** in Atlas Vector Search (`agent_memory`):
+- **its own memory layer** with vector recall (`agent_memory`):
   - *preferences* (per user) apply to that user's next answer immediately
   - *lessons* (agent-wide) come from adopted improvements and are opt-in per harness version
   - *facts* come from `/remember`
@@ -254,7 +262,7 @@ Each agent has:
 
 1. The recommendation becomes the user's preference right away, and is queued in `recommendations`.
 2. When an agent has 2+ pending, the scheduler, which runs every minute, starts `improve.run`:
-   - groups the recommendations into themes by Voyage similarity
+   - groups the recommendations into themes by embedding similarity
    - the meta-agent triages each theme as *personal* (already handled by that user's memory) or *agent-wide*
    - it drafts one patch; the validator checks it, with one self-repair attempt if it objects
 3. The candidate is tested two ways:
@@ -267,41 +275,44 @@ Each agent has:
 clearly worse. Memory **consolidation** collapses near-duplicate preferences so the newest instruction wins.
 Small eval sets are scored twice, and a case passes only if it passes every time, so a lucky run can't promote a change.
 
-## MongoDB Atlas usage
+## The local stack (`docstore.py`, `retrieve.py`, `embed.py`, `lexical.py`, `signals.py`)
 
-| Feature | Where |
+| Need | How it's done locally |
 |---|---|
-| Atlas Vector Search with filter fields (ACL pre-filter) | `chunks`, `retrieve.search_docs` |
-| Vector Search over memory | `episodes` (failures), `lessons` (procedural) |
-| `$graphLookup` ontology traversal | `objects` / `links`, `retrieve.graph_context` |
-| Vector Search over per-agent memory, filtered by agent and owner | `agent_memory`, `memory.recall` |
-| Change streams → SSE | `api.evolve_stream` |
-| TTL index locks (one improvement run per scope) | `locks`, `db.acquire` |
-| Versioned documents as agent config | `harness` |
-| Append-only, hash-chained audit | `audit` |
+| System of record | An embedded document store: collections of JSON documents, write-through to one SQLite file, with the query/update/aggregation subset the code uses (`docstore.py`, `docstore_agg.py`) |
+| Access-controlled retrieval | Exact cosine search where the ACL filter is applied **before** ranking, so unauthorized chunks are never scored (`$vectorSearch` stage, `docstore_agg.py`) |
+| Hybrid retrieval | Reciprocal-rank fusion of dense search and BM25 over the same ACL-filtered pool (`retrieve._hybrid`, `lexical.py`) |
+| Reranking | Local fusion of dense and BM25 scores, a knob the improver can turn on (`embed.rerank`) |
+| Ontology traversal | Breadth-first `$graphLookup` over `objects` / `links` |
+| Embeddings | BGE-base-en-v1.5 through Ollama, or a deterministic hashing fallback for tests (`embed.py`) |
+| Where agents fail | Computed from episodes and behaviour signals (`signals.py`) |
+| Live run updates | A polling change stream feeding server-sent events |
+| One run per scope | TTL locks with unique keys, persisted in the store |
+| Audit | Append-only, hash-chained `audit` collection |
 
-## Partners
+Exact (brute-force) search is deliberate: results are deterministic, with no approximate-index recall to account for
+in experiments, and the collections are small enough that it is fast.
 
-- **Voyage AI:** `voyage-4` embeddings and the `rerank-3` reranker. The reranker is a knob the harness learns to turn on.
-- **Raindrop, in the improvement loop:** each agent's 7-day cycle **starts from Raindrop's view of where the agent is failing**:
-  failing answers by kind (rated down, rephrased, corrected, regenerated, "couldn't find") and by playbook version, with
-  examples (`raindrop_read.agent_failures`). Raindrop-flagged answers become the evidence the improver works from and the
-  blind replay tests on. The regression watchdog compares Raindrop failure rates per version, and each agent's
-  **🌧 Where it fails** tab shows it.
-- **Raindrop, telemetry:** every answer is an event (event id = Atlas episode id) and every 👍/👎, regeneration and suggestion a signal; the 7-day cycle **reads them back with the Query API** (using Raindrop's own signal sentiment) and counts Raindrop-flagged answers as evidence against the agent that gave them, so Raindrop closes the self-improvement loop.
-- **Modelence:** a Node edge (`modelence/`) deployed to Modelence Cloud, which proxies to the Python API.
-- **Models, fully model-agnostic** (`config/models.yaml`, `omniq_atlas/llm.py`): every model call (answers, the improver,
-  the blind judge, the 7-day analyst) goes through a named profile: local Gemma 4 and Llama 3.2 via Ollama, Claude, OpenAI,
-  Gemini, Groq, or any self-hosted OpenAI-compatible server. Routing goes requested → default → fallback chain → offline,
-  and every answer records which model served it. **Data rule:** context with board, HR or finance documents only goes to
-  `trust: private` models. Each agent's context file names its model, and each person can choose another in My agents.
+**Calibrated thresholds.** Four decisions use embedding similarity: detecting a rephrased question, grouping
+recommendations into themes, merging duplicate preferences, and pulling in project passages. Their thresholds depend
+on the embedding model, so `research/calibrate_thresholds.py` measures them on labelled pairs and writes
+`research/results/calibration-<embedder>.json`, which `omniq_atlas/calibration.py` reads at runtime. For BGE-base:
+
+| Threshold | Value | Balanced accuracy |
+|---|---|---|
+| rephrase | 0.675 | 0.91 |
+| theme | 0.733 | 1.00 |
+| duplicate preference | 0.884 | 0.95 |
+| project passage | 0.375 | 0.92 |
 
 ## Run it
 
 ```bash
-cp .env.example .env          # MONGODB_URI (Atlas sandbox), VOYAGE_API_KEY, ANTHROPIC_API_KEY, ...
+ollama pull hf.co/CompendiumLabs/bge-base-en-v1.5-gguf   # local embeddings (optional: falls back to hashing)
+ollama pull gemma4:e4b                                     # local model (optional: falls back to extraction)
+cp .env.example .env
 uv venv --python 3.12 .venv && uv pip install --python .venv -e '.[dev]'
-.venv/bin/oa seed             # load directory, ontology and embedded chunks; create vector indexes
+.venv/bin/oa seed             # load the directory, ontology and embedded chunks into var/omniq.db
 .venv/bin/oa eval             # score the default harness for every role
 .venv/bin/oa evolve --role pro --generations 3
 .venv/bin/oa redteam --role pro   # an injected unsafe patch is blocked
@@ -310,24 +321,32 @@ uv venv --python 3.12 .venv && uv pip install --python .venv -e '.[dev]'
 .venv/bin/oa improve --agent deal_coach     # recommendation-driven loop for one agent
 .venv/bin/oa lineage --role pro
 .venv/bin/oa serve            # http://127.0.0.1:8000
+.venv/bin/python research/calibrate_thresholds.py   # re-measure similarity thresholds for your embedder
 ```
 
-Without keys everything still runs. Embeddings fall back to hashing and answers to extraction.
-
-**Live demo:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app (Modelence edge → Cloudflare tunnel → API and local Gemma).
-`scripts/run_live.sh` restarts the API and tunnel.
-
-Deploy the edge to Modelence:
-
-```bash
-cd modelence && FASTAPI_URL=https://<your-api-host> npx modelence@latest deploy
-```
+No keys are needed. API keys in `.env` only add optional comparison models (`config/models.yaml`).
 
 ## Tests
 
-`.venv/bin/python scripts/e2e_live.py [base_url]` runs 29 end-to-end checks through the real API (chat, @agents, IAM, implicit
-signals, follow-up intent, Raindrop failures, personal model choice, both 7-day cycles, red team, ontology ACL, audit chain).
-It passed 29/29 against the public Modelence URL.
+`.venv/bin/pytest -q` covers the document store (filters, updates, pre-filtered vector search, graph traversal,
+persisted unique/TTL indexes, change streams), ACL compilation, tokenization and the leak guard, patch validation and
+grading.
 
+`.venv/bin/python scripts/e2e_live.py [base_url]` runs 29 end-to-end checks through the real API (chat, @agents, IAM,
+implicit signals, follow-up intent, where agents fail, personal model choice, both 7-day cycles, red team, ontology
+ACL, audit chain) against a running server.
 
-`.venv/bin/pytest -q` covers ACL compilation, tokenization and the leak guard, patch validation and grading.
+## Research plan
+
+Two claims, each to be tested against baselines with ablations, on a benchmark built from the Halcyon Labs org
+(100 people, 91 documents, ~190 ontology objects):
+
+1. **Ontology grounding.** Agents grounded in a permission-aware ontology answer organizational questions, especially
+   relational, multi-hop ones, more accurately than document retrieval alone, with zero leakage. Baselines: closed-book,
+   dense RAG, hybrid RAG, and RAG with access control applied after retrieval instead of before.
+2. **Governed self-improvement.** The harness improves held-out accuracy from behaviour signals while every access and
+   privacy invariant holds. Measured with held-out tests, blind replays, leak cases and adversarial (red-team) patches,
+   with ablations that remove each gate to show what it prevents.
+
+The full research design (benchmark, conditions, ablations, metrics, runner), the roadmap and its status are kept
+up to date in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

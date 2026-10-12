@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Omniq Atlas · Self-improvement workflow</title>
+<title>Omniq · Self-improvement workflow</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f4f6f9;--ink:#0f1b2a;--mute:#5b6878;--line:#dde3ea;--card:#fff;--green:#00a35c;--green-s:#e3f6ec;--blue:#1565c0;--blue-s:#e8f1fb;
@@ -61,41 +61,41 @@ h1{margin:4px 0 2px;font-size:28px;font-weight:800;letter-spacing:-.02em}
 .foot{display:flex;justify-content:space-between;color:var(--mute);font-size:12px;margin-top:6px}
 @media (max-width:1100px){.kpis{grid-template-columns:repeat(4,1fr)}.phases,.pipe,.ret,.guar{grid-template-columns:1fr 1fr}.phase::after,.pn::after{display:none}}
 </style></head><body><div class="page">
-<div class="top"><div><div class="brand">Omniq Atlas · MongoDB Atlas</div>
+<div class="top"><div><div class="brand">Omniq</div>
 <h1>How every agent, and every person's context, improves itself</h1>
 <div class="lede">Every person gets a team of agents that makes them 10×. Nobody fills in feedback: the system learns from how people work, and a change ships only when the data proves it, without ever loosening access or privacy.</div></div></div>
 
 <div class="kpis" id="kpis"></div>
 <div class="panel"><div class="ph"><h2>Flowchart · Agent self-improvement</h2><span class="tag">each of the 20 role agents</span>
-  <div class="trig"><span class="pill">⏱ every 7 days</span><span class="pill">🌧 Raindrop spike</span><span class="pill">▶ Improve from last 7 days</span></div></div>
+  <div class="trig"><span class="pill">⏱ every 7 days</span><span class="pill">📉 failure spike</span><span class="pill">▶ Improve from last 7 days</span></div></div>
   <img src="/static/flow_agent.svg" alt="Agent self-improvement flowchart" style="width:100%;display:block;border-radius:12px;border:1px solid var(--line)"></div>
 <div class="panel"><div class="ph"><h2>Flowchart · Context assembly &amp; improvement</h2><span class="tag">what the model receives for every answer, and how each person's layer improves</span></div>
   <img src="/static/flow_context.svg" alt="Context flowchart" style="width:100%;display:block;border-radius:12px;border:1px solid var(--line)"></div>
 
 <div class="panel">
   <div class="ph"><h2>1 · Agent self-improvement loop</h2><span class="tag">runs for each of the 20 role agents</span>
-    <div class="trig"><span class="pill">⏱ every 7 days</span><span class="pill">🌧 Raindrop failure spike (≥30% of ≥5 answers / 24h)</span><span class="pill">▶ "Improve from last 7 days"</span></div></div>
+    <div class="trig"><span class="pill">⏱ every 7 days</span><span class="pill">📉 failure spike (≥30% of ≥5 answers / 24h)</span><span class="pill">▶ "Improve from last 7 days"</span></div></div>
   <div class="phases">
     <div class="phase p1"><h3><i></i>Observe</h3>
       <div class="step"><span class="n">1</span><b>People just work</b><p>Chat and @-hand off jobs to their agents (Build, Verifier, Debug…). No forms, no prompts for feedback.</p><div class="chips"><span class="chip">episodes</span><span class="chip">conversations</span></div></div>
-      <div class="step"><span class="n">2</span><b>Behaviour becomes signals</b><p>Rephrased (Voyage cosine ≥ 0.6) · follow-up intent: correction / refinement / extension · regenerated · copied · 👍👎</p><div class="chips"><span class="chip">implicit_signals</span><span class="chip">intent_events</span><span class="chip vo">voyage-4</span></div></div>
-      <div class="step"><span class="n">3</span><b>Raindrop: where it fails</b><p>Each agent's failing answers by type and playbook version, read back through the Query API.</p><div class="chips"><span class="chip rd">Raindrop Query API</span><span class="chip rd">signal sentiment</span></div></div>
+      <div class="step"><span class="n">2</span><b>Behaviour becomes signals</b><p>Rephrased (embedding similarity above a calibrated threshold) · follow-up intent: correction / refinement / extension · regenerated · copied · 👍👎</p><div class="chips"><span class="chip">implicit_signals</span><span class="chip">intent_events</span><span class="chip vo">local embeddings</span></div></div>
+      <div class="step"><span class="n">3</span><b>Where it fails</b><p>Each agent's failing answers by type and playbook version.</p><div class="chips"><span class="chip rd">episodes</span><span class="chip rd">behaviour signals</span></div></div>
     </div>
     <div class="phase p2"><h3><i></i>Diagnose</h3>
-      <div class="step"><span class="n">4</span><b>7-day ledger</b><p>Every decision in the window, per person and per agent: asks, ratings, rephrasings, corrections, extensions, Raindrop flags.</p><div class="chips"><span class="chip">cycles</span><span class="chip">agent_cycles</span></div></div>
-      <div class="step"><span class="n">5</span><b>Find the pattern</b><p>Group similar evidence by embedding; label each failure a retrieval miss (fact never reached the model) or a reasoning miss.</p><div class="chips"><span class="chip vo">Voyage similarity</span><span class="chip">$vectorSearch</span></div></div>
+      <div class="step"><span class="n">4</span><b>7-day ledger</b><p>Every decision in the window, per person and per agent: asks, ratings, rephrasings, corrections, extensions, flagged answers.</p><div class="chips"><span class="chip">cycles</span><span class="chip">agent_cycles</span></div></div>
+      <div class="step"><span class="n">5</span><b>Find the pattern</b><p>Group similar evidence by embedding; label each failure a retrieval miss (fact never reached the model) or a reasoning miss.</p><div class="chips"><span class="chip vo">embedding similarity</span><span class="chip">vector search</span></div></div>
       <div class="step"><span class="n">6</span><b>Quorum</b><p>One person's taste stays their preference. A change for everyone needs the <b>same pattern from 2+ people</b>.</p><div class="chips"><span class="chip">recommendations</span><span class="chip">agent_memory</span></div></div>
     </div>
     <div class="phase p3"><h3><i></i>Propose &amp; prove</h3>
-      <div class="step"><span class="n">7</span><b>One focused change</b><p>The improver (any model) proposes a patch to rules, retrieval (top-k, hybrid <code>$rankFusion</code>, rerank), workflow or output template. The agent's context file never changes.</p><div class="chips"><span class="chip">harness</span><span class="chip">$rankFusion</span></div></div>
+      <div class="step"><span class="n">7</span><b>One focused change</b><p>The improver (any model) proposes a patch to rules, retrieval (top-k, hybrid dense + BM25, rerank), workflow or output template. The agent's context file never changes.</p><div class="chips"><span class="chip">harness</span><span class="chip">hybrid retrieval</span></div></div>
       <div class="step"><span class="n">8</span><b>Gates (absolute)</b><p>Locked invariants · type and bounds checks · tool allow-list · injection screen + LLM rule review · <b>every leak test must pass</b>.</p><div class="chips"><span class="chip sec">governance</span><span class="chip sec">safety gate</span></div></div>
       <div class="step"><span class="n">9</span><b>Proof</b><p>Must beat the current version on <b>unseen</b> graded questions, or win a <b>blind, order-randomised replay</b> of the real failed questions; eval guard checks for regressions.</p><div class="chips"><span class="chip">evals</span><span class="chip">LLM judge</span></div></div>
     </div>
     <div class="phase p4"><h3><i></i>Decide &amp; ship</h3>
       <div class="step"><span class="n">10</span><b>Decision</b><p>Every outcome is recorded with its numbers, including "not better".</p>
         <div class="outcomes"><div class="oc k">✅ Kept</div><div class="oc u">↩️ Undone</div><div class="oc x">🛑 Refused</div><div class="oc m">🙋 Manager approves</div></div></div>
-      <div class="step"><span class="n">11</span><b>Versioned in Atlas</b><p>New playbook version: parent, change, evidence, scores. Hash-chained audit entry. Live progress via change streams.</p><div class="chips"><span class="chip">harness versions</span><span class="chip">audit</span><span class="chip">change streams</span></div></div>
-      <div class="step"><span class="n">12</span><b>Watchdog</b><p>Compares live failure rates per version (Atlas + Raindrop) and auto-restores the parent if the new one is worse. Pauses after 3 failed attempts.</p><div class="chips"><span class="chip rd">Raindrop by version</span><span class="chip">scope_policy</span></div></div>
+      <div class="step"><span class="n">11</span><b>Versioned</b><p>New playbook version: parent, change, evidence, scores. Hash-chained audit entry. Live progress via change streams.</p><div class="chips"><span class="chip">harness versions</span><span class="chip">audit</span><span class="chip">change streams</span></div></div>
+      <div class="step"><span class="n">12</span><b>Watchdog</b><p>Compares live failure rates per version (feedback + behaviour signals) and auto-restores the parent if the new one is worse. Pauses after 3 failed attempts.</p><div class="chips"><span class="chip rd">failures by version</span><span class="chip">scope_policy</span></div></div>
     </div>
   </div>
   <div class="loop"><span>↺</span><div class="bar"></div><span>the new version serves the very next answer, and the loop starts again</span><div class="bar"></div><span>↺</span></div>
@@ -106,8 +106,8 @@ h1{margin:4px 0 2px;font-size:28px;font-weight:800;letter-spacing:-.02em}
   <div class="pipe">
     <div class="pn"><div class="k">Request</div><b>💬 Question</b><p>Optionally <code>@agent</code>: routed only if the person's IAM allows it.</p></div>
     <div class="pn sec"><div class="k">Access</div><b>🔐 IAM policy</b><p>Role chain + <code>${user.manages}</code>, <code>${user.projects}</code> → compiled into the search filter.</p><div class="chips"><span class="chip sec">policies.yaml</span></div></div>
-    <div class="pn"><div class="k">Retrieval</div><b>🔎 Atlas search</b><p>Vector + full-text (<code>$rankFusion</code>) + <code>$graphLookup</code> ontology + the asker's project docs.</p><div class="chips"><span class="chip">$vectorSearch</span><span class="chip">$search</span></div></div>
-    <div class="stack"><div class="k" style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:700">Context layers · versioned in Atlas <code>context_layers</code></div>
+    <div class="pn"><div class="k">Retrieval</div><b>🔎 Local search</b><p>ACL pre-filtered vectors + BM25 (hybrid) + ontology graph + the asker's project docs.</p><div class="chips"><span class="chip">exact vector search</span><span class="chip">BM25</span></div></div>
+    <div class="stack"><div class="k" style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);font-weight:700">Context layers · versioned in <code>context_layers</code></div>
       <div class="lay l1"><b>📄 Role</b> <span>what a CTO / Director / PM / Dev needs</span></div>
       <div class="lay l2 glow"><b>🧑 Persona</b> <span>projects · scope of work · how they like answers · <b>learned from last cycle</b></span></div>
       <div class="lay l3"><b>🤖 Agent</b> <span>procedure · output template · learned rules &amp; workflow</span></div>
@@ -118,8 +118,8 @@ h1{margin:4px 0 2px;font-size:28px;font-weight:800;letter-spacing:-.02em}
   </div>
   <div class="ret">
     <div class="pn"><div class="k">Behaviour</div><b>📡 What they do next</b><p>Rephrase · correct · extend · copy · ↻</p></div>
-    <div class="pn"><div class="k">Every 7 days</div><b>🔁 Person cycle</b><p>Reviews every decision they made, plus Raindrop's signals on their conversations.</p><div class="chips"><span class="chip">cycles</span><span class="chip rd">Raindrop</span></div></div>
-    <div class="pn"><div class="k">Result</div><b>🍃 New persona version</b><p>"Learned from my last cycle" section written to Atlas, screened, with the reason.</p><div class="chips"><span class="chip">context_layers v+1</span></div></div>
+    <div class="pn"><div class="k">Every 7 days</div><b>🔁 Person cycle</b><p>Reviews every decision they made, plus the behaviour signals on their answers.</p><div class="chips"><span class="chip">cycles</span><span class="chip rd">signals</span></div></div>
+    <div class="pn"><div class="k">Result</div><b>🍃 New persona version</b><p>"Learned from my last cycle" section written, screened, with the reason.</p><div class="chips"><span class="chip">context_layers v+1</span></div></div>
     <div class="pn"><div class="k">Also</div><b>→ Agent evidence</b><p>The same patterns feed the agent loop in panel 1 (with the 2-person quorum).</p></div>
     <div class="rnote"><span>↺</span><div class="bar" style="flex:1;height:2px;background:repeating-linear-gradient(90deg,#c3ccd5 0 8px,transparent 8px 14px)"></div><span>the new persona version feeds the <b style="color:var(--green)">Persona</b> layer of the next answer</span></div>
   </div>
@@ -127,19 +127,19 @@ h1{margin:4px 0 2px;font-size:28px;font-weight:800;letter-spacing:-.02em}
 
 <div class="panel"><div class="ph"><h2>What can never change</h2><span class="tag">the agents can tune themselves, never unlock themselves</span></div>
   <div class="guar">
-    <div class="g"><b>🔐 Access in the database</b>IAM compiles into <code>$vectorSearch</code>; MongoDB enforces it.</div>
+    <div class="g"><b>🔐 Access in the database</b>IAM compiles into the retrieval pre-filter; nothing outside it is ever ranked.</div>
     <div class="g"><b>🫥 Masked names</b>No raw personal data reaches any model.</div>
     <div class="g"><b>🧪 Zero leaks</b>Every leak test must pass before anything ships.</div>
     <div class="g"><b>🚫 Injection screen</b>Steering attempts are quarantined, never learned.</div>
     <div class="g"><b>🙋 Human approval</b>Template and tool changes wait for a manager (IAM).</div>
     <div class="g"><b>🔗 Audit chain</b>Every decision, hash-chained and verifiable.</div>
   </div></div>
-<div class="foot"><span>Omniq Atlas · github.com/sandeepvijayarao09/omniq-atlas</span><span id="stamp"></span></div>
+<div class="foot"><span>Omniq · github.com/sandeepvijayarao09/omniq-atlas</span><span id="stamp"></span></div>
 </div>
 <script>
 fetch('/api/workflow-stats').then(r=>r.json()).then(s=>{const pct=x=>x==null?'–':Math.round(x*100)+'%';
   const k=[['',s.answers,'answers by real people'],['',s.signals,'behaviour signals'],['',s.cycles,'7-day cycles run'],['',s.decisions,'automatic decisions'],
     ['g',s.kept,'kept: proven better'],['a',s.undone,'undone: not better'],['r',s.refused,'refused by safety gates'],['g',pct(s.ftr),'answers right the first time']];
   document.getElementById('kpis').innerHTML=k.map(([c,v,l])=>`<div class="kpi ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
-  document.getElementById('stamp').textContent=`live from MongoDB Atlas · ${s.agents} agents · ${s.tests} graded tests · ${s.audit} audit events · 0 leaks in kept versions`}).catch(()=>{});
+  document.getElementById('stamp').textContent=`live from the local store · ${s.agents} agents · ${s.tests} graded tests · ${s.audit} audit events · 0 leaks in kept versions`}).catch(()=>{});
 </script></body></html>

@@ -1,0 +1,109 @@
+{
+  "embedder": "ollama:hf.co/CompendiumLabs/bge-base-en-v1.5-gguf:latest",
+  "tasks": {
+    "rephrase": {
+      "threshold": 0.6755,
+      "balanced_accuracy": 0.9062,
+      "n_pos": 16,
+      "n_neg": 16,
+      "pos": {
+        "min": 0.5893,
+        "mean": 0.7561,
+        "max": 0.911
+      },
+      "neg": {
+        "min": 0.2269,
+        "mean": 0.4254,
+        "max": 0.9407
+      },
+      "errors": {
+        "missed_pos": [
+          [
+            "Summarize the Q3 OpEx variance",
+            "Why was Q3 operating expense over budget?"
+          ]
+        ],
+        "false_pos": [
+          [
+            "Who is on call this week?",
+            "Who is on call next week?"
+          ],
+          [
+            "Who owns the ingest gateway?",
+            "What does the ingest gateway depend on?"
+          ]
+        ]
+      }
+    },
+    "theme": {
+      "threshold": 0.7334,
+      "balanced_accuracy": 1.0,
+      "n_pos": 10,
+      "n_neg": 10,
+      "pos": {
+        "min": 0.7629,
+        "mean": 0.8525,
+        "max": 0.9259
+      },
+      "neg": {
+        "min": 0.5242,
+        "mean": 0.5788,
+        "max": 0.704
+      },
+      "errors": {
+        "missed_pos": [],
+        "false_pos": []
+      }
+    },
+    "duplicate": {
+      "threshold": 0.8845,
+      "balanced_accuracy": 0.95,
+      "n_pos": 8,
+      "n_neg": 10,
+      "pos": {
+        "min": 0.8852,
+        "mean": 0.9463,
+        "max": 0.9839
+      },
+      "neg": {
+        "min": 0.5105,
+        "mean": 0.7474,
+        "max": 0.8959
+      },
+      "errors": {
+        "missed_pos": [],
+        "false_pos": [
+          [
+            "Keep it under 150 words",
+            "Keep it under 400 words"
+          ]
+        ]
+      }
+    },
+    "project_doc": {
+      "threshold": 0.3754,
+      "balanced_accuracy": 0.9167,
+      "n_pos": 6,
+      "n_neg": 6,
+      "pos": {
+        "min": 0.288,
+        "mean": 0.5129,
+        "max": 0.7158
+      },
+      "neg": {
+        "min": 0.2182,
+        "mean": 0.2978,
+        "max": 0.3613
+      },
+      "errors": {
+        "missed_pos": [
+          [
+            "What does ADR-007 change?",
+            "Store sessions in the primary Postgres cluster with Redis as a read-through cache."
+          ]
+        ],
+        "false_pos": []
+      }
+    }
+  }
+}
