@@ -94,7 +94,7 @@ in chat, mistakes stop repeating, and it's safe to deploy: access enforced by Mo
 | What stops one user from steering an agent? | A shared change needs the same pattern from 2+ distinct people. One person's preference only applies to them. |
 | Why MongoDB and not a vector database? | One place holds vectors, full-text search, the ontology graph, versioned playbooks, change streams, TTL locks and the audit log. Access control lives in the `$vectorSearch` pre-filter, so the database enforces it. |
 | What does Raindrop do that your own logs don't? | It's the failure analysis layer: we read failure types and per-version failure rates back through the Query API, and it drives the spike trigger and the rollback watchdog. |
-| What if the improvement makes things worse in production? | The watchdog compares live Raindrop failure rates of the new version against its parent and rolls back automatically. After 3 failures, improvement pauses for that agent. |
+| What if the improvement makes things worse in production? | The watchdog compares live Raindrop failure rates of the new version against its parent and rolls back automatically. After 3 unsuccessful changes in a row, improvement pauses for that agent. |
 | Which models? | A model-agnostic gateway (`config/models.yaml`): local Gemma 4 and Llama 3.2 via Ollama today, Claude, OpenAI, Gemini or Groq by config. Board, HR and finance data is only sent to local models. |
 | What was built today? | All code was written during the hackathon. The fictional company documents are reused from an earlier prototype. |
 
