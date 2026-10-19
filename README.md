@@ -1,5 +1,13 @@
 # Omniq Atlas
 
+## In 30 seconds
+- **What it is:** A company AI assistant that gives each employee a set of AI agents which improve from how people use them, and only see documents that person may access.
+- **Why it matters:** Company assistants are tuned by hand; one that tunes itself must never loosen its own access rules.
+- **Key result:** 20 role-specific agents; the end-to-end suite passed 29/29 checks against the public deployment.
+- **What I did:** Built during a hackathon; all code was written there (see [SUBMISSION.md](SUBMISSION.md)).
+- **Built with:** Python, FastAPI, MongoDB Atlas Vector Search (search by meaning), Voyage AI, Raindrop (AI monitoring), Claude and local Gemma via Ollama.
+- **Try it:** Set `MONGODB_URI` in `.env`, then follow [Run it](#run-it): `oa seed` and `oa serve`.
+
 **Every person gets a team of agents that makes them 10×, and the team gets better every week by watching how they work.**
 
 A developer works with Build, Verifier, Debug, Release and Code Review agents. A PM has Spec, Prioritization, Research,
