@@ -425,6 +425,28 @@ ablation is one switch (table in 4.1).
 
 ---
 
+## 9a. Paused state (2026-11-05)
+
+Work paused at a safe point; everything is committed and pushed on `research`.
+
+**First live run of `scripts/structured_live.py`: 0/5, with clear causes.**
+
+| Case | What happened | Cause | Fix |
+|---|---|---|---|
+| PM: total ARR at risk | Engine wrote correct SQL (`SUM(arr) … WHERE health = 'At risk'`, coverage 1.0), table check passed, but 0 rows reached Omniq | `structured._rows` doesn't parse the engine's result shape, or the engine returned no rows; inspect a raw `result` event | Capture one raw SSE result and fix `_rows` |
+| PM: renewing soonest | Stream cut off mid-answer after 88 s | Docker stopped during the run | Restart and re-run |
+| Three remaining cases | Engine "unavailable" | Docker daemon was down | Restart and re-run |
+
+**Test design corrections found in the same run:**
+- Agent focus is a *priority* for documents but was made a *hard filter* for tables, so the CTO's Metrics agent withheld a database figure the CTO could read in a document anyway. Decide one rule; the consistent choice is person-level access only for tables.
+- The withheld case should use data the asker can't read anywhere: a PM asking for strategic-project budgets (board tables and board documents), checking the answer contains no budget or codename.
+- Seed inconsistency: the incident postmortem (engineering) states the $42,000 service credits that the ontology marks finance-only.
+
+**To resume:**
+1. Start Docker Desktop and Ollama.
+2. `scripts/auto_ontology.sh up` (restarts the embedding proxy, reuses the compiled engine data in its Postgres volume).
+3. Fix `_rows` against a real result event, apply the two test corrections, re-run `scripts/structured_live.py`, then `scripts/e2e_live.py`.
+
 ## 10. Open questions
 
 - **Presentation format and date** (paper, poster or talk): to decide. This sets the timeline for phases 4–7.
