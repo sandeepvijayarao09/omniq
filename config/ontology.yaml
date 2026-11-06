@@ -1,0 +1,212 @@
+# Omniq ontology schema: the organization as typed objects, links and actions.
+# The records themselves are in data/seed/ontology.yaml (what CRM, ITSM, finance and planning connectors would
+# sync) and data/seed/org.yaml (people and teams). Seeding checks every record against this file.
+#
+# Access uses the same categories as documents:
+#   - object types carry a default category; one object can override it (a board-only project)
+#   - a property can be stricter than its object (incident service credits are finance data, even though
+#     incidents are engineering data)
+#   - a link is visible only if both of its ends are; a document's `mentions` link only if the person may read
+#     the document
+#
+# Actions are the only way Omniq changes ontology data. Each declares who may run it; `requires_link` adds a
+# relationship check (the person must be the object's account owner, CSM, deal owner …) unless their role is in
+# `bypass_roles`. Every run is appended to the edit log, which seeding replays over the source records.
+
+object_types:
+  Person:
+    label: Person
+    plural: People
+    category: general
+    properties:
+      name: {type: string}
+      title: {type: string}
+      team: {type: string}
+
+  Team:
+    label: Team
+    plural: Teams
+    category: general
+    properties:
+      name: {type: string}
+
+  Customer:
+    label: Customer
+    plural: Customers
+    category: sales
+    properties:
+      name: {type: string}
+      plan: {type: enum}
+      arr: {type: money, label: ARR}
+      health: {type: enum}
+      segment: {type: string}
+      renewal: {type: date}
+      health_note: {type: text, label: Health note}
+
+  Contact:
+    label: Contact
+    plural: Contacts
+    category: sales
+    properties:
+      name: {type: string}
+      title: {type: string}
+      email: {type: string}
+      phone: {type: string}
+
+  Deal:
+    label: Deal
+    plural: Deals
+    category: sales
+    properties:
+      name: {type: string}
+      amount: {type: money}
+      stage: {type: enum}
+      close_quarter: {type: string, label: Close quarter}
+      next_step: {type: text, label: Next step}
+
+  System:
+    label: System
+    plural: Systems
+    category: engineering
+    properties:
+      name: {type: string}
+      description: {type: text}
+      tier: {type: enum}
+
+  Incident:
+    label: Incident
+    plural: Incidents
+    category: engineering
+    properties:
+      name: {type: string}
+      severity: {type: enum}
+      date: {type: date}
+      duration: {type: string}
+      summary: {type: text}
+      service_credits: {type: money, label: Service credits, category: finance}
+
+  ActionItem:
+    label: Action item
+    plural: Action items
+    category: engineering
+    properties:
+      name: {type: string}
+      status: {type: enum}
+      due: {type: string}
+
+  Decision:
+    label: Decision (ADR)
+    plural: Decisions
+    category: engineering
+    properties:
+      name: {type: string}
+      status: {type: enum}
+      summary: {type: text}
+
+  Project:
+    label: Project
+    plural: Projects
+    category: engineering
+    properties:
+      name: {type: string}
+      status: {type: string}
+      summary: {type: text}
+      budget: {type: money, category: finance}
+
+  Contract:
+    label: Contract
+    plural: Contracts
+    category: finance
+    properties:
+      name: {type: string}
+      annual_value: {type: money, label: Annual value}
+      renewal: {type: string}
+      key_terms: {type: text, label: Key terms}
+
+  Vendor:
+    label: Vendor
+    plural: Vendors
+    category: finance
+    properties:
+      name: {type: string}
+      annual_value: {type: money, label: Annual value}
+      renewal: {type: string}
+
+  Objective:
+    label: Objective (OKR)
+    plural: Objectives
+    category: general
+    properties:
+      name: {type: string}
+      key_results: {type: text, label: Key results}
+
+  Policy:
+    label: Policy
+    plural: Policies
+    category: general
+    properties:
+      name: {type: string}
+      summary: {type: text}
+
+link_types:
+  reports_to:      {from: Person, to: Person, label: reports to, inverse: manages}
+  member_of:       {from: Person, to: Team, label: member of, inverse: members}
+  leads:           {from: Person, to: Team, label: leads, inverse: led by}
+  owns_system:     {from: Team, to: System, label: owns, inverse: owned by}
+  depends_on:      {from: System, to: System, label: depends on, inverse: depended on by}
+  account_owner:   {from: Customer, to: Person, label: account owner, inverse: accounts owned}
+  csm:             {from: Customer, to: Person, label: customer success manager, inverse: accounts managed}
+  works_at:        {from: Contact, to: Customer, label: works at, inverse: contacts}
+  champion_of:     {from: Contact, to: Customer, label: champion at, inverse: champion}
+  deal_for:        {from: Deal, to: Customer, label: for customer, inverse: deals}
+  deal_owner:      {from: Deal, to: Person, label: owned by, inverse: deals owned}
+  impacted:        {from: Incident, to: Customer, label: impacted, inverse: incidents}
+  affected:        {from: Incident, to: System, label: affected, inverse: incidents}
+  commanded_by:    {from: Incident, to: Person, label: incident commander, inverse: incidents commanded}
+  action_for:      {from: ActionItem, to: Incident, label: action item for, inverse: action items}
+  assigned_to:     {from: ActionItem, to: Person, label: assigned to, inverse: action items}
+  authored_by:     {from: Decision, to: Person, label: authored by, inverse: decisions authored}
+  concerns:        {from: Decision, to: System, label: concerns, inverse: decisions}
+  project_owner:   {from: Project, to: Person, label: owned by, inverse: projects owned}
+  project_team:    {from: Project, to: Team, label: delivered by, inverse: projects}
+  project_customer: {from: Project, to: Customer, label: involves customer, inverse: projects}
+  contract_with:   {from: Contract, to: Customer, label: with customer, inverse: contracts}
+  vendor_owner:    {from: Vendor, to: Person, label: owned by, inverse: vendors owned}
+  objective_owner: {from: Objective, to: Person, label: owned by, inverse: objectives owned}
+  policy_owner:    {from: Policy, to: Team, label: owned by, inverse: policies}
+  # Documents are not objects: a mention link starts at "doc:<doc_id>" and carries the document's own access
+  # fields (category, team, owner), so it is visible only to people who may read the document.
+  mentions:        {from: Document, to: "*", label: mentions, inverse: mentioned in}
+
+action_types:
+  update_customer_health:
+    label: Update customer health
+    object_type: Customer
+    roles: [pro, manager, executive]
+    departments: [customer_success, sales, executive]
+    requires_link: [account_owner, csm]
+    bypass_roles: [manager, executive]
+    parameters:
+      health: {type: enum, options: [Healthy, Watch, At risk], required: true}
+      note: {type: text, label: Why, required: true}
+
+  update_deal_stage:
+    label: Update deal stage
+    object_type: Deal
+    roles: [pro, manager, executive]
+    departments: [sales, executive]
+    requires_link: [deal_owner]
+    bypass_roles: [manager, executive]
+    parameters:
+      stage: {type: enum, options: [Discovery, Evaluation, Proposal, Commit, Closed won, Closed lost], required: true}
+      next_step: {type: text, label: Next step}
+
+  add_incident_action_item:
+    label: Add action item
+    object_type: Incident
+    roles: [pro, manager, executive]
+    departments: [engineering, executive]
+    parameters:
+      name: {type: text, label: Action item, required: true}
+      assignee: {type: person, label: Owner, required: true}
+      due: {type: string, label: Due}

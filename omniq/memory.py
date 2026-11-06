@@ -91,6 +91,23 @@ def remember_turn(convo_id: str, user_id: str, agent_id: str, question: str, ans
          "$set": {"agent_id": agent_id, "updated": _now()}}, upsert=True)
 
 
+def conversation_vault(convo_id: str, user_id: str, names):
+    """The conversation's privacy vault, so a token means the same value in every turn. Kept on the conversation
+    document, next to the raw turns it maps; a request without a conversation gets a fresh vault."""
+    from .pii import Vault
+
+    if not convo_id:
+        return Vault(names)
+    doc = db().conversations.find_one({"_id": convo_id, "user_id": user_id}, {"vault": 1}) or {}
+    return Vault.from_json(doc.get("vault"), names)
+
+
+def save_vault(convo_id: str, user_id: str, vault) -> None:
+    if convo_id:
+        db().conversations.update_one({"_id": convo_id, "user_id": user_id}, {"$set": {"vault": vault.to_json()}},
+                                      upsert=True)
+
+
 def recent_turns(convo_id: str, user_id: str, n: int = 3) -> list[dict[str, Any]]:
     if not convo_id:
         return []

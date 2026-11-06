@@ -131,9 +131,9 @@ flowchart TB
 | 3.2 | Identity and access (IAM) | AWS-IAM-style policies (explicit Deny > Allow > implicit deny), role inheritance `cto → director → developer \| product_manager → employee`, variables `${user.manages}` / `${user.projects}`. Compiled into document categories and HR teams. | `iam.py`, `policy.py`, `data/iam/policies.yaml` | ✅ |
 | 3.3 | Knowledge retrieval | ACL **pre-filtered** exact cosine search; BM25; RRF hybrid; local rerank; project passages; agent focus categories (which can narrow access, never widen it) | `retrieve.py`, `lexical.py`, `embed.py` | ✅ |
 | 3.4 | Embeddings | BGE-base-en-v1.5 via Ollama (768-d), hashing fallback for tests; four similarity thresholds calibrated per embedder | `embed.py`, `calibration.py`, `research/calibrate_thresholds.py` | ✅ |
-| 3.5 | Ontology | Objects + links from the directory and `data/seed/ontology.yaml`; entity linking by name/alias; one-hop context; object-level ACL by category | `seed.py`, `retrieve.link_entities` / `graph_context`, `explore.py` | 🟡 basic (see 4.1) |
+| 3.5 | Ontology | Ontology v2 (4.1): typed schema checked at seed; object, property and link ACL; entity linker over questions and every document (`mentions` links); 1–2 hop facts, tokenized; mention boost; governed actions with an edit log replayed on seed. Every step is a harness switch | `ontology.py`, `config/ontology.yaml`, `seed.py`, `explore.py`, `retrieve.py` | 🟡 built and unit-tested; actions have no API or UI yet; e2e not re-run |
 | 3.6 | Context assembly | Versioned context layers (role file, persona file + "learned from my last cycle", agent file), memory (preferences, facts, recent turns), project scope | `context.py`, `contextdb.py`, `memory.py` | ✅ |
-| 3.7 | Privacy | Per-request token vault (names from directory + contacts, email, phone, SSN, card, IBAN, account numbers); outbound leak guard re-scans the payload | `pii.py` | 🟡 7 kinds (AIforOrg has 14) |
+| 3.7 | Privacy | Privacy v2 (4.2): 14 kinds (people, customers, project codenames from the registries; email, phone, national ids, cards with Luhn, IBAN with mod-97 and account numbers, money, IP addresses, health ids, secrets, street addresses, dates of birth); one vault per conversation, so tokens are stable across turns; the outbound guard re-scans the payload with the same detectors | `pii.py`, `memory.conversation_vault`, `ontology.pii_registry` | ✅ unit-tested; e2e not re-run |
 | 3.8 | Model gateway | Named profiles (Ollama, Anthropic, any OpenAI-compatible), fallback chain, offline extraction; `private_only_categories` (board, HR, finance) go only to `trust: private` models | `llm.py`, `config/models.yaml` | ✅ |
 | 3.9 | Agents | 20 role agents (developer, PM, director, CTO; 5 each), one Markdown context file each; hierarchy (director sees 15, CTO 20); @-handoff; personal overrides | `agents.py`, `agentedit.py`, `data/agents/` | ✅ |
 | 3.10 | Behaviour signals | Episodes; thumbs; implicit signals (rephrased, regenerated, copied, follow-up correction); classified follow-up intent; improvement requests; per-agent failure analysis | `assistant.py`, `intent.py`, `signals.py` | ✅ |
@@ -152,11 +152,13 @@ flowchart TB
 | Invariant | Enforced by | Tested by |
 |---|---|---|
 | Access control is a pre-filter, applied before ranking | `policy.vector_filter` in every retrieval; `can_read` re-check per hit; `$vectorSearch` filters before scoring (`docstore_agg._vector_search`) | `tests/test_core.py`, `tests/test_docstore.py::test_vector_search_is_prefiltered`, e2e ontology ACL |
-| Sensitive values are tokenized before any model call | `pii.Vault` on every outbound payload | `tests/test_core.py::test_tokenize_roundtrip_and_guard` |
+| Sensitive values are tokenized before any model call, ontology facts included | `pii.Vault` on every outbound payload | `tests/test_core.py::test_tokenize_roundtrip_and_guard`, `tests/test_pii.py`, `tests/test_ontology.py::test_facts_reach_the_model_tokenized` |
 | The outbound payload is re-scanned, and the call is refused if a raw value survives | `assistant` with `invariants.outbound_guard` | e2e |
 | Every question and change is audited | `audit.record`, hash chain | e2e audit chain check |
 | Private categories (board, HR, finance) only go to private models | `llm.route(private_only=...)` | ⬜ needs a dedicated test |
 | Invariants, unknown keys and tools outside the allow-list can't be patched | `harness.validate_patch` | `tests/test_core.py`, `oa redteam` |
+| Ontology reads show an object only if the person may see it, a property only if its own (stricter) category allows, and a link only if both ends are visible (a mention only if the document is); a restricted object and a nonexistent one look the same everywhere (facts, UI, actions, history) | `ontology.get` / `properties` / `link_visible`, `explore.ontology_object` | `tests/test_ontology.py` |
+| The ontology's research-only switches (`property_acl`, `link_acl`, `tokenize_facts`) can't be patched; they default to strict and only an experiment's `cfg_override` can change them | `harness.validate_patch`, `harness.apply_patch` | `tests/test_ontology.py::test_research_only_switches_cannot_be_patched` |
 | A database result is used only if the person may read every table its SQL touches; unparseable SQL and uncatalogued tables are withheld; the refusal is worded the same whether or not restricted data exists | `structured.authorize`, `structured.query` | `tests/test_structured.py` |
 
 Note: the `invariants` block in a harness version is protected from patches, but only `outbound_guard` is read at
@@ -167,7 +169,7 @@ this way.
 
 ## 4. Planned components
 
-### 4.1 Ontology v2 (port from AIforOrg) ⬜
+### 4.1 Ontology v2 (port from AIforOrg) 🟡
 
 From AIforOrg's `omniq/ontology.py` and `config/ontology.yaml`:
 
@@ -185,11 +187,57 @@ From AIforOrg's `omniq/ontology.py` and `config/ontology.yaml`:
 
 This is the core of Claim A, so each of these must be individually switchable for ablations.
 
-### 4.2 Privacy v2 ⬜
+**Built** (`omniq/ontology.py`, `config/ontology.yaml`, `tests/test_ontology.py`):
+
+- The schema types 14 object types, 26 link types and 3 actions. Seeding checks every record against it and refuses
+  unknown types, properties and link types, or links between the wrong types. People and teams still come from the
+  directory, which now also gives `leads` links.
+- Documents are not objects. A `mentions` link starts at `doc:<doc_id>` and carries the document's category, team and
+  owner, so the both-ends rule covers "mentioned in" without a special case.
+- Facts are one source per object record, added to the sources before the payload is tokenized.
+- Actions are checked, applied to `objects`, appended to `ontology_edits`, audited (`ontology_action`), and replayed
+  on every seed.
+
+Switches, in the harness's `ontology` block:
+
+| Switch | Default | Who may change it | Ablation |
+|---|---|---|---|
+| `entity_linking` | on | improver (bool) | off = seed facts from what the retrieved documents mention ("seed by retrieval only") |
+| `mention_boost` | off | improver (bool) | documents that mention a linked entity move up 3 places; fetches 4 × `top_k` candidates |
+| `hops` | 1 | improver (1–2) | hops 1 vs 2 |
+| `property_acl` | on | research only | off, with `link_acl` off = condition O1 |
+| `link_acl` | on | research only | off lists hidden neighbours by name (never their records) |
+| `tokenize_facts` | on | research only | off puts the facts back raw; the outbound guard still refuses unless the run also turns `invariants.outbound_guard` off |
+
+Facts are added when `retrieval.graph_context` is on or the agent has `ontology_lookup`, as before.
+
+**Not ported:**
+
+- Department objects: department and team ids collide (`finance`), and the extra names would change what
+  `retrieve.link_entities` (used by answerability) matches.
+- Erasure of a person: belongs with a data-subject request flow.
+- The ontology graph API (`graph(hops)`): the UI's object view already covers it.
+- Actions have no API or UI yet.
+
+**Known limit:** on hop 2, people and teams are listed but not expanded (as in AIforOrg), so a three-hop question
+("who leads the team that owns the system the incident affected?") gets the owning team but not its lead.
+
+### 4.2 Privacy v2 ✅
 
 Extend to AIforOrg's 14 categories (adds customers, project codenames, money, health identifiers, secrets,
 addresses, dates of birth, IP addresses), with a stable vault per conversation. Needed so the zero-leak claim
 covers the sensitive data that matters most to a company.
+
+**Built** (`omniq/pii.py`, `tests/test_pii.py`): AIforOrg's detectors and validators behind the existing
+`Names` / `Vault` API.
+
+- Customers and projects come from the ontology (`ontology.pii_registry`).
+- A bare first name, surname or codename shares the full form's token.
+- All 14 kinds are on by default. `Vault(names, categories)` can narrow them for a research run.
+- The chat vault is stored on the conversation document (`memory.conversation_vault`), which already holds the raw
+  turns.
+- `Vault.summary()` still counts only the values tokenized in the current request.
+- Token names changed from `SSN`, `CARD`, `IBAN`, `ACCOUNT` to `NATIONAL_ID`, `CREDIT_CARD`, `BANK_ACCOUNT`.
 
 ### 4.3 Agentic workflows and the multimodal assistant (port from AIforOrg) ⬜
 
@@ -289,6 +337,9 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 | **O3** | O2 + the structured-data engine for aggregation and database questions, with table-level ACL on its SQL | Documents + databases |
 | Ablations of O2 | − entity linking (seed by retrieval only) · − mention boost · hops 1 vs 2 · − tokenization (utility cost of privacy) | Attribute the gain |
 
+O1 and O2 differ only in the harness's research-only switches (`ontology.property_acl`, `ontology.link_acl`); each
+ablation is one switch (table in 4.1).
+
 ### 7.3 Conditions (Claim B) ⬜
 
 - **Self-improvement runs**: N generations per scope from the plain default harness. Measure held-out accuracy per
@@ -329,7 +380,7 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 | Phase | Scope | Exit criteria | Status |
 |---|---|---|---|
 | 0. Local, no hosted services | Replace every hosted database, embedding, observability, hosting and voice service; calibrate thresholds; remove prototype artifacts | Clean install has no hosted-service SDKs; `pytest` green; `e2e_live.py` 29/29 on the local stack | ✅ 2026-10-12 |
-| 1. Ontology v2 + Privacy v2 | Port 4.1 and 4.2; feature flags for every ablation | Unit tests for object/property/link ACL, entity linking, facts tokenization; e2e still 29/29 | ⬜ |
+| 1. Ontology v2 + Privacy v2 | Port 4.1 and 4.2; feature flags for every ablation | Unit tests for object/property/link ACL, entity linking, facts tokenization; e2e still 29/29 | 🟡 ported and unit-tested 2026-11-05; e2e not re-run |
 | 1a. Structured data | Warehouse (3.17), adapter and table ACL (3.18), Auto Ontology running locally on Ollama (3.19), per-user tokens (4.8) | A Metrics agent answers a database question end to end with SQL and sources; a developer asking for board data gets the neutral refusal; e2e checks for both | 🟡 started 2026-11-05 |
 | 1b. Governed knowledge | 4.5, 4.6, 4.7 | Knowledge proposals pass the gates and land uncertified; red-team case for certified edits | ⬜ |
 | 2. Benchmark | OrgQA generator + hand cases; splits; human spot-check of gold labels | ≥300 cases, all types covered, label audit of a 10% sample | ⬜ |
@@ -364,6 +415,13 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 | 2026-11-05 | Auto Ontology embeddings: Qwen3-Embedding-4B at 2048 dimensions through `scripts/embed_proxy.py` | v1.2.0 hard-codes a 2048-d vector column and never sends `dimensions`; Qwen3-Embedding is trained to be truncated (Matryoshka) and Ollama returns any requested size. The proxy only adds that one parameter | Patch Auto Ontology's column size (a fork); a model with native 2048-d output (none available locally) |
 | 2026-11-05 | Auto Ontology runs on `gemma4-e4b-16k` (Gemma 4 e4b with a 16k context, `config/ollama/`) for both model roles | Ollama's OpenAI endpoint defaults to a 4k context, which silently truncates schema-heavy prompts; one model for both roles fits a 24 GB laptop | Gemma 4 12B for reasoning (better, but with the embedder it crowds out Docker on 24 GB) |
 | 2026-11-05 | Template changes to agents become new playbook versions (`oa sync-agents`, `harness.sync_template`) | Keeps each agent's lineage and audit trail instead of resetting it | Reset the agent's harness to v1 |
+| 2026-11-05 | Documents stay out of `objects`; a `mentions` link carries its document's category, team and owner | One rule ("both ends visible") covers mentions; the ontology browser and answerability's entity linker see no new object types | Document objects as in AIforOrg |
+| 2026-11-05 | Ontology switches live in the harness (`ontology` block); the ones that weaken access or privacy are research-only: no patch may touch them, `apply_patch` restores them, only an experiment's `cfg_override` sets them | Ablations need them per run, but the improver must never be able to weaken access | A separate research config; making every switch tunable |
+| 2026-11-05 | Turning off `tokenize_facts` doesn't bypass the outbound guard | The guard is the last line of defence; an experiment that measures the cost of privacy has to switch off both, explicitly | Exempt facts from the guard |
+| 2026-11-05 | The mention boost is by rank (3 places), not by score | Dense, hybrid and reranked scores are on different scales; a rank shift means the same thing in all three | A fixed score bonus as in AIforOrg (+0.12) |
+| 2026-11-05 | The ontology UI no longer says how many connections are hidden | A count of hidden neighbours tells a person that restricted objects exist; restricted must look like nonexistent | Keep the count as a hint |
+| 2026-11-05 | All 14 privacy kinds on by default, money included | The zero-leak claim should cover figures too; the model can still copy `[MONEY_n]`. Arithmetic over tokenized figures is the utility cost, which the "− tokenization" ablation measures | Leave money untokenized |
+| 2026-11-05 | The conversation's vault is stored on its conversation document | That document already holds the raw turns, so this adds no new exposure; one place to delete | A separate vault collection with its own expiry |
 
 ---
 
@@ -380,6 +438,10 @@ personas. The existing 84 cases are kept as the "harness eval" set.
   anything copied from it.
 - **Local model quality for the engine**: Auto Ontology is tuned for NVIDIA's models; how well it compiles and writes
   SQL on local Gemma is to be measured.
+- **Ontology actions**: who may call them over the API (an IAM action such as `ontology:act`, on top of the schema's
+  role, department and relationship checks), and where they appear in the UI.
+- **Three-hop questions**: allow `hops: 3`, or expand teams on the last hop, so "who leads the team that owns …" is
+  answerable from facts.
 
 ---
 
@@ -389,3 +451,4 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 |---|---|
 | 2026-10-12 | First version: current architecture after phase 0, planned components, research design, roadmap, decision log |
 | 2026-11-05 | Product vision and the "autonomous, with proof" principle (section 0); structured data with Auto Ontology (3.17–3.19, 4.5–4.8, O3, phases 1a–1b); new invariant; decisions and open questions |
+| 2026-11-05 | Phase 1: Ontology v2 (3.5, 4.1) and Privacy v2 (3.7, 4.2) ported, with switches for every ablation and two new invariants; O1/O2 mapped to switches (7.2); decisions and open questions |

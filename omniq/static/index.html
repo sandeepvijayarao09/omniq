@@ -455,8 +455,7 @@ async function openObject(id){oid=id;$('#olist').querySelectorAll('button').forE
   let o;try{o=await api('/api/ontology/object/'+encodeURIComponent(id))}catch(e){$('#odetail').innerHTML=`<p class="empty">🔒 Not visible to ${esc(me?.name||'you')}.</p>`;return}
   const groups={};o.links.forEach(l=>{const k=(l.dir==='out'?'':'← ')+l.type.replace(/_/g,' ');(groups[k]=groups[k]||[]).push(l)});
   $('#odetail').innerHTML=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span style="font-size:26px">${TYPE_ICON[o.type]||'•'}</span><h2 style="margin:0;font-size:22px">${esc(o.name)}</h2><span class="role">${o.type}</span><span class="role">${o.category} data</span></div>
-    <div class="card"><h3>Connections</h3>${graphSVG(o)}
-      ${o.hidden_links?`<div class="mute small">🔒 ${o.hidden_links} more connection(s) exist that ${esc(me.name)} isn't allowed to see.</div>`:''}</div>
+    <div class="card"><h3>Connections</h3>${graphSVG(o)}</div>
     ${Object.keys(o.props).length?`<div class="card"><h3>Properties</h3><div class="kv">${Object.entries(o.props).map(([k,v])=>`<div>${esc(k.replace(/_/g,' '))}</div><div>${esc(v)}</div>`).join('')}</div></div>`:''}
     <div class="card"><h3>Linked to</h3>${Object.entries(groups).map(([k,ls])=>`<div style="margin:4px 0"><span class="mute small" style="display:inline-block;min-width:130px">${esc(k)}</span>${ls.map(l=>`<button class="link" data-id="${l.id}">${TYPE_ICON[l.otype]||'•'} ${esc(l.name)}</button>`).join('')}</div>`).join('')||'<span class="mute">No connections you can see.</span>'}</div>
     <div class="card"><h3>Documents that mention it</h3>${o.documents.map(d=>`<div class="small">📄 ${esc(d.title)} <span class="mute">· ${d.category}</span></div>`).join('')||'<span class="mute">None you can read.</span>'}</div>

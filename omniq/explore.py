@@ -2,6 +2,8 @@
 
 Nothing here bypasses access control: objects, links and documents are filtered with the same
 policy as the assistant, and samples are shortened, with vectors collapsed and personal fields left out.
+An object shows only the properties the person may see (ontology.properties), and nothing says how many of its
+links were hidden: a restricted neighbour looks exactly like no neighbour.
 """
 
 from __future__ import annotations
@@ -80,19 +82,15 @@ def ontology_object(user: User, oid: str) -> dict[str, Any]:
     ]))[0]
     ids = {l["dst"] for l in res["out"]} | {l["src"] for l in res["in"]}
     names = {x["id"]: x for x in db().objects.find({"id": {"$in": list(ids)}}, {"_id": 0})}
-    links, hidden = [], 0
+    links = []
     for l in res["out"]:
         other = names.get(l["dst"])
         if other and _visible(user, other):
             links.append({"dir": "out", "type": l["type"], "id": other["id"], "name": other["name"], "otype": other["type"]})
-        elif other:
-            hidden += 1
     for l in res["in"]:
         other = names.get(l["src"])
         if other and _visible(user, other):
             links.append({"dir": "in", "type": l["type"], "id": other["id"], "name": other["name"], "otype": other["type"]})
-        elif other:
-            hidden += 1
     # documents that mention it, only those this user may read
     docs, seen = [], set()
     pat = re.escape(o["name"])
@@ -109,9 +107,11 @@ def ontology_object(user: User, oid: str) -> dict[str, Any]:
         else:
             merged[key] = dict(l)
     links = list(merged.values())
-    props = {k: v for k, v in (o.get("props") or {}).items() if k not in HIDE_FIELDS}
+    from . import ontology
+
+    props = {k: v for k, v in ontology.properties(user, o).items() if k not in HIDE_FIELDS}
     return {"id": o["id"], "name": o["name"], "type": o["type"], "category": o.get("category"),
-            "aliases": o.get("aliases", []), "props": props, "links": links, "hidden_links": hidden,
+            "aliases": o.get("aliases", []), "props": props, "links": links,
             "documents": docs[:8],
             "query": {"$graphLookup": {"from": "links", "startWith": "$id", "connectFromField": "dst",
                                        "connectToField": "src", "maxDepth": 0}}}

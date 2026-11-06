@@ -30,6 +30,17 @@ DEFAULT_HARNESS: dict[str, Any] = {
     "tools": ["search_docs"],
     "model": {"temperature": 0.0, "max_tokens": 500},
     "guardrails": {"abstain_when_unsupported": False, "cite_sources": False},
+    # Ontology v2 (ontology.py). Facts are added when retrieval.graph_context is on or the agent has ontology_lookup.
+    "ontology": {
+        "entity_linking": True,   # seed facts from entities named in the question; off = from retrieved documents
+        "mention_boost": False,   # rank documents that mention those entities higher
+        "hops": 1,                # how far facts reach from each seed entity (1 or 2)
+        # Research-only ablations, never tunable (ONTOLOGY_RESEARCH_ONLY): each one weakens access or privacy, so
+        # they default to the strict setting and only an experiment's cfg_override can change them.
+        "property_acl": True,     # hide properties stricter than their object (incident service credits)
+        "link_acl": True,         # list a link only if both ends are visible
+        "tokenize_facts": True,   # facts go through the vault like everything else
+    },
     "invariants": {
         "acl_prefilter": True,       # ACL applied as the retrieval pre-filter, before ranking
         "pii_tokenization": True,    # nothing raw reaches a model
@@ -39,12 +50,13 @@ DEFAULT_HARNESS: dict[str, Any] = {
     },
 }
 
-TUNABLE = {"rules", "retrieval", "context", "tools", "model", "guardrails", "workflow"}
+TUNABLE = {"rules", "retrieval", "context", "tools", "model", "guardrails", "workflow", "ontology"}
+ONTOLOGY_RESEARCH_ONLY = {"property_acl", "link_acl", "tokenize_facts"}  # the improver may never touch these
 MAX_STEPS, MAX_TEMPLATE_CHARS = 8, 600
 ALLOWED_TOOLS = {"search_docs", "ontology_lookup", "memory_recall", "structured_query"}
 LIMITS = {"top_k": (1, 12), "num_candidates": (10, 200), "max_chunk_chars": (200, 2500),
           "max_tokens": (100, 1500), "temperature": (0.0, 1.0), "structured_min_coverage": (0.2, 0.95),
-          "answerability_min": (0.0, 0.9)}
+          "answerability_min": (0.0, 0.9), "hops": (1, 2)}
 GUARDRAILS_ONE_WAY = {"abstain_when_unsupported", "cite_sources"}  # may be turned on, never off
 
 
@@ -171,6 +183,14 @@ def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
             for g, on in val.items():
                 if g in GUARDRAILS_ONE_WAY and config["guardrails"].get(g) and not on:
                     problems.append(f"guardrail '{g}' may not be switched off")
+        if key == "ontology":
+            if not isinstance(val, dict):
+                problems.append("ontology must be an object")
+            else:
+                for k in sorted(set(val) & ONTOLOGY_RESEARCH_ONLY):
+                    problems.append(f"ontology.{k} is a research-only switch and can't be patched")
+                for k in sorted(set(val) - set(DEFAULT_HARNESS["ontology"])):
+                    problems.append(f"unknown ontology field '{k}'")
         if key == "workflow":  # an agent's procedure and output template, on top of its context file
             if not isinstance(val, dict) or set(val) - {"procedure", "template"}:
                 problems.append("workflow must be {procedure: [steps], template: str}")
@@ -224,6 +244,10 @@ def apply_patch(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]
         else:
             new[key] = val
     new["invariants"] = copy.deepcopy(config["invariants"])  # belt and braces
+    if isinstance(new.get("ontology"), dict):  # research-only switches keep the base's values, or the strict ones
+        base = config.get("ontology") or {}
+        for k in ONTOLOGY_RESEARCH_ONLY:
+            new["ontology"][k] = base.get(k, DEFAULT_HARNESS["ontology"][k])
     if "agent" in config:
         new["agent"] = copy.deepcopy(config["agent"])
     return new

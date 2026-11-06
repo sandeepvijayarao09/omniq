@@ -3,7 +3,8 @@
 Collections
   users            directory (role, department, team, manages)
   chunks           document chunks + local embeddings + ACL fields (pre-filtered exact vector search)
-  objects, links   the ontology graph, traversed breadth-first ($graphLookup)
+  objects, links   the ontology graph (schema: config/ontology.yaml); document `mentions` links carry the doc's ACL
+  ontology_edits   the ontology's action log, replayed over the source records on every seed
   harness          versioned harness documents per role (the thing that evolves)
   episodes         every assistant run: tokenized I/O, retrieved ids, score (episodic memory)
   lessons          learned rules with embeddings (procedural memory)
@@ -11,7 +12,7 @@ Collections
   feedback         thumbs up/down from employees
   agents           role-specific agent templates
   agent_memory     per-agent memory: user preferences, agent-wide lessons, facts
-  conversations    short-term working context per conversation
+  conversations    short-term working context per conversation, and its privacy vault (stable tokens)
   recommendations  "what should it do differently?" queue that drives agent evolution
   locks            one evolution run per harness scope at a time (TTL)
   evolve_runs      checkpointed state of each self-improvement run

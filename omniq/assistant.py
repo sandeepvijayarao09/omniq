@@ -13,7 +13,7 @@ import uuid
 from functools import lru_cache
 from typing import Any
 
-from . import agents, audit, context, embed, harness, llm, memory, retrieve
+from . import agents, audit, context, embed, harness, llm, memory, ontology, retrieve
 from .db import db
 from .pii import Names, Vault
 from .policy import User, describe
@@ -36,9 +36,7 @@ BASE_SYSTEM = (
 
 @lru_cache(maxsize=1)
 def name_registry() -> Names:
-    names = [u["name"] for u in db().users.find({}, {"name": 1})]
-    names += [o["name"] for o in db().objects.find({"type": "Contact"}, {"name": 1})]
-    return Names(names)
+    return ontology.pii_registry()  # people and contacts, customers, project codenames
 
 
 def _merge_by_doc(hits: list[dict[str, Any]], max_chars: int, max_docs: int) -> list[dict[str, Any]]:
@@ -212,7 +210,9 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         from . import agentedit
 
         cfg, personal_edit = agentedit.apply_override(cfg, user.id, agent_id)
-    vault = Vault(name_registry())
+    # one vault per conversation, so a token means the same value in every turn
+    vault = (memory.conversation_vault(convo_id, user.id, name_registry()) if source == "chat"
+             else Vault(name_registry()))
 
     tq = vault.tokenize(question)
     query = question
@@ -247,7 +247,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         hits += retrieve.project_context(user, query, {(h.get("doc_id"), h.get("chunk")) for h in hits})
     sources = _merge_by_doc(hits, int(cfg["context"]["max_chunk_chars"]), max_docs=max(3, int(cfg["retrieval"]["top_k"])))
     if cfg["retrieval"].get("graph_context") or "ontology_lookup" in cfg["tools"]:
-        sources += retrieve.graph_context(user, question)
+        sources += ontology.sources(user, question, cfg, hits)  # object, property and link ACL
     data_rec = None
     data_cats: set[str] = set()
     if "structured_query" in cfg["tools"]:  # company databases, through the structured-data engine
@@ -301,6 +301,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     card, card_files = context.audience_card(user.id if personal_memory else "__nobody__", agents.org_role(user))
     system = system_prompt(cfg, card)
     t_system, t_user = vault.tokenize(system), vault.tokenize(user_msg)
+    t_user = ontology.payload(t_user, sources, vault, cfg)  # unchanged unless a research run untokenizes facts
 
     leaked = vault.leaks(t_system + t_user)
     error = None
@@ -341,6 +342,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
 
             intent.record_async(prev_for_intent, event_id, question, user.id)
         memory.remember_turn(convo_id, user.id, agent_id or "", question, answer)
+        memory.save_vault(convo_id, user.id, vault)
         audit.record("ask", user.id, episode=event_id, scope=scope, harness_version=version, question=tq,
                      sources=episode["sources"], model=meta.get("model"), pii=vault.summary())
     return {"answer": answer, "event_id": event_id, "harness_version": version, "scope": scope, "role": user.role,
