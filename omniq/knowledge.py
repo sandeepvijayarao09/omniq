@@ -58,7 +58,7 @@ class Catalog:
         out, skip = [], 0
         while True:
             page = self._data(self._c.get("/api/terms", params={"skip": skip, "limit": 100}))
-            items = page.get("items", page) if isinstance(page, dict) else page
+            items = (page.get("terms") or page.get("items") or []) if isinstance(page, dict) else page
             out += items
             if len(items) < 100:
                 return out
