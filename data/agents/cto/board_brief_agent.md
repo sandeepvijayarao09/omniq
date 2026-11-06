@@ -18,6 +18,7 @@ focus_categories:
 - general
 tools:
 - search_docs
+- structured_query
 starter_questions:
 - Prepare the technology update for the next board meeting.
 - What technical diligence is in progress and when does it finish?

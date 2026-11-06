@@ -24,7 +24,8 @@ ROLES = ("basic", "pro", "manager", "admin", "executive")
 DEFAULT_HARNESS: dict[str, Any] = {
     "rules": [],
     "retrieval": {"top_k": 2, "num_candidates": 20, "rerank": False, "query_rewrite": False,
-                  "graph_context": False, "use_lessons": False},
+                  "graph_context": False, "use_lessons": False,
+                  "structured_min_coverage": 0.5},
     "context": {"max_chunk_chars": 900, "include_memories": True},
     "tools": ["search_docs"],
     "model": {"temperature": 0.0, "max_tokens": 500},
@@ -40,9 +41,9 @@ DEFAULT_HARNESS: dict[str, Any] = {
 
 TUNABLE = {"rules", "retrieval", "context", "tools", "model", "guardrails", "workflow"}
 MAX_STEPS, MAX_TEMPLATE_CHARS = 8, 600
-ALLOWED_TOOLS = {"search_docs", "ontology_lookup", "memory_recall"}
+ALLOWED_TOOLS = {"search_docs", "ontology_lookup", "memory_recall", "structured_query"}
 LIMITS = {"top_k": (1, 12), "num_candidates": (10, 200), "max_chunk_chars": (200, 2500),
-          "max_tokens": (100, 1500), "temperature": (0.0, 1.0)}
+          "max_tokens": (100, 1500), "temperature": (0.0, 1.0), "structured_min_coverage": (0.2, 0.95)}
 GUARDRAILS_ONE_WAY = {"abstain_when_unsupported", "cite_sources"}  # may be turned on, never off
 
 

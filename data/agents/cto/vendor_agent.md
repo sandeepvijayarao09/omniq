@@ -20,6 +20,7 @@ focus_categories:
 tools:
 - search_docs
 - ontology_lookup
+- structured_query
 starter_questions:
 - What do we spend on managed Kafka and when does it renew?
 - Should we build or buy log search?

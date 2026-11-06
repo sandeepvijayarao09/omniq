@@ -18,6 +18,7 @@ focus_categories:
 tools:
 - search_docs
 - ontology_lookup
+- structured_query
 starter_questions:
 - Are we on track for the reliability OKR?
 - What are the key results for enterprise readiness?

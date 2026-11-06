@@ -1,0 +1,141 @@
+"""Structured data through an external engine: table access, answerability, fail-closed behaviour, the HTTP client."""
+
+import json
+
+import httpx
+import pytest
+
+from omniq_atlas import harness, structured
+from omniq_atlas.policy import User
+
+DEV = User(id="emp-1001", name="Maya", role="pro", department="engineering", team="platform", title="Engineer")
+CTO = User(id="emp-1009", name="Marcus", role="executive", department="executive", title="Chief Technology Officer")
+TABLES = frozenset({"crm.customers", "crm.deals", "itsm.incidents", "itsm.systems", "finance.vendors",
+                    "finance.incident_service_credits", "board.strategic_projects", "directory.employees"})
+
+
+@pytest.fixture(autouse=True)
+def _catalog(monkeypatch):
+    monkeypatch.setattr(structured, "known_tables", lambda: TABLES)
+
+
+def test_sql_tables_finds_base_tables_not_ctes():
+    sql = """WITH risky AS (SELECT customer_id, arr FROM crm.customers WHERE health = 'At risk')
+             SELECT e.name, SUM(r.arr) FROM risky r JOIN directory.employees e ON e.employee_id = r.customer_id
+             WHERE r.customer_id IN (SELECT customer_id FROM crm.deals) GROUP BY e.name"""
+    assert structured.sql_tables(sql) == ["crm.customers", "crm.deals", "directory.employees"]
+    assert structured.sql_tables("SELECT name FROM customers") == ["customers"]
+    assert structured.sql_tables("SELEC nonsense FROM (") is None
+
+
+def test_table_categories_follow_acl_file():
+    assert structured.table_category("crm.customers") == "sales"
+    assert structured.table_category("itsm.incidents") == "engineering"
+    assert structured.table_category("finance.incident_service_credits") == "finance"
+    assert structured.table_category("planning.objectives") == "general"   # table override beats schema
+    assert structured.table_category("board.strategic_projects") == "board"
+
+
+def test_authorize_needs_every_table_and_fails_closed():
+    assert structured.authorize(DEV, "SELECT SUM(arr) FROM crm.customers")["ok"]
+    assert structured.authorize(DEV, "SELECT name FROM customers")["ok"]  # unqualified, resolved via the catalog
+    # Incident is engineering but its service credits are finance-only: the join is denied as a whole.
+    g = structured.authorize(DEV, "SELECT i.name, c.amount FROM itsm.incidents i "
+                                  "JOIN finance.incident_service_credits c USING (incident_id)")
+    assert not g["ok"] and g["denied"] == ["finance.incident_service_credits"]
+    assert not structured.authorize(DEV, "SELECT * FROM board.strategic_projects")["ok"]
+    assert not structured.authorize(DEV, "SELECT * FROM hr.salaries")["ok"]          # not in the catalog
+    assert not structured.authorize(DEV, "DROP TABLE (")["ok"]                         # unparseable
+    assert structured.authorize(CTO, "SELECT * FROM board.strategic_projects")["ok"]
+
+
+def test_agent_focus_narrows_table_access_never_widens():
+    sql = "SELECT SUM(arr) FROM crm.customers"
+    assert not structured.authorize(CTO, sql, focus=["engineering", "general"])["ok"]
+    assert not structured.authorize(DEV, "SELECT * FROM board.strategic_projects", focus=["board"])["ok"]
+
+
+class FakeEngine:
+    name = "fake"
+
+    def __init__(self, coverage=0.9, sql="SELECT name, arr FROM crm.customers WHERE health = 'At risk'",
+                 rows=({"name": "Globex Financial", "arr": 612000},), up=True):
+        self._cov, self._sql, self._rows, self._up = coverage, sql, list(rows), up
+        self.asked = 0
+
+    def available(self):
+        return self._up
+
+    def coverage(self, question, user_id):
+        return structured.Coverage(self._cov, [] if self._cov >= 0.5 else ["ad spend"])
+
+    def ask(self, question, user_id):
+        self.asked += 1
+        return structured.Result("Globex Financial is at risk.", self._sql, self._rows, len(self._rows), ["sql"])
+
+
+CFG = {"retrieval": {"structured_min_coverage": 0.5}, "tools": ["search_docs", "structured_query"]}
+
+
+def test_query_ok_becomes_a_cited_source():
+    rec = structured.query(DEV, "Which accounts are at risk?", CFG, FakeEngine())
+    assert rec["status"] == "ok" and rec["tables"] == ["crm.customers"] and rec["categories"] == ["sales"]
+    src = structured.as_source(rec)
+    assert "612000" in src["text"] and "SQL:" in src["text"] and src["category"] == "sales"
+
+
+def test_low_coverage_means_abstain_without_running_sql():
+    eng = FakeEngine(coverage=0.2)
+    rec = structured.query(DEV, "What was return on ad spend?", CFG, eng)
+    assert rec["status"] == "unanswerable" and eng.asked == 0
+    assert "do not estimate" in structured.as_source(rec)["text"]
+
+
+def test_denied_tables_withhold_rows_and_reveal_nothing():
+    eng = FakeEngine(sql="SELECT name, budget FROM board.strategic_projects", rows=({"name": "Project Bluefin", "budget": 18000000},))
+    rec = structured.query(DEV, "What's the budget of our strategic projects?", CFG, eng)
+    assert rec["status"] == "withheld" and "rows" not in rec and "answer" not in rec
+    text = structured.as_source(rec)["text"]
+    assert "18000000" not in text and "Bluefin" not in text
+    # The refusal reads the same whether or not restricted data exists.
+    assert text == structured.as_source({"status": "withheld"})["text"]
+
+
+def test_engine_down_or_off_degrades_quietly():
+    assert structured.query(DEV, "q", CFG, FakeEngine(up=False))["status"] == "unavailable"
+    assert structured.as_source({"status": "unavailable"}) is None
+
+
+def test_structured_tool_is_governed_by_the_allow_list():
+    cfg = {"agent": {"allowed_tools": ["search_docs"]}, "guardrails": {}}
+    assert any("not in allow-list" in p for p in harness.validate_patch(cfg, {"tools": ["search_docs", "structured_query"]}))
+    cfg["agent"]["allowed_tools"] = ["search_docs", "structured_query"]
+    assert harness.validate_patch(cfg, {"tools": ["search_docs", "structured_query"]}) == []
+    assert harness.validate_patch(cfg, {"retrieval": {"structured_min_coverage": 0.05}})  # outside limits
+
+
+def _mock_ao(request: httpx.Request) -> httpx.Response:
+    if request.url.path == "/api/health":
+        return httpx.Response(200, json={"ok": True})
+    assert request.headers["x-api-key"] == "tok-maya"
+    if request.url.path == "/api/question-entity-coverage":
+        return httpx.Response(200, json={"data": {"coverage": 0.83, "uncovered_entities": []}})
+    if request.url.path == "/api/chat/completions":
+        events = [{"type": "step", "label": "Resolved terms"},
+                  {"type": "result", "answer": {"response": "Total ARR at risk is $730,000.",
+                                                "sql_code": "SELECT SUM(arr) AS arr FROM crm.customers WHERE health = 'At risk'",
+                                                "sql_response_from_db": [{"arr": 730000}]}}]
+        body = "".join(f"data: {json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
+        return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+    return httpx.Response(404)
+
+
+def test_auto_ontology_client_speaks_its_public_api():
+    ao = structured.AutoOntology(url="http://ao.test", tokens={"emp-1001": "tok-maya"}, shared_token="",
+                                 transport=httpx.MockTransport(_mock_ao))
+    assert ao.available()
+    assert ao.coverage("total ARR at risk", "emp-1001").coverage == 0.83
+    res = ao.ask("total ARR at risk", "emp-1001")
+    assert res.rows == [{"arr": 730000}] and res.steps == ["Resolved terms"] and "SUM(arr)" in res.sql
+    with pytest.raises(structured.EngineError):
+        ao.token_for("emp-9999")  # no per-user token and no shared fallback: refuse rather than guess

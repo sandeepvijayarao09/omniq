@@ -10,7 +10,59 @@ whenever either changes. Each component is marked:
 Decisions are recorded in the [decision log](#9-decision-log). Changes to this document are listed at the
 [end](#11-document-history).
 
-_Last updated: 2026-10-12 · branch `research`_
+_Last updated: 2026-11-05 · branch `research`_
+
+---
+
+## 0. Product vision
+
+**One system that any company, from 20 people to 20,000, installs to connect its data, knowledge and AI, so that
+every decision, by a person, an agent or a model, is grounded in the company's own data and every layer keeps
+itself current.**
+
+Omniq is the whole stack, not one layer of it:
+
+| Layer | What it does | Built from |
+|---|---|---|
+| Connections | Discovers and syncs documents, directories and databases | Omniq loaders; Auto Ontology connectors (10 SQL engines) |
+| Knowledge | One permission-aware ontology over documents, people, projects and database terms, measures and joins | Omniq ontology + Auto Ontology's semantic compilation |
+| Access | One IAM policy for documents, ontology objects and database tables | Omniq IAM (`iam.py`, `data/warehouse/acl.yaml`) |
+| Agents | Role agents for every person, created from the directory, each in its own context | Omniq agents |
+| Models | Any model behind one gateway; sensitive data only to private models | Omniq gateway |
+| Decisions | Answers and recommendations with sources and SQL; actions in other systems only with approval | Omniq + the structured-data engine |
+| Improvement | Every layer improves from how it is used, under the same gates | Omniq governance |
+
+The hackathon entry this codebase started from is not part of the product; only the code carries over.
+
+### Design principle: autonomous, with proof
+
+Every layer runs the same loop: **sense → propose → prove → promote or roll back.** It needs no person except for a
+short, fixed list of decisions, and it can never weaken access, privacy or audit. This is the product's central
+claim; the research claims below are its evidence.
+
+| Layer | Runs on its own | Needs proof (gates) | Needs a person |
+|---|---|---|---|
+| Connections | Discover sources, sync, detect schema and document changes | — | Granting credentials to a new source |
+| Knowledge | Index, link entities, draft terms, joins and measures, flag stale definitions | A new or changed definition must beat the old one on test questions | Certifying a definition used in an official metric |
+| Access | Inherit permissions from each source and the directory | — | Never automated: policies are an invariant |
+| Agents | Create role agents from the directory, tune playbooks from behaviour | Holdout win, blind replay, leak test, 2+ people | Tool or template changes |
+| Models | Route by cost, latency and data sensitivity | Changing a default model needs an eval win | Sending private data to an outside model |
+| Decisions | Draft and recommend | — | Anything that writes to a system of record |
+
+### Any size, same code
+
+| Tier | Store | Structured data | Models |
+|---|---|---|---|
+| Small (one machine) | Local document store (one SQLite file) | Optional: Auto Ontology in Docker | Local (Ollama) |
+| Mid-size | Postgres or MongoDB | Auto Ontology in Docker or Kubernetes | Local and cloud mixed |
+| Enterprise | MongoDB or Postgres at scale, SSO | Auto Ontology on Kubernetes (Helm) | Per-department private models |
+
+The invariants are identical in every tier; only storage and model profiles change.
+
+### First job
+
+"How are we doing?" questions answered by every role from documents **and** databases, improving weekly, with zero
+leakage. It exercises every layer and is easy to measure. Everything else is sequenced after it.
 
 ---
 
@@ -47,7 +99,10 @@ flowchart TB
   ASSIST --> CTX[Context assembly<br/>role · persona · agent · memory · projects]
   ASSIST --> RET[Knowledge retrieval<br/>ACL pre-filter · dense · BM25 · rerank]
   ASSIST --> ONT[Ontology<br/>objects · links · ACL]
-  CTX & RET & ONT --> PRIV[Privacy<br/>tokenize → outbound guard]
+  ASSIST --> SQ[Structured data<br/>coverage · table ACL on the SQL]
+  SQ --> AO[[Auto Ontology<br/>terms · measures · joins · checked SQL]]
+  AO --> WH[(Warehouse<br/>Postgres: crm · itsm · finance · board …)]
+  CTX & RET & ONT & SQ --> PRIV[Privacy<br/>tokenize → outbound guard]
   PRIV --> GW[Model gateway<br/>local by default · any provider]
   GW --> ASSIST
   ASSIST --> REC[Episodes + behaviour signals]
@@ -88,6 +143,9 @@ flowchart TB
 | 3.14 | Audit | Append-only hash-chained log of every question and every change; verifiable | `audit.py` | ✅ |
 | 3.15 | Interfaces | Web UI (chat, agents, ontology, data layer, access, impact, workflow), REST + SSE API, CLI | `static/`, `api.py`, `cli.py` | ✅ |
 | 3.16 | Research harness | Benchmark, experiment runner, baselines, ablations, statistics, results store, figures | `research/` | ⬜ (calibration only) |
+| 3.17 | Warehouse | The Halcyon records laid out as source systems would hold them: `directory`, `crm`, `itsm`, `planning`, `finance`, `board` schemas in Postgres, with primary and foreign keys (21 tables). Each table has an access category; incident service credits are a separate finance-only table | `scripts/build_warehouse.py`, `data/warehouse/acl.yaml` | ✅ |
+| 3.18 | Structured data | Agents with the `structured_query` tool ask the structured-data engine. Omniq checks `data:query`, asks for a coverage grade first (below `retrieval.structured_min_coverage` the agent abstains), then authorizes **every table the returned SQL touches**; anything else, including SQL it can't parse or tables outside the catalog, is withheld. Results enter the prompt as a tokenized source; finance/board results route to private models; the episode keeps tokenized SQL and tables, never rows | `structured.py`, `assistant.py` | 🟡 built and unit-tested against a mock of the engine's API; live run pending |
+| 3.19 | Structured-data engine | NVIDIA Auto Ontology v1.2.0 (Apache-2.0), pinned, run locally in Docker on the host's Ollama: compiles the warehouse into terms, measures and joins, writes SQL and checks it against the data. Replaceable behind `structured.Engine` | `scripts/auto_ontology.sh` | 🟡 integration in progress |
 
 ### The invariants (what the improver can never change)
 
@@ -99,6 +157,7 @@ flowchart TB
 | Every question and change is audited | `audit.record`, hash chain | e2e audit chain check |
 | Private categories (board, HR, finance) only go to private models | `llm.route(private_only=...)` | ⬜ needs a dedicated test |
 | Invariants, unknown keys and tools outside the allow-list can't be patched | `harness.validate_patch` | `tests/test_core.py`, `oa redteam` |
+| A database result is used only if the person may read every table its SQL touches; unparseable SQL and uncatalogued tables are withheld; the refusal is worded the same whether or not restricted data exists | `structured.authorize`, `structured.query` | `tests/test_structured.py` |
 
 Note: the `invariants` block in a harness version is protected from patches, but only `outbound_guard` is read at
 runtime. ACL pre-filtering, tokenization and audit run unconditionally in code. The paper must describe it exactly
@@ -144,6 +203,37 @@ Secondary for the research claims. Port after 4.1 and 4.2.
 ### 4.4 Research harness ⬜
 
 See [section 7](#7-research-architecture).
+
+### 4.5 Governed knowledge improvement ⬜
+
+Extend the self-improvement loop from agents' playbooks to the knowledge layer itself, starting with the
+structured-data engine's definitions:
+
+- **Sense:** rephrases, corrections and low coverage on database answers, grouped by the term or measure involved.
+- **Propose:** one change: a synonym or better description for a term, or a new SQL measure.
+- **Prove:** the same gates as playbook changes (2+ people, holdout questions, leak test), run against the engine.
+- **Promote:** low-risk changes (synonyms, descriptions) are applied **uncertified**; a person certifies anything used
+  in an official metric. Omniq never certifies.
+- **Known hazard:** in Auto Ontology v1.2.0, updating an existing SQL measure's expression appears to keep its
+  certified flag. Omniq therefore only creates new measures or edits uncertified ones. Verify on a live instance and
+  cover it with a red-team case.
+
+### 4.6 One ontology, one format ⬜
+
+Documents, people, projects and database terms in one graph, stored and exchanged as **Apache Ossie** YAML, which
+Auto Ontology already imports and exports. Supersedes the ad-hoc `ontology.yaml` format once 4.1 lands.
+
+### 4.7 Answerability for documents ⬜
+
+Auto Ontology grades whether its data covers a question before answering. Do the same for documents and the ontology:
+grade coverage of the question's entities within the person's permitted sources, and abstain or ask for
+clarification below a threshold. Targets the benchmark's "Unanswerable" type and abstention metrics.
+
+### 4.8 Per-user engine identity ⬜
+
+Provision one Auto Ontology API token per employee (`var/auto-ontology-tokens.json`) and map Omniq roles to its
+role permissions, so the engine's own RBAC applies in addition to Omniq's table check. A shared token
+(`OA_AO_TOKEN`) is a development fallback only.
 
 ---
 
@@ -238,6 +328,7 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 | B3 | Hybrid (dense + BM25) RAG, pre-filter | Strong RAG baseline |
 | **O1** | B3 + ontology facts (object-level ACL) | Ontology grounding |
 | **O2** | O1 + property- and link-level ACL | Full system |
+| **O3** | O2 + the structured-data engine for aggregation and database questions, with table-level ACL on its SQL | Documents + databases |
 | Ablations of O2 | − entity linking (seed by retrieval only) · − mention boost · hops 1 vs 2 · − tokenization (utility cost of privacy) | Attribute the gain |
 
 ### 7.3 Conditions (Claim B) ⬜
@@ -248,6 +339,8 @@ personas. The existing 84 cases are kept as the "harness eval" set.
   adversarial or noisy feedback. Measure what gets promoted and whether any leak or invariant change gets through.
 - **Red-team suite**: a corpus of unsafe patches (widen ACL, disable tokenization, add tools, prompt-injected rules).
   The block rate must be 100%, with the reason recorded.
+- **Governed knowledge** (4.5): the same runs for knowledge-layer proposals. Result to show: no proposal is ever
+  certified without a person, and no promoted definition widens what anyone can query.
 
 ### 7.4 Metrics ⬜
 
@@ -279,6 +372,8 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 |---|---|---|---|
 | 0. Local, partner-free | Replace Atlas, Voyage, Raindrop, Modelence, ElevenLabs; calibrate thresholds; remove hackathon artifacts | Clean install has no partner SDKs; `pytest` green; `e2e_live.py` 29/29 on the local stack | ✅ 2026-10-12 |
 | 1. Ontology v2 + Privacy v2 | Port 4.1 and 4.2; feature flags for every ablation | Unit tests for object/property/link ACL, entity linking, facts tokenization; e2e still 29/29 | ⬜ |
+| 1a. Structured data | Warehouse (3.17), adapter and table ACL (3.18), Auto Ontology running locally on Ollama (3.19), per-user tokens (4.8) | A Metrics agent answers a database question end to end with SQL and sources; a developer asking for board data gets the neutral refusal; e2e checks for both | 🟡 started 2026-11-05 |
+| 1b. Governed knowledge | 4.5, 4.6, 4.7 | Knowledge proposals pass the gates and land uncertified; red-team case for certified edits | ⬜ |
 | 2. Benchmark | OrgQA generator + hand cases; splits; human spot-check of gold labels | ≥300 cases, all types covered, label audit of a 10% sample | ⬜ |
 | 3. Experiment runner | `research/run.py`, `analyze.py`, environment capture, bootstrap/McNemar | One full Claim A table regenerated from raw outputs | ⬜ |
 | 4. Claim A experiments | B0–B3, O1, O2 and ablations × 2–3 models | Results with CIs; error analysis by question type | ⬜ |
@@ -302,6 +397,12 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 | 2026-10-12 | Retire `docs/RESULTS.md` (hackathon numbers measured on Atlas) | Not reproducible on the local stack; research numbers will come only from `research/results/` raw outputs | Regenerate it from the fresh store (numbers would be meaningless) |
 | 2026-10-12 | Contribution: ontology-grounded governed agents (Claims A + B) | User decision | Self-improvement only; ontology RAG only |
 | 2026-10-12 | Base codebase: omniq-atlas, porting AIforOrg's ontology, privacy, workflows and multimodal | User decision | AIforOrg as base; a fresh codebase |
+| 2026-11-05 | Product vision: one system for any size company, every layer autonomous with proof (section 0); the research claims are its evidence | User decision | Research artifact only |
+| 2026-11-05 | NVIDIA Auto Ontology as the structured-data engine, run as a pinned, separate service behind `structured.Engine` | It already does database compilation, SQL checks and answerability well; ~145k lines, fast-moving, and closed to outside pull requests, so vendoring or forking would be costly | Fork and merge into Omniq; build text-to-SQL ourselves |
+| 2026-11-05 | Omniq authorizes the engine's SQL by its tables (fail closed), in addition to the engine's own RBAC | Access must stay Omniq's invariant regardless of how the engine is configured or which token it is given | Trust the engine's RBAC alone; pre-filter the engine's retrieval (not possible from outside) |
+| 2026-11-05 | Tables share the document categories (`data/warehouse/acl.yaml`) | One policy for documents and data; property-level rules become separate tables (service credits) | A separate data-access policy language |
+| 2026-11-05 | Auto Ontology on the host's Ollama through its OpenAI-compatible API | Keeps the "runs on a laptop, no accounts" constraint | NVIDIA hosted NIM endpoints |
+| 2026-11-05 | Refusals for withheld database answers use one fixed wording | A refusal that differs when restricted data exists would confirm that it exists | Explain which category was missing |
 
 ---
 
@@ -314,6 +415,10 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 - **External models**: which frontier model(s), if any, go into the comparison (cost, data policy)?
 - **Benchmark contamination**: keep the test split out of every prompt, improver and calibration set (to be enforced
   in code by the runner).
+- **License**: the repository has no license yet. Apache-2.0 would match Auto Ontology; keep NOTICE attribution for
+  anything copied from it.
+- **Local model quality for the engine**: Auto Ontology is tuned for NVIDIA's models; how well it compiles and writes
+  SQL on local Gemma is to be measured.
 
 ---
 
@@ -322,3 +427,4 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 | Date | Change |
 |---|---|
 | 2026-10-12 | First version: current architecture after phase 0, planned components, research design, roadmap, decision log |
+| 2026-11-05 | Product vision and the "autonomous, with proof" principle (section 0); structured data with Auto Ontology (3.17–3.19, 4.5–4.8, O3, phases 1a–1b); new invariant; decisions and open questions |

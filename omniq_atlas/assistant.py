@@ -119,6 +119,17 @@ class _detokenizing_emitter:
             self.buf = ""
 
 
+def _data_summary(rec: dict[str, Any] | None, vault: Vault | None = None) -> dict[str, Any] | None:
+    """What the episode keeps about a database lookup: never the rows, and the SQL tokenized like the question."""
+    if not rec:
+        return None
+    keep = ("status", "engine", "coverage", "uncovered", "sql", "tables", "row_count", "reason", "denied", "categories")
+    out = {k: rec[k] for k in keep if k in rec}
+    if vault and out.get("sql"):
+        out["sql"] = vault.tokenize(out["sql"])
+    return out
+
+
 def get_user(user_id: str) -> User:
     doc = db().users.find_one({"id": user_id})
     if not doc:
@@ -225,6 +236,16 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     sources = _merge_by_doc(hits, int(cfg["context"]["max_chunk_chars"]), max_docs=max(3, int(cfg["retrieval"]["top_k"])))
     if cfg["retrieval"].get("graph_context") or "ontology_lookup" in cfg["tools"]:
         sources += retrieve.graph_context(user, question)
+    data_rec = None
+    data_cats: set[str] = set()
+    if "structured_query" in cfg["tools"]:  # company databases, through the structured-data engine
+        from . import structured
+
+        data_rec = structured.query(user, question, cfg)
+        data_src = structured.as_source(data_rec)
+        if data_src:
+            sources.append(data_src)
+            data_cats = set(data_src.get("categories") or [])
 
     # ---- memory layer: this user's preferences + agent-wide lessons (agents), role lessons, facts
     prefs: list[str] = []
@@ -264,7 +285,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     else:
         try:
             private_cats = set(llm.registry().get("policy", {}).get("private_only_categories", []))
-            private_only = any(cat in private_cats for cat in {h.get("category") for h in hits})
+            private_only = any(cat in private_cats for cat in {h.get("category") for h in hits} | data_cats)
             emit = _detokenizing_emitter(vault, on_delta) if on_delta else None
             answer_t, meta = llm.complete(t_system, t_user, max_tokens=int(cfg["model"]["max_tokens"]),
                                           temperature=float(cfg["model"]["temperature"]),
@@ -285,7 +306,8 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
                "harness_version": version, "source": source, "question_t": tq, "answer_t": answer_t,
                "sources": [s["title"] for s in sources], "model": meta.get("model"), "profile": meta.get("profile"),
                "tokens": meta.get("input_tokens", 0) + meta.get("output_tokens", 0), "latency": latency,
-               "pii": vault.summary(), "blocked": bool(leaked), "memories_applied": len(mems), "error": error}
+               "pii": vault.summary(), "blocked": bool(leaked), "memories_applied": len(mems), "error": error,
+               "structured": _data_summary(data_rec, vault)}
     if source == "chat":
         db().episodes.insert_one(episode)
         if prev_for_intent:
@@ -302,6 +324,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             "latency": latency, "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
             "preferences_applied": prefs, "lessons_applied": len(notes), "personal_edit": personal_edit,
             "improvement_logged": improvement_logged,
+            "structured": _data_summary(data_rec),
             "context_layers": card_files +
                               ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
             "model_view": {"system": t_system, "user": t_user, "answer": answer_t},

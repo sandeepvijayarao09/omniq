@@ -18,6 +18,7 @@ focus_categories:
 - sales
 tools:
 - search_docs
+- structured_query
 starter_questions:
 - What are the company OKRs and key results this half?
 - What does the Q3 pipeline look like by stage?

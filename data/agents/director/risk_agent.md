@@ -19,6 +19,7 @@ focus_categories:
 tools:
 - search_docs
 - ontology_lookup
+- structured_query
 starter_questions:
 - Which Q4 roadmap items are at risk and why?
 - Does the August outage follow-up work threaten any Q4 dates?

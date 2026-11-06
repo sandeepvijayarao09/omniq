@@ -13,6 +13,7 @@
 #   harness:agent/<org_role>/<agent-id> | harness:role/<access-role>   a playbook
 #   project:<project-id>          project context and docs
 #   memory:<emp-id>               a person's agent memory
+#   data:warehouse/<db>           asking the structured-data engine; table access then follows doc:category
 version: "2026-10-11"
 
 roles:
@@ -29,7 +30,8 @@ roles:
         resources: ["doc:owner/${user.id}"]
       - sid: UseChat
         effect: Allow
-        actions: ["chat:use", "feedback:give", "ontology:read", "datalayer:read", "harness:view", "iam:simulate"]
+        actions: ["chat:use", "feedback:give", "ontology:read", "datalayer:read", "harness:view", "iam:simulate",
+                  "data:query"]
         resources: ["*"]
       - sid: ManageOwnMemory
         effect: Allow

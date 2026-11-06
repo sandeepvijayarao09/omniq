@@ -1,0 +1,23 @@
+# Access categories for the Halcyon warehouse (the databases a structured-data engine queries).
+#
+# Tables use the same categories as documents, so one IAM policy governs both: a person may query a table only if
+# IAM lets them read documents of its category (iam.categories). A query is allowed only when the person may read
+# EVERY table it touches; otherwise the answer is withheld (fail closed).
+#
+# Precedence: table entry > schema default > `default`.
+default: general
+
+schemas:
+  directory: general       # employees, teams (no compensation here)
+  crm: sales               # customers, contacts, deals
+  itsm: engineering        # systems, incidents, action items, decisions
+  planning: engineering    # projects and OKRs
+  finance: finance         # vendors, contracts, service credits
+  board: board             # board-only strategic projects
+
+tables:
+  planning.objectives: general
+  directory.policies: general
+  # Property-level rule, expressed as a separate table: incident service credits are finance-only even though
+  # the incident itself is engineering.
+  finance.incident_service_credits: finance
