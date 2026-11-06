@@ -38,6 +38,8 @@ def main() -> None:
     im = sub.add_parser("improve", help="improve an agent from its users' recommendations")
     im.add_argument("--agent", required=True)
     sub.add_parser("agents")
+    kn = sub.add_parser("knowledge", help="improve the structured-data engine's term definitions from pushback (governed)")
+    kn.add_argument("--days", type=int, default=7)
     sub.add_parser("sync-agents", help="reload agent template files; carry tool changes into new playbook versions")
     sub.add_parser("demo-reset", help="put the system into the exact demo state (judge-proof)")
     cy = sub.add_parser("cycle", help="run the 7-day improvement cycle for a person")
@@ -131,6 +133,11 @@ def main() -> None:
         for a in db().agents.find({}, {"_id": 0}):
             h = harness.active(harness.agent_scope(a["id"]))
             print(f"{a['id']:<22} v{h['version']:<3} {a['name']:<28} {a.get('audience')}")
+    elif args.cmd == "knowledge":
+        from . import knowledge
+
+        for r in knowledge.run(days=args.days):
+            print(f"{r['term']:<28} {r['status']:<17} people={len(r['users'])} {'; '.join(r.get('problems', []))[:90]}")
     elif args.cmd == "sync-agents":
         from . import agents as ag
 

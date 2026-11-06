@@ -204,7 +204,7 @@ Secondary for the research claims. Port after 4.1 and 4.2.
 
 See [section 7](#7-research-architecture).
 
-### 4.5 Governed knowledge improvement ⬜
+### 4.5 Governed knowledge improvement 🟡
 
 Extend the self-improvement loop from agents' playbooks to the knowledge layer itself, starting with the
 structured-data engine's definitions:
@@ -214,6 +214,12 @@ structured-data engine's definitions:
 - **Prove:** the same gates as playbook changes (2+ people, holdout questions, leak test), run against the engine.
 - **Promote:** low-risk changes (synonyms, descriptions) are applied **uncertified**; a person certifies anything used
   in an official metric. Omniq never certifies.
+- **Built** (`omniq/knowledge.py`, `oa knowledge`, `tests/test_knowledge.py`): evidence from database answers people
+  rephrased, regenerated, corrected or rated 👎, grouped by tables → the term behind them → one drafted description →
+  gates (quorum, certified fields go to a person, injection screen, restricted content, length) → re-ask the evidence
+  questions as their askers before and after → kept **uncertified** or reverted; stored in `knowledge_proposals`.
+- **Limitation:** the proof today is the *answer rate* (does the engine now produce SQL), not correctness. It needs
+  gold answers for database questions, which the OrgQA benchmark's aggregation cases will provide.
 - **Known hazard:** in Auto Ontology v1.2.0, updating an existing SQL measure's expression appears to keep its
   certified flag. Omniq therefore only creates new measures or edits uncertified ones. Verify on a live instance and
   cover it with a red-team case.
