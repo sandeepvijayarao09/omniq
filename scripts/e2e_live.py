@@ -151,5 +151,25 @@ check("Access view: compiled IAM for a director", len(acc["hr_teams"]) >= 5 and 
 au = c.get("/api/audit", headers=H[MARCUS]).json()
 check("Audit chain verifies", au["verify"]["ok"], au["verify"])
 
+# 12. structured data through the engine (skipped when the engine isn't running)
+from omniq import structured  # noqa: E402
+
+eng = structured.engine()
+if eng is not None and eng.available():
+    code, d1 = ask(H[BEN], "@metrics_agent What is the total ARR of customers whose health is At risk?")
+    s1 = d1.get("structured") or {}
+    check("Database answer: PM's Metrics agent answers from company data with SQL",
+          code == 200 and s1.get("status") == "ok" and "730" in d1.get("answer", "").replace(",", ""),
+          f"{s1.get('tables')} · {d1.get('answer', '')[:80]!r}")
+    code, d2 = ask(H[MARCUS], "@metrics_agent How much do we owe in incident service credits in total?")
+    s2 = d2.get("structured") or {}
+    check("Database answer outside the agent's focus is withheld, neutrally (no SQL or tables shown)",
+          code == 200 and s2 == {"status": "not_answerable"} and "42000" not in d2.get("answer", "").replace(",", ""), s2)
+    code, d3 = ask(H[MAYA], "@release_agent What is the total ARR of at-risk customers?")
+    check("Agents without the database tool never call it", code == 200 and d3.get("structured") is None,
+          d3.get("structured"))
+else:
+    print("(structured-data checks skipped: the engine is not reachable)")
+
 ok = sum(r[1] for r in results)
 print(f"\n{ok}/{len(results)} checks passed")
