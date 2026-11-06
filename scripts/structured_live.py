@@ -44,8 +44,11 @@ def main() -> int:
         for name, uid, agent, q, want, must in CASES:
             t0 = time.time()
             r = assistant.ask(uid, q, agent_id=agent, source="eval")
-            s = r.get("structured") or {}
-            ok = s.get("status") == want and (must is None or must.lower() in r["answer"].lower().replace(",", ""))
+            s = r.get("_structured") or {}
+            shown = (r.get("structured") or {}).get("status")
+            # What the person sees must not tell "withheld" from "unanswerable".
+            neutral = shown == ("ok" if want == "ok" else "not_answerable")
+            ok = neutral and s.get("status") == want and (must is None or must.lower() in r["answer"].lower().replace(",", ""))
             if want == "withheld":  # no figure from the withheld query may reach the answer
                 ok = ok and "42000" not in r["answer"].replace(",", "") and "42k" not in r["answer"].lower()
             passed += ok

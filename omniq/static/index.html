@@ -317,9 +317,14 @@ async function send(text){const q=(text??$('#q').value).trim();if(!q)return;if(!
   let si=0;const tick=setInterval(()=>{const el=pending.querySelector('[data-steps]');if(!el){clearInterval(tick);return}si=Math.min(si+1,STEPS.length-1);el.textContent=STEPS[si]},900);
   try{const r=await askStream(q,pending,tick);clearInterval(tick);renderAnswer(pending,r,q);loadConvos();if(r.scope===$('#role').value)loadLineage()}
   catch(e){clearInterval(tick);pending.querySelector('.bubble').innerHTML+=`<div style="color:var(--bad)">${esc(e.message)}</div>`;pending.querySelector('.text.mute')?.remove()}}
+function dataChip(s){if(!s)return'';
+  if(s.status==='ok')return `<details class="small" style="margin-top:6px"><summary>🗄 From company data · ${s.row_count} row(s) · ${(s.tables||[]).map(x=>'<code>'+esc(x)+'</code>').join(' ')}</summary><pre>${esc(s.sql||'')}</pre></details>`;
+  if(s.status==='not_answerable')return '<div class="small mute" style="margin-top:6px">🗄 Not answerable from the company data you can access.</div>';
+  if(s.status==='unavailable'||s.status==='error')return '<div class="small mute" style="margin-top:6px">🗄 Company data is unavailable right now; answered from documents only.</div>';
+  return ''}
 function renderAnswer(el,r,q){const masked=Object.values(r.pii||{}).reduce((a,b)=>a+b,0);
   el.querySelector('.bubble').innerHTML=`<div class="who2"><b>${r.agent?esc(r.agent):'Omniq'}</b>${r.agent?'<span class="agenttag">agent</span>':''} <span class="mute small">· playbook v${r.harness_version} · ${esc(r.model_label||r.model)} · ${r.latency}s${masked?` · ${masked} name(s) masked`:''}</span></div>
-    <div class="text md">${md(r.answer)}</div>
+    <div class="text md">${md(r.answer)}</div>${dataChip(r.structured)}
     <div class="acts"><button data-g="1" title="Good answer">👍</button><button data-g="0" title="Could be better">👎</button><button data-regen title="Regenerate (tells the agent this wasn't right)">↻</button><button data-ctx title="Context used">ⓘ context</button></div>
     <div class="ctx" style="display:none"><div class="small mute" style="margin-top:6px">Context layers sent to the model: ${r.context_layers.map(x=>'<code>'+esc(x)+'</code>').join(' → ')}</div>
       <details><summary>Sources (${r.sources.length}, filtered to your access before ranking)</summary><pre>${esc(r.sources.join('\n'))}</pre></details>

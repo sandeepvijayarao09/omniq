@@ -139,3 +139,15 @@ def test_auto_ontology_client_speaks_its_public_api():
     assert res.rows == [{"arr": 730000}] and res.steps == ["Resolved terms"] and "SUM(arr)" in res.sql
     with pytest.raises(structured.EngineError):
         ao.token_for("emp-9999")  # no per-user token and no shared fallback: refuse rather than guess
+
+
+def test_what_the_person_sees_cannot_tell_withheld_from_unanswerable():
+    from omniq.assistant import _data_view
+
+    withheld = {"status": "withheld", "sql": "SELECT budget FROM board.strategic_projects", "tables": ["board.strategic_projects"],
+                "denied": ["board.strategic_projects"], "reason": "needs data you may not see (board)", "coverage": 0.9}
+    unanswerable = {"status": "unanswerable", "coverage": 0.1, "uncovered": ["ad spend"]}
+    assert _data_view(withheld) == _data_view(unanswerable) == {"status": "not_answerable"}
+    ok = _data_view({"status": "ok", "sql": "SELECT 1 FROM crm.customers", "tables": ["crm.customers"], "row_count": 1,
+                     "rows": [{"a": 1}], "answer": "x"})
+    assert ok == {"status": "ok", "sql": "SELECT 1 FROM crm.customers", "tables": ["crm.customers"], "row_count": 1}

@@ -130,6 +130,18 @@ def _data_summary(rec: dict[str, Any] | None, vault: Vault | None = None) -> dic
     return out
 
 
+def _data_view(rec: dict[str, Any] | None) -> dict[str, Any] | None:
+    """What the person is shown about a database lookup. Withheld and unanswerable look identical, so the response
+    never reveals that restricted data (or a restricted table) exists; the full record stays on the audited episode."""
+    if not rec or rec["status"] in ("off",):
+        return None
+    if rec["status"] == "ok":
+        return {"status": "ok", "sql": rec.get("sql"), "tables": rec.get("tables"), "row_count": rec.get("row_count")}
+    if rec["status"] in ("withheld", "unanswerable"):
+        return {"status": "not_answerable"}
+    return {"status": rec["status"]}  # unavailable / error / denied (IAM on the feature itself)
+
+
 def get_user(user_id: str) -> User:
     doc = db().users.find_one({"id": user_id})
     if not doc:
@@ -338,7 +350,9 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             "latency": latency, "tokens": episode["tokens"], "pii": vault.summary(), "blocked": bool(leaked),
             "preferences_applied": prefs, "lessons_applied": len(notes), "personal_edit": personal_edit,
             "improvement_logged": improvement_logged,
-            "structured": _data_summary(data_rec),
+            "structured": _data_view(data_rec),
+            # Full record for in-process evaluation only; the API always asks with source="chat".
+            "_structured": _data_summary(data_rec) if source != "chat" else None,
             "answerability": answerable,
             "context_layers": card_files +
                               ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
