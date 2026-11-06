@@ -93,6 +93,41 @@ def bootstrap(role: str) -> dict[str, Any]:
     return db().harness.find_one({"role": role, "version": 1})
 
 
+def sync_template(scope: str, actor: str = "template-sync") -> dict[str, Any] | None:
+    """Carry a changed agent template file (identity, allowed tools) into a new playbook version.
+
+    A maintainer action, not the improver's: the template is the agent's fixed identity. Learned rules and tuned
+    knobs are kept; tools the template newly grants are added; knobs added to the default since are filled in.
+    Returns the new version, or None if nothing changed. The lineage is kept and the change is audited.
+    """
+    if not scope.startswith("agent:"):
+        return None
+    cur = active(scope)
+    cfg = copy.deepcopy(cur["config"])
+    fresh = default_config(scope)
+    before = (cfg.get("agent"), list(cfg.get("tools", [])), dict(cfg.get("retrieval", {})))
+    cfg["agent"] = fresh["agent"]
+    allowed = set(fresh["agent"].get("allowed_tools") or [])
+    cfg["tools"] = [t for t in cfg.get("tools", []) if t in allowed] + \
+                   [t for t in fresh["tools"] if t not in cfg.get("tools", [])]
+    for k, v in fresh["retrieval"].items():
+        cfg["retrieval"].setdefault(k, v)
+    if (cfg["agent"], cfg["tools"], cfg["retrieval"]) == before:
+        return None
+    from . import audit
+
+    version = (db().harness.find_one({"role": scope}, sort=[("version", -1)]) or {"version": 0})["version"] + 1
+    db().harness.update_many({"role": scope, "status": "active"}, {"$set": {"status": "superseded"}})
+    doc = {"role": scope, "version": version, "parent": cur["version"], "status": "active", "created": _now(),
+           "config": cfg, "patch": {"template": "synced", "tools": cfg["tools"]},
+           "rationale": "agent template changed (tools or identity)", "evidence": [], "scores": {},
+           "edited_by": actor}
+    db().harness.insert_one(doc)
+    audit.record("harness_template_sync", actor, scope=scope, version=version, parent=cur["version"],
+                 tools=cfg["tools"])
+    return db().harness.find_one({"role": scope, "version": version})
+
+
 def reset_all() -> None:
     db().harness.delete_many({})
     for r in ROLES:
