@@ -3,7 +3,7 @@
 Two levels of editing:
   personal edit   `agent_overrides` {user_id, agent_id, notes, procedure, template, version, history[]}
                   applies only to that person, immediately; versioned; screened for injection.
-  publish         a new version of the agent's context file for everyone (Atlas `context_layers`), allowed only
+  publish         a new version of the agent's context file for everyone (the `context_layers` collection), allowed only
                   when IAM grants harness:approve on that agent. It must pass the injection screen and the leak
                   safety gate, and becomes a new playbook version (audited, rollback-able).
 timeline()        merges context-file versions, playbook versions, recommendations (incl. 7-day cycles) and

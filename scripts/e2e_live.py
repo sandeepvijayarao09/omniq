@@ -9,8 +9,8 @@ import time
 import httpx
 
 sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))))
-from omniq_atlas import config  # noqa: E402,F401  (loads .env)
-from omniq_atlas.db import db  # noqa: E402
+from omniq import config  # noqa: E402,F401  (loads .env)
+from omniq.db import db  # noqa: E402
 
 B = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 c = httpx.Client(base_url=B, timeout=600)

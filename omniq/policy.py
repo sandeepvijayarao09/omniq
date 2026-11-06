@@ -1,4 +1,4 @@
-"""Role- and attribute-based access control, compiled into Atlas Vector Search pre-filters.
+"""Role- and attribute-based access control, compiled into vector-search pre-filters.
 
 The ACL is enforced inside the database query, so unauthorized chunks are never
 returned to the application, then re-checked per hit as a second line of defence.

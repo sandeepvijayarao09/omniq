@@ -1,7 +1,7 @@
 """Generate the two professional flowcharts (SVG) used on /workflow and in the README."""
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "omniq_atlas" / "static"
+OUT = Path(__file__).resolve().parent.parent / "omniq" / "static"
 C = {"ink": "#0f1b2a", "mute": "#5b6878", "line": "#8b98a7", "lane": ["#f7f9fc", "#fbfcfd"],
      "blue": ("#e8f1fb", "#1565c0"), "amber": ("#fff4e0", "#b26b00"), "violet": ("#f1eafb", "#6d3fb8"),
      "red": ("#fdecec", "#c62f35"), "green": ("#e3f6ec", "#00a35c"), "teal": ("#e0f2f1", "#00796b"), "grey": ("#ffffff", "#9aa6b2")}
@@ -79,7 +79,7 @@ class SVG:
 def agent_chart():
     s = SVG(1530, 640)
     lanes = [(20, 115, "PEOPLE"), (135, 115, "BEHAVIOUR|SIGNALS"), (250, 115, "IMPROVEMENT|ENGINE"),
-             (365, 115, "GATES|& PROOF"), (480, 140, "MONGODB|ATLAS")]
+             (365, 115, "GATES|& PROOF"), (480, 140, "STORE|& AUDIT")]
     for i, (y, h, n) in enumerate(lanes):
         s.lane(y, h, n, i)
     # nodes

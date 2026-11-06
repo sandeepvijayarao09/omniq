@@ -5,8 +5,8 @@ import sys
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from omniq_atlas import config, impact  # noqa: E402,F401
-from omniq_atlas.db import db  # noqa: E402
+from omniq import config, impact  # noqa: E402,F401
+from omniq.db import db  # noqa: E402
 
 D = impact.decisions()
 S = D["signals"]

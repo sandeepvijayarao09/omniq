@@ -575,12 +575,12 @@ function wfEvent(ev){const k=ev.kind;
   else if(k==='proposed'||k==='repair'||k==='meta_overruled'){wfMark('propose','live',k==='meta_overruled'?'overruled the improver':plain(ev.patch).slice(0,80))}
   else if(k==='blocked'){wfMark('gates','bad','refused: '+(ev.problems||[]).join('; ').slice(0,70));wfMark('decide','bad','refused')}
   else if(k==='replaying'||k==='evaluated'){wfMark('propose','ok');wfMark('gates','ok','passed');wfMark('proof','live',k==='evaluated'?`replay won ${pct(ev.replay)} · tests ${pct(ev.evals_before)}→${pct(ev.evals_after)}`:'blind replay…')}
-  else if(k==='promoted'){wfMark('gates','ok','0 leaks');wfMark('proof','ok');wfMark('decide','ok',`✅ kept v${ev.version}`);wfMark('atlas','live',`v${ev.version} saved`)}
+  else if(k==='promoted'){wfMark('gates','ok','0 leaks');wfMark('proof','ok');wfMark('decide','ok',`✅ kept v${ev.version}`);wfMark('store','live',`v${ev.version} saved`)}
   else if(k==='rolled_back'){if(!$('#wf [data-n="gates"]').classList.contains('bad'))wfMark('gates','ok','passed (no leaks)');wfMark('proof','warn','not better');wfMark('decide','warn',`↩️ undone v${ev.version}`)}
   else if(k==='awaiting_approval'){wfMark('proof','ok');wfMark('decide','warn','🙋 needs a manager')}
   else if(k==='converged'){wfMark('proof','ok','already 100% on its tests');wfMark('decide','ok','no change needed')}
   else if(k==='cycle_result'){if(ev.result==='promoted')wfMark('decide','ok','✅ kept');else if(ev.result==='rolled_back')wfMark('decide','warn','↩️ undone');else if(ev.result==='converged')wfMark('decide','ok','no change needed')}
-  else if(k==='done'){wfMark('atlas','ok',`using v${ev.final_version||'–'}`);setTimeout(renderWorkflowKeep,1500)}}
+  else if(k==='done'){wfMark('store','ok',`using v${ev.final_version||'–'}`);setTimeout(renderWorkflowKeep,1500)}}
 async function renderWorkflowKeep(){const marks=[...$('#wf').querySelectorAll('.n')].map(x=>[x.dataset.n,[...x.classList].find(c=>['ok','warn','bad','live'].includes(c)),x.querySelector('.now').textContent]);
   await renderWorkflow();marks.forEach(([n,c,t])=>{if(c)wfMark(n,c,t)})}
 

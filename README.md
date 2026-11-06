@@ -16,7 +16,7 @@ the retrieval pre-filter, names are masked before any model call, and those inva
 improver may change.
 
 **Everything runs locally**, with no hosted services or accounts: an embedded document store on one SQLite file
-(`omniq_atlas/docstore.py`), exact pre-filtered vector search, BM25, local embeddings through Ollama, and local models
+(`omniq/docstore.py`), exact pre-filtered vector search, BM25, local embeddings through Ollama, and local models
 by default. That makes every experiment reproducible on a laptop.
 
 **Status.** Research build in progress on the `research` branch. The living architecture and plan, with what is built,
@@ -40,7 +40,7 @@ flowchart LR
 
 ## Flowcharts: agent improvement and context improvement
 
-Also full-screen at `/workflow` in the running app (for demos).
+Also full-screen at `/workflow` in the running app.
 
 **1 · Agent improvement (each of the 20 agents)**
 
@@ -132,10 +132,27 @@ Each version of every playbook is saved with its parent and evidence, and the pl
 - After three failed attempts in a row it pauses itself.
 - If real users dislike a new version, it automatically switches back to the old one.
 
-**Try it:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app
+**Try it locally** (see [Run it](#run-it)):
 - Pick a person.
 - Ask the agent something.
 - Press **Improve itself ▶** and watch it test, fix and decide, in plain sentences.
+
+## Structured data: company databases (`omniq/structured.py`)
+
+Agents with the `structured_query` tool (Metrics, Status, Risk, Board Brief, Vendor) answer from the company's
+databases through a structured-data engine, by default [NVIDIA Auto Ontology](https://github.com/NVIDIA/auto-ontology)
+(Apache-2.0), run locally in Docker on Ollama. The engine compiles the warehouse into business terms, measures and
+joins, and writes and checks the SQL. Omniq keeps access: it grades coverage first (and abstains below a threshold),
+then lets a result through only if the person may read **every table** the SQL touches; anything else is withheld
+with the same neutral refusal whether or not restricted data exists.
+
+```bash
+.venv/bin/python scripts/build_warehouse.py          # the Halcyon records as Postgres source schemas
+scripts/auto_ontology.sh up                          # pinned Auto Ontology on local models (Docker)
+.venv/bin/python scripts/auto_ontology_bootstrap.py  # API token for Omniq + compile the warehouse
+.venv/bin/oa sync-agents                             # carry agent template tool changes into playbook versions
+.venv/bin/python scripts/structured_live.py          # live checks: answer, withheld, unanswerable
+```
 
 ## The problem
 
@@ -185,7 +202,7 @@ or 👎 with "do this instead". It applies to that person immediately (preferenc
 (My agents → Updates), counts as a failure signal on that answer, and feeds the agent's 7-day cycle and the governed
 loop that changes the agent for everyone.
 
-## IAM: role-based access control (`data/iam/policies.yaml`, `omniq_atlas/iam.py`)
+## IAM: role-based access control (`data/iam/policies.yaml`, `omniq/iam.py`)
 
 Access follows AWS-IAM-style policies: **explicit Deny > Allow > implicit deny**. Roles inherit statements
 (`cto → director → developer | product_manager → employee`), and variables expand per person:
@@ -206,7 +223,7 @@ Eight projects, each with an owner, status, milestones, linked docs and **each m
 includes "My projects and scope of work". Retrieval adds the most relevant passages from the asker's project docs
 (still access-checked). Questions about yourself ("what should I focus on?") are searched with your project names.
 
-## Governance of the autonomous cycle (`omniq_atlas/governance.py`)
+## Governance of the autonomous cycle (`omniq/governance.py`)
 
 Both loops end in one function, `governance.decide()`.
 
@@ -219,7 +236,7 @@ Both loops end in one function, `governance.decide()`.
 | Runtime | One run per scope (TTL lock), 6 runs per hour, auto-pause for 30 min after 3 failed candidates, freeze switch, manual rollback, crash recovery, live watchdog |
 | Record | Every proposal, block, quarantine, approval, rollback and pause goes into the hash-chained audit log |
 
-## How the harness evolves (`omniq_atlas/evolve.py`)
+## How the harness evolves (`omniq/evolve.py`)
 
 1. Score the active harness for a role on the **train** split of `data/evals.yaml`. Each case is an
    answer, leak or abstain case, graded with exact checks. A leak costs extra.
@@ -296,7 +313,7 @@ in experiments, and the collections are small enough that it is fast.
 **Calibrated thresholds.** Four decisions use embedding similarity: detecting a rephrased question, grouping
 recommendations into themes, merging duplicate preferences, and pulling in project passages. Their thresholds depend
 on the embedding model, so `research/calibrate_thresholds.py` measures them on labelled pairs and writes
-`research/results/calibration-<embedder>.json`, which `omniq_atlas/calibration.py` reads at runtime. For BGE-base:
+`research/results/calibration-<embedder>.json`, which `omniq/calibration.py` reads at runtime. For BGE-base:
 
 | Threshold | Value | Balanced accuracy |
 |---|---|---|

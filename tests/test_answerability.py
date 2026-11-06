@@ -1,6 +1,6 @@
 """Answerability: coverage of a question by the person's permitted sources."""
 
-from omniq_atlas import answerability, harness
+from omniq import answerability, harness
 
 SOURCES = [{"title": "Incident postmortem", "text": "The August 14 ingest outage lasted 2h 41m. Rollback took 12 minutes."},
            {"title": "Q3 OKRs", "text": "Reliability: 99.95% ingest availability monthly."}]

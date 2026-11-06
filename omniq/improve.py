@@ -1,7 +1,7 @@
 """Recurring improvement of a role-specific agent from its users' recommendations.
 
   1. Pending recommendations for the agent ("what should it do differently?") are grouped into themes
-     by embedding similarity (Voyage), so five people asking for "include the renewal date" count once, loudly.
+     by embedding similarity, so five people asking for "include the renewal date" count once, loudly.
   2. The meta-agent decides per theme: personal taste (already applied as that user's preference memory)
      or a change every user of this agent should get, and drafts one harness patch for the latter.
   3. The validator applies the same locked invariants as everywhere else.

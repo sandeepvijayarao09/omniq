@@ -1,4 +1,4 @@
-"""The per-agent context and memory layer, all in Atlas.
+"""The per-agent context and memory layer, all in the document store.
 
 agent_memory   one collection, vector-indexed, filtered by agent and owner:
   kind=preference  user-scoped: "for me, always show ARR in $K" — applied to that user immediately
@@ -7,7 +7,7 @@ agent_memory   one collection, vector-indexed, filtered by agent and owner:
 conversations  short-term working context: the last turns of a conversation
 recommendations the queue of "what should it do differently?" feedback that drives agent evolution
 
-Everything here is stored raw inside the Atlas boundary (like the documents) and is tokenized
+Everything here is stored raw inside the store's boundary (like the documents) and is tokenized
 by the assistant on the way out, exactly like retrieved passages.
 """
 

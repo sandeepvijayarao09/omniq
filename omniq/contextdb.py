@@ -1,4 +1,4 @@
-"""The context layer in MongoDB Atlas: every role, person and agent Markdown file as versioned documents.
+"""The context layer in the document store: every role, person and agent Markdown file as versioned documents.
 
 Collection `context_layers`
   {kind: role|person|agent, key, version, markdown, meta, status: active|superseded, source, reason, created}

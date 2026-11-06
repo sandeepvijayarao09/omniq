@@ -7,7 +7,7 @@ After an answer, the person's next message in the same conversation is classifie
                                                                            same extension recurs, the agent
                                                                            should start doing it proactively
   new_task     unrelated                                                 → nothing
-Runs in the background after the reply is sent. Everything is logged in Atlas `intent_events`, mirrored to
+Runs in the background after the reply is sent. Everything is logged in `intent_events`, mirrored to
 `implicit_signals` / `improvement_requests` / governed `recommendations`.
 """
 

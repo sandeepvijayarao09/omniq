@@ -1,7 +1,7 @@
 """The definitive 7-day improvement cycle, per person.
 
 Every 7 days (or on demand) for each person:
-  1. Collect every decision they made in the cycle, from Atlas:
+  1. Collect every decision they made in the cycle, from the store:
        questions asked (and which @agent), 👍/👎, regenerations, "do this instead" suggestions, memories,
        approvals / rejections / freezes they made, improvement runs they started.
   2. Measure: usage per agent, satisfaction, regenerations, "not in the sources" answers, topics.
@@ -10,7 +10,7 @@ Every 7 days (or on demand) for each person:
        - per agent they used: a better workflow (procedure / output template) and rules, only where the
          evidence shows the agent fell short
   4. Apply, through the same governance as everything else:
-       - personal context → a new version of their persona in Atlas `context_layers` (screened for injection)
+       - personal context → a new version of their persona in `context_layers` (screened for injection)
        - agent context/workflow → a recommendation per agent in `recommendations` (source "weekly_cycle").
          The recommendation loop then decides: two-user quorum, blind replay, eval guard, safety gate,
          and approval for template changes. One person's cycle can never rewrite an agent for everyone alone.
@@ -156,7 +156,7 @@ def run(user_id: str, days: int = CYCLE_DAYS, until: dt.datetime | None = None) 
     except Exception as e:
         A = {**_heuristic(L), "analyst_error": str(e)[:200]}
 
-    # 1) personal context: a new persona version in Atlas (screened)
+    # 1) personal context: a new persona version (screened)
     learned = [b.strip()[:200] for b in (A.get("learned") or []) if isinstance(b, str) and b.strip()][:6]
     flagged = [b for b in learned if governance.screen(b)]
     learned = [b for b in learned if b not in flagged]

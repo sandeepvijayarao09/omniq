@@ -55,7 +55,7 @@ def main() -> None:
     if args.cmd == "serve":
         import uvicorn
 
-        uvicorn.run("omniq_atlas.api:app", host=args.host, port=args.port)
+        uvicorn.run("omniq.api:app", host=args.host, port=args.port)
     elif args.cmd == "status":
         _print({"store": str(db().path), "embedder": embed.describe(), "llm": llm.provider(),
                 "counts": {c: db()[c].estimated_document_count() for c in ("users", "chunks", "objects", "links", "harness", "episodes", "audit")}})

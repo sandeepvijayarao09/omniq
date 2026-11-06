@@ -11,7 +11,7 @@ depends on the embedding model (different models put scores on different scales)
 For each, a small labelled set of positive and negative pairs is embedded, and
 the threshold that maximizes balanced accuracy is chosen (ties: the midpoint of
 the gap). Results, distributions and the chosen thresholds are written to
-research/results/calibration-<embedder>.json and picked up by omniq_atlas/calibration.py.
+research/results/calibration-<embedder>.json and picked up by omniq/calibration.py.
 
     .venv/bin/python research/calibrate_thresholds.py
 """
@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from omniq_atlas import embed  # noqa: E402
+from omniq import embed  # noqa: E402
 
 REPHRASE_POS = [
     ("Who is on call this week?", "Which engineer is on call right now?"),

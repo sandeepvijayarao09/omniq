@@ -1,4 +1,4 @@
-"""The harness: everything around the model, stored as versioned documents in Atlas.
+"""The harness: everything around the model, stored as versioned documents.
 
 One lineage per *scope*: a role ("pro") or a role-specific agent ("agent:deal_coach").
 The `role` field on harness documents holds the scope. Each version records its parent, the patch that produced

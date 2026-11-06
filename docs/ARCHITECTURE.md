@@ -32,7 +32,7 @@ Omniq is the whole stack, not one layer of it:
 | Decisions | Answers and recommendations with sources and SQL; actions in other systems only with approval | Omniq + the structured-data engine |
 | Improvement | Every layer improves from how it is used, under the same gates | Omniq governance |
 
-The hackathon entry this codebase started from is not part of the product; only the code carries over.
+An earlier prototype of this codebase is not part of the product; only the code carries over.
 
 ### Design principle: autonomous, with proof
 
@@ -54,8 +54,8 @@ claim; the research claims below are its evidence.
 | Tier | Store | Structured data | Models |
 |---|---|---|---|
 | Small (one machine) | Local document store (one SQLite file) | Optional: Auto Ontology in Docker | Local (Ollama) |
-| Mid-size | Postgres or MongoDB | Auto Ontology in Docker or Kubernetes | Local and cloud mixed |
-| Enterprise | MongoDB or Postgres at scale, SSO | Auto Ontology on Kubernetes (Helm) | Per-department private models |
+| Mid-size | Postgres | Auto Ontology in Docker or Kubernetes | Local and cloud mixed |
+| Enterprise | Postgres at scale, SSO | Auto Ontology on Kubernetes (Helm) | Per-department private models |
 
 The invariants are identical in every tier; only storage and model profiles change.
 
@@ -370,7 +370,7 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 
 | Phase | Scope | Exit criteria | Status |
 |---|---|---|---|
-| 0. Local, partner-free | Replace Atlas, Voyage, Raindrop, Modelence, ElevenLabs; calibrate thresholds; remove hackathon artifacts | Clean install has no partner SDKs; `pytest` green; `e2e_live.py` 29/29 on the local stack | ✅ 2026-10-12 |
+| 0. Local, no hosted services | Replace every hosted database, embedding, observability, hosting and voice service; calibrate thresholds; remove prototype artifacts | Clean install has no hosted-service SDKs; `pytest` green; `e2e_live.py` 29/29 on the local stack | ✅ 2026-10-12 |
 | 1. Ontology v2 + Privacy v2 | Port 4.1 and 4.2; feature flags for every ablation | Unit tests for object/property/link ACL, entity linking, facts tokenization; e2e still 29/29 | ⬜ |
 | 1a. Structured data | Warehouse (3.17), adapter and table ACL (3.18), Auto Ontology running locally on Ollama (3.19), per-user tokens (4.8) | A Metrics agent answers a database question end to end with SQL and sources; a developer asking for board data gets the neutral refusal; e2e checks for both | 🟡 started 2026-11-05 |
 | 1b. Governed knowledge | 4.5, 4.6, 4.7 | Knowledge proposals pass the gates and land uncertified; red-team case for certified edits | ⬜ |
@@ -387,16 +387,16 @@ personas. The existing 84 cases are kept as the "harness eval" set.
 
 | Date | Decision | Why | Alternatives considered |
 |---|---|---|---|
-| 2026-10-12 | Remove every hackathon partner, including MongoDB Atlas | Research must be reproducible without accounts or hosted services (user decision) | Keep Atlas as an optional adapter; keep Atlas as the backend |
+| 2026-10-12 | Remove every hosted service, including the hosted database | Research must be reproducible without accounts or hosted services (user decision) | Keep the hosted database as an optional adapter, or as the backend |
 | 2026-10-12 | Local document store with a document-database-style API, rather than rewriting storage per module | ~250 call sites across 25 modules; keeps the diff small and reviewable | SQL repositories per module; an embedded third-party store |
 | 2026-10-12 | Exact (brute-force) vector search | Deterministic results, no approximate-index recall in experiments; collections are small | An ANN index (HNSW) |
 | 2026-10-12 | ACL applied before ranking (`$vectorSearch` filter) | Unauthorized chunks are never scored; matches the claim | Post-filtering (kept only as baseline B1) |
 | 2026-10-12 | BGE-base-en-v1.5 via Ollama for embeddings; hashing fallback for tests | Strong open model, already available locally; tests stay hermetic | fastembed / sentence-transformers |
-| 2026-10-12 | Similarity thresholds calibrated per embedder from labelled pairs | Thresholds tuned on Voyage didn't transfer (e.g. rephrase 0.60 → 0.675) | Hand-tuned constants |
-| 2026-10-12 | Raindrop replaced by locally computed failure signals | Every signal was already recorded locally first | — |
-| 2026-10-12 | Retire `docs/RESULTS.md` (hackathon numbers measured on Atlas) | Not reproducible on the local stack; research numbers will come only from `research/results/` raw outputs | Regenerate it from the fresh store (numbers would be meaningless) |
+| 2026-10-12 | Similarity thresholds calibrated per embedder from labelled pairs | Thresholds tuned on the previous hosted embedder didn't transfer (e.g. rephrase 0.60 → 0.675) | Hand-tuned constants |
+| 2026-10-12 | Hosted observability replaced by locally computed failure signals | Every signal was already recorded locally first | — |
+| 2026-10-12 | Retire `docs/RESULTS.md` (prototype numbers measured on a hosted database) | Not reproducible on the local stack; research numbers will come only from `research/results/` raw outputs | Regenerate it from the fresh store (numbers would be meaningless) |
 | 2026-10-12 | Contribution: ontology-grounded governed agents (Claims A + B) | User decision | Self-improvement only; ontology RAG only |
-| 2026-10-12 | Base codebase: omniq-atlas, porting AIforOrg's ontology, privacy, workflows and multimodal | User decision | AIforOrg as base; a fresh codebase |
+| 2026-10-12 | Base codebase: this repository, porting AIforOrg's ontology, privacy, workflows and multimodal | User decision | AIforOrg as base; a fresh codebase |
 | 2026-11-05 | Product vision: one system for any size company, every layer autonomous with proof (section 0); the research claims are its evidence | User decision | Research artifact only |
 | 2026-11-05 | NVIDIA Auto Ontology as the structured-data engine, run as a pinned, separate service behind `structured.Engine` | It already does database compilation, SQL checks and answerability well; ~145k lines, fast-moving, and closed to outside pull requests, so vendoring or forking would be costly | Fork and merge into Omniq; build text-to-SQL ourselves |
 | 2026-11-05 | Omniq authorizes the engine's SQL by its tables (fail closed), in addition to the engine's own RBAC | Access must stay Omniq's invariant regardless of how the engine is configured or which token it is given | Trust the engine's RBAC alone; pre-filter the engine's retrieval (not possible from outside) |

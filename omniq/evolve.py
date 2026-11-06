@@ -1,9 +1,9 @@
-"""Recursive self-improvement of the harness, checkpointed in Atlas.
+"""Recursive self-improvement of the harness, checkpointed in the document store.
 
 Each generation:
   1. score the active harness on the train split (hard metric signal)
   2. gather evidence: failing cases, employee thumbs-down,
-     similar past failures and lessons via Atlas Vector Search (procedural memory)
+     similar past failures and lessons via vector search (procedural memory)
   3. a meta-agent proposes a patch to the harness: rules, retrieval, context, tools, guardrails
   4. the validator rejects patches that touch invariants or loosen guardrails
   5. the candidate is scored on train AND holdout; promoted only if it wins without new leaks,
@@ -24,9 +24,9 @@ from .db import db
 
 KNOBS = """Harness fields you may change (JSON patch merged into the config):
 - rules: list[str]  — role-specific instructions appended to the system prompt (replace the whole list; keep good existing rules)
-- retrieval.top_k (1-12), retrieval.num_candidates (10-200), retrieval.rerank (Voyage reranker, bool),
+- retrieval.top_k (1-12), retrieval.num_candidates (10-200), retrieval.rerank (local reranker, bool),
   retrieval.query_rewrite (LLM rewrites the question into a search query, bool),
-  retrieval.hybrid (Atlas $rankFusion of vector + full-text search; catches exact ids like ADR-007 or $42,000, bool),
+  retrieval.hybrid (fusion of dense and BM25 keyword search; catches exact ids like ADR-007 or $42,000, bool),
   retrieval.graph_context (add ontology facts via $graphLookup, bool), retrieval.use_lessons (bool),
   retrieval.answerability_min (0-0.9; 0 = off): below this share of the question's terms covered by the person's
   sources, the model must say it can't find the answer or ask a clarifying question,
@@ -105,8 +105,8 @@ def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], tried: list[Any
     retrieval = [
         ({"context": {"max_chunk_chars": min(2500, int(c["max_chunk_chars"]) * 2)}}, "facts cut off: keep more of each passage"),
         ({"retrieval": {"top_k": min(12, int(r["top_k"]) + 3), "num_candidates": 100}}, "facts never retrieved: widen top_k"),
-        ({"retrieval": {"hybrid": True}}, "exact terms missed by embeddings: add Atlas full-text via $rankFusion"),
-        ({"retrieval": {"rerank": True}}, "irrelevant passages crowd out the answer: add Voyage rerank"),
+        ({"retrieval": {"hybrid": True}}, "exact terms missed by embeddings: add BM25 keyword search (hybrid)"),
+        ({"retrieval": {"rerank": True}}, "irrelevant passages crowd out the answer: add the local reranker"),
         ({"retrieval": {"graph_context": True}}, "entity questions: add ontology context"),
     ]
     policy = [({"guardrails": {"abstain_when_unsupported": True}}, "invented answers: require abstention"),
@@ -121,7 +121,7 @@ def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], tried: list[Any
 
 
 def run(role: str, generations: int = 3, run_id: str | None = None) -> dict[str, Any]:
-    """One evolution run per scope at a time (Atlas TTL lock shared with the recommendation improver)."""
+    """One evolution run per scope at a time (TTL lock shared with the recommendation improver)."""
     from .db import Locked, acquire, release
 
     ok, why = governance.can_run(role)

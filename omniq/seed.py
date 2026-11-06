@@ -1,4 +1,4 @@
-"""Load the demo company into Atlas: directory, ontology graph and embedded document chunks."""
+"""Load the company into the document store: directory, ontology graph and embedded document chunks."""
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ def seed_all(reset: bool = True) -> dict[str, int]:
     d.objects.insert_many(objects)
     d.links.insert_many(links)
 
-    # ---- documents -> chunks with ACL fields and Voyage embeddings
+    # ---- documents -> chunks with ACL fields and local embeddings
     rows: list[dict[str, Any]] = []
     for path in sorted((seed / "docs").glob("*.md")):
         fm, body = _frontmatter(path.read_text())

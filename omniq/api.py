@@ -27,7 +27,7 @@ from .config import settings
 from .db import db
 from .policy import describe
 
-app = FastAPI(title="Omniq Atlas")
+app = FastAPI(title="Omniq")
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")

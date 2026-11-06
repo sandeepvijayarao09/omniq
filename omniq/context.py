@@ -37,12 +37,12 @@ def _from_db(kind: str, key: str) -> tuple[dict[str, Any], str] | None:
 
 
 def role(org_role: str) -> tuple[dict[str, Any], str]:
-    """Active version from Atlas `context_layers`; the file in data/roles is the seed/fallback."""
+    """Active version from `context_layers`; the file in data/roles is the seed/fallback."""
     return _from_db("role", org_role) or _read(ROLES_DIR / f"{org_role}.md")
 
 
 def person(emp_id: str) -> tuple[dict[str, Any], str]:
-    """Active version from Atlas `context_layers` (the 7-day cycle writes new versions); data/people is the seed."""
+    """Active version from `context_layers` (the 7-day cycle writes new versions); data/people is the seed."""
     return _from_db("person", emp_id) or _read(PEOPLE_DIR / f"{emp_id}.md")
 
 

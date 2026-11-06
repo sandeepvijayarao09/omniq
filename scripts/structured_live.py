@@ -14,7 +14,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from omniq_atlas import assistant, structured  # noqa: E402
+from omniq import assistant, structured  # noqa: E402
 
 PM, DIRECTOR, CTO = "emp-1048", "emp-1012", "emp-1009"
 OUT = ROOT / "var" / "structured_live.jsonl"

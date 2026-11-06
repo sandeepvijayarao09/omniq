@@ -22,7 +22,7 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from omniq_atlas import structured  # noqa: E402
+from omniq import structured  # noqa: E402
 
 OUT = ROOT / "var" / "warehouse"
 

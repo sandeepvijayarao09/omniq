@@ -5,8 +5,8 @@ import json
 import httpx
 import pytest
 
-from omniq_atlas import harness, structured
-from omniq_atlas.policy import User
+from omniq import harness, structured
+from omniq.policy import User
 
 DEV = User(id="emp-1001", name="Maya", role="pro", department="engineering", team="platform", title="Engineer")
 CTO = User(id="emp-1009", name="Marcus", role="executive", department="executive", title="Chief Technology Officer")

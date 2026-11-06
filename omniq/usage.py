@@ -1,4 +1,4 @@
-"""Live partner-usage counters in Atlas (`usage` collection, one document per day). Every external call bumps one."""
+"""Live usage counters (`usage` collection, one document per day). Every model, embedding and retrieval call bumps one."""
 
 from __future__ import annotations
 

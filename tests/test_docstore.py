@@ -4,7 +4,7 @@ import datetime as dt
 
 import pytest
 
-from omniq_atlas.docstore import DESCENDING, Database, DuplicateKeyError, ReturnDocument
+from omniq.docstore import DESCENDING, Database, DuplicateKeyError, ReturnDocument
 
 
 @pytest.fixture
