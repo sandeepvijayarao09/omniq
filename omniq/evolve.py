@@ -31,6 +31,9 @@ KNOBS = """Harness fields you may change (JSON patch merged into the config):
   retrieval.answerability_min (0-0.9; 0 = off): below this share of the question's terms covered by the person's
   sources, the model must say it can't find the answer or ask a clarifying question,
   retrieval.structured_min_coverage (0.2-0.95): database coverage needed before asking the structured-data engine
+- ontology.entity_linking (bool; seed ontology facts from entities named in the question, else from the retrieved
+  documents), ontology.mention_boost (bool; rank documents that mention those entities higher),
+  ontology.hops (1-2; how far facts reach from each entity)
 - context.max_chunk_chars (200-2500): characters kept per retrieved passage
 - tools: subset of ["search_docs", "ontology_lookup", "memory_recall", "structured_query"] (search_docs required;
   only tools the agent's template allows)
@@ -38,7 +41,8 @@ KNOBS = """Harness fields you may change (JSON patch merged into the config):
 - guardrails.abstain_when_unsupported (bool), guardrails.cite_sources (bool)  — may only be turned ON
 - workflow: {"procedure": [up to 8 short steps], "template": "output template with **bold labels**"} — agents only;
   changes HOW the agent works and formats answers (its context file stays fixed)
-Locked (never change): invariants (ACL pre-filter, PII tokenization, outbound guard, audit)."""
+Locked (never change): invariants (ACL pre-filter, PII tokenization, outbound guard, audit) and the research-only
+ontology.property_acl, ontology.link_acl, ontology.tokenize_facts."""
 
 META_SYSTEM = (
     "You are the harness engineer for an enterprise AI assistant. You improve the harness (prompt rules, "

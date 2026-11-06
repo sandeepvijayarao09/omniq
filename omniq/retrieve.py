@@ -3,7 +3,8 @@
 - Dense: exact vector search with the ACL as a *pre-filter* (unauthorized chunks are never ranked).
 - Hybrid: reciprocal-rank fusion of dense search and BM25 over the same ACL-filtered pool.
 - Rerank: local fusion of dense and lexical scores (embed.rerank).
-- Ontology context: one hop around linked entities ($graphLookup), filtered by object category."""
+- Mention boost (ontology.mention_boost): documents that mention an entity named in the question move up.
+- Ontology facts: ontology.py (object, property and link ACL); `graph_context` is kept as a thin wrapper."""
 
 from __future__ import annotations
 
@@ -65,9 +66,12 @@ def search_docs(user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, A
 
 
 def _search_with(fn, user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, Any]]:
+    from . import ontology
+
     r = cfg["retrieval"]
     top_k = int(r["top_k"])
-    fetch = top_k * 4 if r.get("rerank") else top_k
+    boost = bool(ontology.settings(cfg)["mention_boost"])
+    fetch = top_k * 4 if r.get("rerank") or boost else top_k  # a boost needs candidates below the cut to promote
     qvec = embed.embed_one(query)
     focus = (cfg.get("agent") or {}).get("focus_categories") or None
     run = (lambda f: fn(user, query, qvec, cfg, fetch, f)) if fn else (lambda f: _vsearch(user, qvec, cfg, fetch, f))
@@ -76,8 +80,10 @@ def _search_with(fn, user: User, query: str, cfg: dict[str, Any]) -> list[dict[s
         seen = {(h["doc_id"], h["chunk"]) for h in hits}
         hits += [h for h in run(None) if (h["doc_id"], h["chunk"]) not in seen][: fetch - len(hits)]
     if r.get("rerank") and hits:
-        order = embed.rerank(query, [h["text"] for h in hits], top_k)
+        order = embed.rerank(query, [h["text"] for h in hits], len(hits) if boost else top_k)
         hits = [dict(hits[i], score=s) for i, s in order]
+    if boost:
+        hits = ontology.boost(user, query, hits, cfg)
     limit = int(cfg["context"]["max_chunk_chars"])
     for h in hits:
         h["text"] = h["text"][:limit]
@@ -97,35 +103,10 @@ def link_entities(text: str) -> list[dict[str, Any]]:
 
 
 def graph_context(user: User, query: str) -> list[dict[str, Any]]:
-    """One hop around linked entities with $graphLookup, filtered by object category."""
-    from . import usage
+    """Ontology facts around the entities named in the query, with the default (strict) switches."""
+    from . import ontology
 
-    seeds = [o for o in link_entities(query) if can_read(user, o)]
-    usage.bump("graph_lookups", 2 * len(seeds))
-    out = []
-    for o in seeds:
-        res = list(db().objects.aggregate([
-            {"$match": {"id": o["id"]}},
-            {"$graphLookup": {"from": "links", "startWith": "$id", "connectFromField": "dst",
-                              "connectToField": "src", "as": "out", "maxDepth": 0}},
-            {"$graphLookup": {"from": "links", "startWith": "$id", "connectFromField": "src",
-                              "connectToField": "dst", "as": "in", "maxDepth": 0}},
-        ]))
-        if not res:
-            continue
-        ids = {l["dst"] for l in res[0]["out"]} | {l["src"] for l in res[0]["in"]}
-        names = {x["id"]: x for x in db().objects.find({"id": {"$in": list(ids)}}, {"_id": 0})}
-        rels = []
-        for l in res[0]["out"]:
-            if l["dst"] in names and can_read(user, names[l["dst"]]):
-                rels.append(f"{l['type']} → {names[l['dst']]['name']}")
-        for l in res[0]["in"]:
-            if l["src"] in names and can_read(user, names[l["src"]]):
-                rels.append(f"{names[l['src']]['name']} {l['type']} →")
-        props = "; ".join(f"{k}: {v}" for k, v in o.get("props", {}).items())
-        out.append({"title": f"Ontology: {o['type']} {o['name']}",
-                    "text": f"{o['type']} {o['name']}. {props}. Links: {', '.join(rels[:12])}"})
-    return out
+    return ontology.sources(user, query, {})
 
 
 def recall_lessons(role: str, query: str, k: int = 4) -> list[str]:

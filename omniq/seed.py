@@ -1,4 +1,7 @@
-"""Load the company into the document store: directory, ontology graph and embedded document chunks."""
+"""Load the company into the document store: directory, ontology graph and embedded document chunks.
+
+The ontology is built and checked against its schema by ``ontology.build_graph``; documents are then linked to the
+objects they mention, and the ontology's edit log is replayed over the fresh records."""
 
 from __future__ import annotations
 
@@ -9,16 +12,9 @@ from typing import Any
 import yaml
 
 from . import db as dbm
+from . import ontology
 from .config import settings
 from .embed import embed
-
-TYPE_CATEGORY = {
-    "Customer": "sales", "Contact": "sales", "Deal": "sales",
-    "System": "engineering", "Incident": "engineering", "ActionItem": "engineering",
-    "Decision": "engineering", "Project": "engineering",
-    "Contract": "finance", "Vendor": "finance",
-    "Objective": "general", "Policy": "general", "Person": "general", "Team": "general",
-}
 
 
 def _frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -60,42 +56,20 @@ def seed_all(reset: bool = True) -> dict[str, int]:
     users, teams = load_users(seed)
     d.users.insert_many([dict(u) for u in users])
 
-    # ---- ontology: people and teams from the directory, the rest from ontology.yaml
-    objects: list[dict[str, Any]] = []
-    links: list[dict[str, Any]] = []
-    for u in users:
-        objects.append({"id": u["id"], "type": "Person", "name": u["name"], "category": "general",
-                        "props": {"title": u.get("title", ""), "team": u.get("team", "")}})
-        links.append({"src": u["id"], "type": "member_of", "dst": u.get("team", "")})
-        if u.get("reports_to"):
-            links.append({"src": u["id"], "type": "reports_to", "dst": u["reports_to"]})
-    for tid, tname in teams.items():
-        objects.append({"id": tid, "type": "Team", "name": tname, "category": "general", "props": {}})
-
+    # ---- ontology: people, teams and who leads them from the directory, the rest from ontology.yaml (schema-checked)
     onto = yaml.safe_load((seed / "ontology.yaml").read_text())
-    for otype, items in onto.items():
-        for item in items or []:
-            item = dict(item)
-            oid = item.pop("id")
-            for ltype, dsts in (item.pop("links", {}) or {}).items():
-                for dst in dsts if isinstance(dsts, list) else [dsts]:
-                    links.append({"src": oid, "type": ltype, "dst": dst})
-            if otype == "Team":
-                continue
-            objects.append({
-                "id": oid, "type": otype, "name": item.pop("name", oid),
-                "category": item.pop("category", TYPE_CATEGORY.get(otype, "general")),
-                "aliases": [a.lower() for a in item.pop("aliases", [])],
-                "props": {k: str(v) for k, v in item.items()},
-            })
+    objects, links = ontology.build_graph(users, teams, onto)
     d.objects.insert_many(objects)
     d.links.insert_many(links)
 
     # ---- documents -> chunks with ACL fields and local embeddings
     rows: list[dict[str, Any]] = []
+    docs: list[dict[str, Any]] = []
     for path in sorted((seed / "docs").glob("*.md")):
         fm, body = _frontmatter(path.read_text())
         title = fm.get("title", path.stem)
+        docs.append({"doc_id": path.stem, "title": title, "text": body, "category": fm.get("category", "general"),
+                     "team": fm.get("team", ""), "owner": fm.get("owner", "")})
         for i, text in enumerate(chunk_markdown(title, body)):
             rows.append({"doc_id": path.stem, "title": title, "chunk": i, "text": text,
                          "category": fm.get("category", "general"),
@@ -104,5 +78,10 @@ def seed_all(reset: bool = True) -> dict[str, int]:
     for r, v in zip(rows, vectors):
         r["embedding"] = v
     d.chunks.insert_many(rows)
+    mentions = ontology.mention_links(docs, objects)  # each carries its document's access fields
+    if mentions:
+        d.links.insert_many(mentions)
+    edits = ontology.replay()  # actions people ran, on top of the fresh source records
     dbm.ensure_indexes(wait=True)
-    return {"users": len(users), "objects": len(objects), "links": len(links), "chunks": len(rows)}
+    return {"users": len(users), "objects": len(objects), "links": len(links), "mentions": len(mentions),
+            "edits_replayed": edits, "chunks": len(rows)}

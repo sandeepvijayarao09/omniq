@@ -42,7 +42,8 @@ KNOB_TYPES = {("retrieval", "top_k"): int, ("retrieval", "num_candidates"): int,
               ("retrieval", "use_lessons"): bool, ("context", "max_chunk_chars"): int,
               ("context", "include_memories"): bool, ("model", "max_tokens"): int,
               ("model", "temperature"): (int, float), ("guardrails", "abstain_when_unsupported"): bool,
-              ("guardrails", "cite_sources"): bool}
+              ("guardrails", "cite_sources"): bool, ("ontology", "entity_linking"): bool,
+              ("ontology", "mention_boost"): bool, ("ontology", "hops"): int}
 
 
 def _now() -> dt.datetime:
@@ -73,7 +74,7 @@ def check_types(patch: dict[str, Any]) -> list[str]:
             ok = isinstance(v, typ) and not (typ is int and isinstance(v, bool))
             if not ok:
                 problems.append(f"{section}.{key} must be {getattr(typ, '__name__', 'number')}, got {v!r}")
-    for section in ("retrieval", "context", "model", "guardrails"):
+    for section in ("retrieval", "context", "model", "guardrails", "ontology"):
         if section in patch and not isinstance(patch[section], dict):
             problems.append(f"{section} must be an object")
     return problems
