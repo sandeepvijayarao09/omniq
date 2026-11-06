@@ -229,65 +229,17 @@ Auto Ontology grades whether its data covers a question before answering. Do the
 grade coverage of the question's entities within the person's permitted sources, and abstain or ask for
 clarification below a threshold. Targets the benchmark's "Unanswerable" type and abstention metrics.
 
-### 4.8 Per-user engine identity ⬜
+### 4.8 Per-user engine identity ✅
 
-Provision one Auto Ontology API token per employee (`var/auto-ontology-tokens.json`) and map Omniq roles to its
-role permissions, so the engine's own RBAC applies in addition to Omniq's table check. A shared token
-(`OA_AO_TOKEN`) is a development fallback only.
+`scripts/auto_ontology_users.py` gives every employee who can use a database agent (19 in Halcyon) their own Auto
+Ontology account with the **viewer** role and their own API token (`var/auto-ontology-tokens.json`, mode 600). The
+one-time passwords are never stored. Verified: a PM's token can query (200) but not change engine settings (403).
 
----
-
-## 5. Request lifecycle
-
-```mermaid
-sequenceDiagram
-  participant E as Employee
-  participant A as Assistant
-  participant I as IAM
-  participant R as Retrieval
-  participant O as Ontology
-  participant P as Privacy
-  participant G as Gateway
-  participant S as Store
-  E->>A: question (optionally @agent)
-  A->>I: who are you? compile access
-  A->>S: active harness for scope
-  A->>R: search (ACL pre-filter, harness knobs)
-  A->>O: linked entities → facts (ACL)
-  A->>A: assemble context layers + memory
-  A->>P: tokenize everything outbound; guard re-scan
-  A->>G: route (private-only data → private model)
-  G-->>A: answer (tokens)
-  A->>P: de-tokenize for this employee
-  A->>S: episode + audit
-  A-->>E: answer, sources, model used
-  E-->>S: what they do next (rephrase, copy, 👍👎…) = signals
-```
-
----
-
-## 6. Self-improvement lifecycle
-
-```mermaid
-flowchart LR
-  SIG[Behaviour signals<br/>per answer] --> FAIL[Where each agent fails<br/>signals.py]
-  FAIL --> CYC[7-day cycles<br/>per person + per agent]
-  CYC --> Q{Same pattern<br/>in 2+ people?}
-  Q -- no --> PERS[Stays a personal preference]
-  Q -- yes --> PROP[Improver proposes ONE patch]
-  PROP --> VAL{Validator + screens}
-  VAL -- fail --> BLK[Blocked, audited]
-  VAL -- pass --> PROOF{Holdout win or blind replay<br/>+ eval guard + leak gate}
-  PROOF -- no --> RB[Rolled back]
-  PROOF -- yes, low risk --> KEEP[Promoted]
-  PROOF -- yes, high risk --> APR[Awaits a manager] --> KEEP
-  KEEP --> WD{Watchdog: live failure<br/>rate worse than parent?}
-  WD -- yes --> AUTO[Auto-rollback]
-```
-
----
-
-## 7. Research architecture
+**Finding:** Auto Ontology v1.2.0 has two roles (admin, viewer) and scopes data per connection for everyone; zones
+group tables for browsing but do not restrict queries. A viewer can query every compiled table. Per-user tokens
+therefore add identity, attribution and least privilege on the engine, but **Omniq's table check is the only
+per-person data control** and must stay an Omniq invariant. Defence in depth for later: one engine connection per
+access category with a schema allowlist, each with its own database role.
 
 ### 7.1 Benchmark ⬜
 
