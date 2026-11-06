@@ -27,9 +27,13 @@ KNOBS = """Harness fields you may change (JSON patch merged into the config):
 - retrieval.top_k (1-12), retrieval.num_candidates (10-200), retrieval.rerank (Voyage reranker, bool),
   retrieval.query_rewrite (LLM rewrites the question into a search query, bool),
   retrieval.hybrid (Atlas $rankFusion of vector + full-text search; catches exact ids like ADR-007 or $42,000, bool),
-  retrieval.graph_context (add ontology facts via $graphLookup, bool), retrieval.use_lessons (bool)
+  retrieval.graph_context (add ontology facts via $graphLookup, bool), retrieval.use_lessons (bool),
+  retrieval.answerability_min (0-0.9; 0 = off): below this share of the question's terms covered by the person's
+  sources, the model must say it can't find the answer or ask a clarifying question,
+  retrieval.structured_min_coverage (0.2-0.95): database coverage needed before asking the structured-data engine
 - context.max_chunk_chars (200-2500): characters kept per retrieved passage
-- tools: subset of ["search_docs", "ontology_lookup", "memory_recall"] (search_docs required)
+- tools: subset of ["search_docs", "ontology_lookup", "memory_recall", "structured_query"] (search_docs required;
+  only tools the agent's template allows)
 - model.max_tokens (100-1500), model.temperature (0-1)
 - guardrails.abstain_when_unsupported (bool), guardrails.cite_sources (bool)  — may only be turned ON
 - workflow: {"procedure": [up to 8 short steps], "template": "output template with **bold labels**"} — agents only;
@@ -106,6 +110,7 @@ def _heuristic(cfg: dict[str, Any], fails: list[dict[str, Any]], tried: list[Any
         ({"retrieval": {"graph_context": True}}, "entity questions: add ontology context"),
     ]
     policy = [({"guardrails": {"abstain_when_unsupported": True}}, "invented answers: require abstention"),
+              ({"retrieval": {"answerability_min": 0.6}}, "answered beyond its sources: grade answerability first"),
               ({"guardrails": {"cite_sources": True}}, "unsupported claims: require citations")]
     kinds = {f.get("attribution") for f in fails}
     ladder = (retrieval + policy) if "retrieval_miss" in kinds or "reasoning_miss" in kinds else (policy + retrieval)

@@ -260,6 +260,15 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     if cfg["context"].get("include_memories") or "memory_recall" in cfg["tools"]:
         notes += [m["text"] for m in db().memories.find({"user_id": user.id}).limit(10)]
 
+    answerable = None
+    if float(cfg["retrieval"].get("answerability_min", 0) or 0) > 0:  # grade coverage before answering
+        from . import answerability
+        from .policy import can_read
+
+        ents = [o for o in retrieve.link_entities(question) if can_read(user, o)]
+        answerable = answerability.grade(question, sources, ents)
+        answerable["below"] = answerable["coverage"] < float(cfg["retrieval"]["answerability_min"])
+
     src_xml = "\n".join(f'<source title="{s["title"]}">\n{s["text"]}\n</source>' for s in sources) or "(no sources)"
     parts = [f"Employee: {user.name}, {user.title} (role {user.role}; may read: {describe(user)})"]
     if prefs:
@@ -269,7 +278,10 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
         parts.append("Context notes:\n" + "\n".join(f"- {n}" for n in notes))
     if turns:
         parts.append("Earlier in this conversation:\n" + "\n".join(f"Q: {t['q']}\nA: {t['a'][:400]}" for t in turns))
-    parts += [src_xml, f"Question: {question}"]
+    parts.append(src_xml)
+    if answerable and answerable["below"]:
+        parts.append(answerability.instruction(answerable))
+    parts.append(f"Question: {question}")
     task = agent_task(cfg)
     if task:  # small models follow the format best when it is the last thing they read
         parts.append(task)
@@ -307,7 +319,9 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
                "sources": [s["title"] for s in sources], "model": meta.get("model"), "profile": meta.get("profile"),
                "tokens": meta.get("input_tokens", 0) + meta.get("output_tokens", 0), "latency": latency,
                "pii": vault.summary(), "blocked": bool(leaked), "memories_applied": len(mems), "error": error,
-               "structured": _data_summary(data_rec, vault)}
+               "structured": _data_summary(data_rec, vault),
+               "answerability": answerable and {**answerable, "uncovered": [vault.tokenize(u) for u in answerable["uncovered"]],
+                                                "terms": [vault.tokenize(u) for u in answerable["terms"]]}}
     if source == "chat":
         db().episodes.insert_one(episode)
         if prev_for_intent:
@@ -325,6 +339,7 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
             "preferences_applied": prefs, "lessons_applied": len(notes), "personal_edit": personal_edit,
             "improvement_logged": improvement_logged,
             "structured": _data_summary(data_rec),
+            "answerability": answerable,
             "context_layers": card_files +
                               ([cfg["agent"].get("context_file")] if cfg.get("agent") else []),
             "model_view": {"system": t_system, "user": t_user, "answer": answer_t},
