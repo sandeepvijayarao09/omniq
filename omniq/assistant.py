@@ -84,14 +84,51 @@ def agent_task(cfg: dict[str, Any]) -> str:
         return ""
     steps = ("\n".join(f"{i}. {x}" for i, x in enumerate(wf["procedure"], 1)) if wf.get("procedure")
              else _md_section(md, "How I work (procedure)"))
-    first = re.search(r"\*\*([^*]+)\*\*", template)
+    lines, opens_with_table = template_lines(template)
+    first = re.search(r"\*\*([^*]+)\*\*", lines[0]) if lines and not opens_with_table else None
     lead = first.group(1).split("/")[0].strip() if first else ""
-    if " · " in template:  # one section per line reads far better than a single dense line
-        template = "\n".join(part.strip() for part in template.split(" · "))
+    start = ("Start your reply with the table." if opens_with_table
+             else f"Start your reply with **{lead}**." if lead else "")
     return (f"You are {ag.get('name')}. Work through these steps silently:\n{steps}\n\n"
             "Write the answer in exactly this format: each bold label on its own line, followed by its content "
-            f"(bullets or a short table where it fits). Keep the bold labels:\n{template}\n"
-            + (f"Start your reply with **{lead}**." if lead else ""))
+            "(bullets where they fit). Fill tables with real values from the sources; write \"not in sources\" "
+            f"for a cell you can't fill. Keep the labels:\n" + "\n".join(lines) + "\n" + start)
+
+
+_TABLE = re.compile(r"^\s*(?:ranked\s+)?table:\s*\*\*([^*]+)\*\*\s*$", re.I)
+
+
+def template_lines(template: str) -> tuple[list[str], bool]:
+    """Split an output template into one line per section, and turn a table section into a Markdown header.
+
+    Sections are separated by " · " *outside* bold labels; inside a bold label " · " separates table columns
+    ("Table: **Metric · Current · Target**"). Splitting those apart garbled the table and made the model print
+    the column list as text. Returns (lines, whether the answer opens with a table)."""
+    parts, buf, bold = [], "", False
+    i = 0
+    while i < len(template):
+        if template.startswith("**", i):
+            bold = not bold
+            buf += "**"
+            i += 2
+        elif not bold and template.startswith(" · ", i):
+            parts.append(buf.strip())
+            buf = ""
+            i += 3
+        else:
+            buf += template[i]
+            i += 1
+    parts.append(buf.strip())
+    lines = []
+    for part in (p for p in parts if p):
+        part = re.sub(r"^then\s+", "", part, flags=re.I)
+        m = _TABLE.match(part)
+        if m:
+            cols = [c.strip() for c in m.group(1).split(" · ")]
+            lines.append("| " + " | ".join(cols) + " |\n|" + "---|" * len(cols))
+        else:
+            lines.append(part)
+    return lines, bool(lines) and lines[0].startswith("| ")
 
 
 class _detokenizing_emitter:

@@ -205,3 +205,18 @@ def test_iam_policies():
     assert iam.evaluate(cto, "docs:read", "doc:owner/emp-1001")["decision"] == "Deny"
     # projects from data/projects.yaml
     assert "sso-saml" in iam.variables(dev)["projects"]
+
+
+def test_output_templates_keep_tables_intact():
+    from omniq.assistant import template_lines
+
+    lines, table = template_lines("Table: **Metric · Current · Target · Gap · On track?** · then one-line **So what**")
+    assert table and lines[0].startswith("| Metric | Current | Target | Gap | On track? |") and lines[1] == "one-line **So what**"
+    lines, table = template_lines("**Verdict: PASS / FAIL** · then a checklist · then **Fixes required**")
+    assert not table and lines == ["**Verdict: PASS / FAIL**", "a checklist", "**Fixes required**"]
+    # every agent's template parses into at least one section, and table columns never become separate lines
+    import pathlib, re
+    for f in pathlib.Path("data/agents").glob("*/*.md"):
+        m = re.search(r"## Output template[^\n]*\n(.+)", f.read_text())
+        lines, _ = template_lines(m.group(1))
+        assert lines and not any(l.strip(" *") in ("Current", "Cost", "Owner", "Why") for l in lines), f.name

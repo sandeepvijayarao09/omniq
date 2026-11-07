@@ -338,12 +338,19 @@ def query(user, question: str, cfg: dict[str, Any], eng: Engine | None = None) -
             "categories": cats}
 
 
+def _cell(v: Any) -> str:
+    """Numbers as people write them (730000.0 → 730,000), so the model copies a readable figure."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return str(v)
+    return f"{v:,.0f}" if float(v).is_integer() else f"{v:,.2f}"
+
+
 def as_source(rec: dict[str, Any]) -> dict[str, Any] | None:
     """Render a lookup for the prompt, as a source the model must cite. Only `ok` results carry data."""
     if rec["status"] == "ok":
         rows = rec.get("rows") or []
         cols = list(rows[0].keys()) if rows else []
-        table = "\n".join(" | ".join(str(r.get(c, ""))[:MAX_CELL] for c in cols) for r in rows)
+        table = "\n".join(" | ".join(_cell(r.get(c, ""))[:MAX_CELL] for c in cols) for r in rows)
         text = (f"Result from the company databases ({rec['row_count']} row(s); tables: {', '.join(rec['tables'])}).\n"
                 f"Engine's answer: {rec.get('answer', '')}\n"
                 + (f"Columns: {' | '.join(cols)}\n{table}\n" if rows else "")

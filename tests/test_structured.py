@@ -84,7 +84,7 @@ def test_query_ok_becomes_a_cited_source():
     rec = structured.query(DEV, "Which accounts are at risk?", CFG, FakeEngine())
     assert rec["status"] == "ok" and rec["tables"] == ["crm.customers"] and rec["categories"] == ["sales"]
     src = structured.as_source(rec)
-    assert "612000" in src["text"] and "SQL:" in src["text"] and src["category"] == "sales"
+    assert "612,000" in src["text"] and "SQL:" in src["text"] and src["category"] == "sales"
 
 
 def test_low_coverage_means_abstain_without_running_sql():
