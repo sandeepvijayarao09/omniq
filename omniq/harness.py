@@ -250,6 +250,31 @@ def apply_patch(config: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]
     return new
 
 
+# Code that decides what an answer contains; a change here can change whether a patch helps.
+_ANSWER_PATH = ("assistant.py", "retrieve.py", "ontology.py", "pii.py", "evals.py", "structured.py", "answerability.py")
+
+
+def environment() -> str:
+    """A fingerprint of the conditions a candidate is judged under: the answer-path code, the knowledge base and the
+    graded cases. A rejected patch only rules out a retry under the same fingerprint (see evolve._evidence); after a
+    retrieval fix or a re-seed, an idea that lost before deserves a new trial."""
+    import hashlib
+    from pathlib import Path
+
+    from .config import settings
+
+    h = hashlib.sha256()
+    here = Path(__file__).parent
+    for name in _ANSWER_PATH:
+        f = here / name
+        h.update(f.read_bytes() if f.exists() else b"")
+    for f in (settings.evals_file, settings.evals_file.parent / "agent_evals.yaml"):
+        h.update(f.read_bytes() if f.exists() else b"")
+    for c in db().chunks.find({}, {"doc_id": 1, "chunk": 1, "text": 1}).sort([("doc_id", 1), ("chunk", 1)]):
+        h.update(f"{c.get('doc_id')}|{c.get('chunk')}|{c.get('text')}".encode())
+    return h.hexdigest()[:16]
+
+
 def propose(role: str, patch: dict[str, Any], rationale: str, evidence: list[Any]) -> dict[str, Any]:
     """Store a candidate version (status 'candidate'), or a 'blocked' record if unsafe."""
     from . import governance
@@ -259,7 +284,7 @@ def propose(role: str, patch: dict[str, Any], rationale: str, evidence: list[Any
     if not problems:
         problems = governance.review_rules(base["config"], patch)
     version = (db().harness.find_one({"role": role}, sort=[("version", -1)]) or {"version": 0})["version"] + 1
-    doc = {"role": role, "version": version, "parent": base["version"], "created": _now(),
+    doc = {"role": role, "version": version, "parent": base["version"], "created": _now(), "env": environment(),
            "patch": patch, "rationale": rationale, "evidence": evidence, "scores": {},
            "status": "blocked" if problems else "candidate",
            "config": base["config"] if problems else apply_patch(base["config"], patch),

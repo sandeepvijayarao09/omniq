@@ -245,3 +245,28 @@ def test_document_expansion_adds_siblings_and_never_widens_access(tmp_path):
         assert "Unrelated." not in texts                     # only documents that ranked in
     finally:
         dbmod._current = prev
+
+
+def test_a_lost_patch_is_retried_when_conditions_change_but_unsafe_ones_never(tmp_path):
+    from omniq import db as dbmod
+    from omniq import evolve
+    from omniq.docstore import Database
+
+    prev = dbmod._current
+    d = dbmod.use(Database(tmp_path / "e.db"))
+    try:
+        harness.bootstrap("pro")
+        env = harness.environment()
+        d.harness.insert_many([
+            {"role": "pro", "version": 2, "parent": 1, "status": "rolled_back", "env": env, "patch": {"retrieval": {"top_k": 3}}},
+            {"role": "pro", "version": 3, "parent": 1, "status": "rolled_back", "env": "old", "patch": {"retrieval": {"hybrid": True}}},
+            {"role": "pro", "version": 4, "parent": 1, "status": "rolled_back", "patch": {"context": {"max_chunk_chars": 1800}}},
+            {"role": "pro", "version": 5, "parent": 1, "status": "blocked", "env": "old", "patch": {"invariants": {"acl_prefilter": False}}},
+        ])
+        tried = [r["patch"] for r in evolve.rejections("pro")]
+        assert {"retrieval": {"top_k": 3}} in tried                   # lost under today's conditions: don't repeat
+        assert {"retrieval": {"hybrid": True}} not in tried           # lost under older conditions: may be retried
+        assert {"context": {"max_chunk_chars": 1800}} not in tried    # no fingerprint (pre-dates it): may be retried
+        assert {"invariants": {"acl_prefilter": False}} in tried       # unsafe: never
+    finally:
+        dbmod._current = prev

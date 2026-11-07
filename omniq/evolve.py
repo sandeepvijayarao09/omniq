@@ -77,12 +77,22 @@ def _store_failures(role: str, version: int, result: dict[str, Any]) -> list[dic
     return fails
 
 
+def rejections(role: str, limit: int = 6) -> list[dict[str, Any]]:
+    """Patches that must not be retried now. Unsafe (blocked) patches always; patches that merely lost only if they
+    lost against today's parent version under today's conditions (harness.environment()). A patch that lost before
+    a retrieval fix or a re-seed was never tested on the system it would now change."""
+    parent = harness.active(role)["version"]
+    return list(db().harness.find({"role": role, "$or": [
+        {"status": "blocked"},
+        {"status": "rolled_back", "env": harness.environment(), "parent": parent}]},
+        {"_id": 0, "patch": 1, "reject_reason": 1, "problems": 1}).sort("version", -1).limit(limit))
+
+
 def _evidence(role: str, fails: list[dict[str, Any]]) -> dict[str, Any]:
     fb = list(db().feedback.find({"role": role, "good": False}, {"_id": 0, "question_t": 1, "comment_t": 1})
               .sort("ts", -1).limit(8))
     probe = " ".join(f["question"] for f in fails[:4]) or "assistant failures"
-    history = list(db().harness.find({"role": role, "status": {"$in": ["rolled_back", "blocked"]}},
-                                     {"_id": 0, "patch": 1, "reject_reason": 1, "problems": 1}).sort("version", -1).limit(6))
+    history = rejections(role)
     lessons = list(db().lessons.find({"role": {"$in": [role, "all"]}}, {"_id": 0, "text": 1, "status": 1})
                    .sort("ts", -1).limit(8))
     return {"feedback": fb, "similar_past_failures": retrieve.similar_failures(role, probe),
