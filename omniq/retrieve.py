@@ -54,6 +54,29 @@ def _hybrid(user: User, query: str, qvec: list[float], cfg: dict[str, Any], limi
     return [dict(h, score=s) for s, h in ranked]
 
 
+def expand_documents(user: User, hits: list[dict[str, Any]], max_docs: int) -> list[dict[str, Any]]:
+    """Small-to-big retrieval: a chunk ranks its document in, the model reads the document.
+
+    Documents here are short (median ~940 characters) and split into small section chunks (median ~240), so the top
+    chunks often come from the right document but miss the sentence that answers the question (the capacity plan
+    ranked in on its staffing section, while the "115%" was in the section above). The document's other chunks are
+    appended after the hits, so document ranking is unchanged and the per-document budget in assistant._merge_by_doc
+    still applies. Every sibling is re-checked with can_read, so access can't widen.
+    """
+    order: list[str] = []
+    have: set[tuple[str, int]] = set()
+    for h in hits:
+        key = h.get("doc_id")
+        have.add((key, h.get("chunk", 0)))
+        if key and key not in order:
+            order.append(key)
+    extra = []
+    for c in db().chunks.find({"doc_id": {"$in": order[:max_docs]}}, {"embedding": 0}):
+        if (c["doc_id"], c.get("chunk", 0)) not in have and can_read(user, c):
+            extra.append(c)
+    return hits + extra
+
+
 def search_docs(user: User, query: str, cfg: dict[str, Any]) -> list[dict[str, Any]]:
     """Agent focus first, then the rest of what the user may read to fill any gap."""
     r = cfg["retrieval"]

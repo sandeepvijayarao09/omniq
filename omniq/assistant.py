@@ -90,9 +90,11 @@ def agent_task(cfg: dict[str, Any]) -> str:
     start = ("Start your reply with the table." if opens_with_table
              else f"Start your reply with **{lead}**." if lead else "")
     return (f"You are {ag.get('name')}. Work through these steps silently:\n{steps}\n\n"
-            "Write the answer in exactly this format: each bold label on its own line, followed by its content "
-            "(bullets where they fit). Fill tables with real values from the sources; write \"not in sources\" "
-            f"for a cell you can't fill. Keep the labels:\n" + "\n".join(lines) + "\n" + start)
+            "Answer every part of the question with the exact figures, dates and names from the sources. Write the "
+            "answer in this format: each bold label on its own line, followed by its content (bullets where they "
+            "fit). If the question asks for something the format has no place for, put it under the closest label. "
+            "Write \"not in sources\" only for something you checked every source for and could not find. "
+            f"Keep the labels:\n" + "\n".join(lines) + "\n" + start)
 
 
 _TABLE = re.compile(r"^\s*(?:ranked\s+)?table:\s*\*\*([^*]+)\*\*\s*$", re.I)
@@ -280,7 +282,10 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     hits = retrieve.search_docs(user, query, cfg)
     if personal_memory:  # favour documents from the asker's own projects (still access-controlled)
         hits += retrieve.project_context(user, query, {(h.get("doc_id"), h.get("chunk")) for h in hits})
-    sources = _merge_by_doc(hits, int(cfg["context"]["max_chunk_chars"]), max_docs=max(3, int(cfg["retrieval"]["top_k"])))
+    max_docs = max(3, int(cfg["retrieval"]["top_k"]))
+    if cfg["context"].get("expand_documents", True):  # read the document a chunk ranked in, not just the chunk
+        hits = retrieve.expand_documents(user, hits, max_docs)
+    sources = _merge_by_doc(hits, int(cfg["context"]["max_chunk_chars"]), max_docs=max_docs)
     if cfg["retrieval"].get("graph_context") or "ontology_lookup" in cfg["tools"]:
         sources += ontology.sources(user, question, cfg, hits)  # object, property and link ACL
     data_rec = None

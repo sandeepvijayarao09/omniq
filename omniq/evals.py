@@ -20,6 +20,7 @@ from .config import settings
 ABSTAIN = re.compile(r"(couldn'?t|could not|can'?t|cannot|unable to|wasn'?t able to) (find|locate|see|answer)|"
                      r"(no|not any) (information|mention|details?|documents?|sources?)|"
                      r"(isn'?t|is not|aren'?t|are not|not) (covered|mentioned|included|available|in the)|"
+                     r"not in (the )?(provided |available )?sources?|"  # the phrase agent templates ask for
                      r"don'?t (have|see) (any )?(information|access|details)|"
                      r"(do|does|did) ?n[o']?t (contain|include|mention|cover|provide|specify)", re.I)
 

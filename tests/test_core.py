@@ -220,3 +220,28 @@ def test_output_templates_keep_tables_intact():
         m = re.search(r"## Output template[^\n]*\n(.+)", f.read_text())
         lines, _ = template_lines(m.group(1))
         assert lines and not any(l.strip(" *") in ("Current", "Cost", "Owner", "Why") for l in lines), f.name
+
+
+def test_document_expansion_adds_siblings_and_never_widens_access(tmp_path):
+    from omniq import db as dbmod
+    from omniq import retrieve
+    from omniq.docstore import Database
+
+    prev = dbmod._current
+    d = dbmod.use(Database(tmp_path / "x.db"))
+    try:
+        d.chunks.insert_many([
+            {"doc_id": "plan", "chunk": 0, "title": "Plan", "text": "Platform is at 115%.", "category": "engineering"},
+            {"doc_id": "plan", "chunk": 1, "title": "Plan", "text": "Hire one senior.", "category": "engineering"},
+            {"doc_id": "plan", "chunk": 2, "title": "Plan", "text": "Comp band 215k.", "category": "hr", "team": "finance"},
+            {"doc_id": "other", "chunk": 0, "title": "Other", "text": "Unrelated.", "category": "engineering"},
+        ])
+        hit = {"doc_id": "plan", "chunk": 1, "title": "Plan", "text": "Hire one senior.", "category": "engineering"}
+        out = retrieve.expand_documents(ENG, [hit], max_docs=3)
+        texts = [h["text"] for h in out]
+        assert texts[0] == "Hire one senior."                 # hits keep their rank
+        assert "Platform is at 115%." in texts               # the sibling that holds the fact
+        assert "Comp band 215k." not in texts                # a restricted chunk is never added
+        assert "Unrelated." not in texts                     # only documents that ranked in
+    finally:
+        dbmod._current = prev

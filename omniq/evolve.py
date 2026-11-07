@@ -35,6 +35,7 @@ KNOBS = """Harness fields you may change (JSON patch merged into the config):
   documents), ontology.mention_boost (bool; rank documents that mention those entities higher),
   ontology.hops (1-2; how far facts reach from each entity)
 - context.max_chunk_chars (200-2500): characters kept per retrieved passage
+- context.expand_documents (bool): give the model the whole document a retrieved chunk came from
 - tools: subset of ["search_docs", "ontology_lookup", "memory_recall", "structured_query"] (search_docs required;
   only tools the agent's template allows)
 - model.max_tokens (100-1500), model.temperature (0-1)

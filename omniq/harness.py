@@ -27,7 +27,7 @@ DEFAULT_HARNESS: dict[str, Any] = {
                   "graph_context": False, "use_lessons": False,
                   "structured_min_coverage": 0.5, "structured_min_catalog": 0.6,
                   "answerability_min": 0.0},
-    "context": {"max_chunk_chars": 900, "include_memories": True},
+    "context": {"max_chunk_chars": 900, "include_memories": True, "expand_documents": True},
     "tools": ["search_docs"],
     "model": {"temperature": 0.0, "max_tokens": 500},
     "guardrails": {"abstain_when_unsupported": False, "cite_sources": False},
