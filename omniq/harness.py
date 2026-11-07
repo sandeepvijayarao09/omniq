@@ -280,7 +280,8 @@ def environment() -> str:
     for name in _ANSWER_PATH:
         f = here / name
         h.update(f.read_bytes() if f.exists() else b"")
-    for f in (settings.evals_file, settings.evals_file.parent / "agent_evals.yaml"):
+    for f in (settings.evals_file, settings.evals_file.parent / "agent_evals.yaml",
+              here.parent / "config" / "ontology.yaml"):  # the schema decides how facts read to the model
         h.update(f.read_bytes() if f.exists() else b"")
     for c in db().chunks.find({}, {"doc_id": 1, "chunk": 1, "text": 1}).sort([("doc_id", 1), ("chunk", 1)]):
         h.update(f"{c.get('doc_id')}|{c.get('chunk')}|{c.get('text')}".encode())

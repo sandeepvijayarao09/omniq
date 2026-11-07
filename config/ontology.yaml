@@ -36,7 +36,7 @@ object_types:
     category: sales
     properties:
       name: {type: string}
-      plan: {type: enum}
+      plan: {type: enum, label: Subscription plan}
       arr: {type: money, label: ARR}
       health: {type: enum}
       segment: {type: string}

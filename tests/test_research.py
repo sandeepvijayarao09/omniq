@@ -19,6 +19,7 @@ run, analyze = _load("run"), _load("analyze")
 def test_conditions_differ_only_in_what_they_name():
     b2, b3, o1, o2, o3 = (run.condition_config(c) for c in ("B2", "B3", "O1", "O2", "O3"))
     assert run.condition_config("B0") is None
+    assert run.condition_config("B1") == b2   # B1 differs only in how the runner searches
     assert b2["retrieval"]["top_k"] == b3["retrieval"]["top_k"] == o2["retrieval"]["top_k"]
     assert not b2["retrieval"].get("hybrid") and b3["retrieval"]["hybrid"]
     assert not b3["retrieval"]["graph_context"] and o2["retrieval"]["graph_context"]

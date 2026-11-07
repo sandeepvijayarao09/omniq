@@ -9,6 +9,9 @@ cases). Nothing is hand-edited; results live under research/results/<experiment>
 
 Conditions (Claim A). All start from the same plain default harness, so only the listed difference changes:
   B0  closed book: the model answers from the question alone
+  B1  dense retrieval with the ACL as a *post*-filter: rank every document, then drop what the person can't read
+      (the common pattern; implemented here in the runner only, so the product never has a mode that ranks
+      documents a person may not read)
   B2  dense retrieval with the ACL as a pre-filter
   B3  B2 + BM25 hybrid
   O1  B3 + ontology facts with property- and link-level ACL off (object-level only)
@@ -45,6 +48,8 @@ def condition_config(name: str) -> dict[str, Any] | None:
         return None
     cfg = copy.deepcopy(harness.DEFAULT_HARNESS)
     cfg["retrieval"]["top_k"] = 4  # one fixed retrieval budget for every condition, so only the listed change differs
+    if name == "B1":
+        return cfg  # same harness as B2; run_case swaps the search for a post-filtered one
     if name in ("B3", "O1", "O2", "O3"):
         cfg["retrieval"]["hybrid"] = True
     if name in ("O1", "O2", "O3"):
@@ -53,7 +58,7 @@ def condition_config(name: str) -> dict[str, Any] | None:
         cfg["ontology"].update(property_acl=False, link_acl=False)
     if name == "O3":
         cfg["tools"] = ["search_docs", "structured_query"]
-    if name not in ("B2", "B3", "O1", "O2", "O3"):
+    if name not in ("B1", "B2", "B3", "O1", "O2", "O3"):
         raise SystemExit(f"unknown condition {name}")
     return cfg
 
@@ -80,9 +85,32 @@ def closed_book(case: dict[str, Any]) -> dict[str, Any]:
             "tokens": meta.get("input_tokens", 0) + meta.get("output_tokens", 0)}
 
 
-def run_case(case: dict[str, Any], cfg: dict[str, Any] | None) -> dict[str, Any]:
+def _postfilter_search(user, qvec, cfg, limit, focus):
+    """B1: rank over *all* chunks (no access filter), then drop the ones the person can't read. The person sees no
+    more than with a pre-filter; the cost is recall, because unreadable chunks take places in the ranking."""
+    from omniq import retrieve
+    from omniq.db import db
+    from omniq.policy import can_read
+
+    pipeline = [{"$vectorSearch": {"index": retrieve.VECTOR_INDEX, "path": "embedding", "queryVector": qvec,
+                                   "numCandidates": max(int(cfg["retrieval"]["num_candidates"]), limit * 10),
+                                   "limit": limit, "filter": {}}},
+                {"$project": {"embedding": 0, "score": {"$meta": "vectorSearchScore"}}}]
+    return [h for h in db().chunks.aggregate(pipeline) if can_read(user, h)]
+
+
+def run_case(case: dict[str, Any], cfg: dict[str, Any] | None, condition: str = "") -> dict[str, Any]:
     if cfg is None:
         res = closed_book(case)
+    elif condition == "B1":
+        from omniq import retrieve
+
+        original = retrieve._vsearch
+        retrieve._vsearch = _postfilter_search
+        try:
+            res = assistant.ask(case["persona"], case["question"], cfg_override=cfg, source="eval", personal_memory=False)
+        finally:
+            retrieve._vsearch = original
     else:
         res = assistant.ask(case["persona"], case["question"], cfg_override=cfg, source="eval", personal_memory=False)
     g = evals.grade(case, res["answer"])
@@ -117,7 +145,7 @@ def main() -> int:
     with out.open("w") as f:
         f.write(json.dumps({"environment": env}) + "\n")
         for i, case in enumerate(cases, 1):
-            row = run_case(case, cfg)
+            row = run_case(case, cfg, args.condition)
             f.write(json.dumps(row, default=str) + "\n")
             f.flush()
             print(f"[{i}/{len(cases)}] {'PASS' if row['passed'] else 'FAIL'} {row['kind']:<7} {row['id']}", flush=True)
