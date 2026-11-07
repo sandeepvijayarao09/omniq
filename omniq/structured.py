@@ -19,6 +19,7 @@ The engine sits behind `Engine`, so another text-to-SQL engine can replace Auto 
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 from dataclasses import dataclass, field
@@ -67,15 +68,45 @@ def known_tables() -> frozenset[str]:
     return frozenset(t["name"].lower() for t in catalog())
 
 
+def _categories(user) -> frozenset[str]:
+    """Table access follows document access exactly: the person's open categories (IAM-compiled for engineering-org
+    members, role-based for everyone else). Using IAM categories alone denied finance staff their own finance tables."""
+    return frozenset(user.open_categories())
+
+
+def may_query(user) -> bool:
+    """Who may ask the database at all: IAM decides for org members; anyone with read access otherwise. Every table
+    in the answer is still checked against their categories."""
+    from . import iam
+
+    if iam.org_role(user):
+        return iam.allowed(user, "data:query", "data:warehouse/halcyon")
+    return bool(_categories(user))
+
+
+# Questions that need a database: totals, counts, averages, rankings, comparisons, extremes. A single lookup ("who
+# is Globex's CSM?", "what is Globex's ARR?") is answered by the ontology at once; sending it to the engine cost about
+# a minute per question in the O3 run.
+COMPUTE = re.compile(
+    r"\b(total|totals|sum|how many|count|number of|average|avg|mean|median|top \d+|top-\d+|most|least|highest|lowest|"
+    r"largest|smallest|biggest|rank|ranking|ranked|compare|comparison|versus|vs\.?|per (customer|team|month|quarter|plan"
+    r"|segment)|breakdown|broken down|by (plan|segment|health|stage|team|quarter|month|owner|tier)|percentage|share of|"
+    r"growth|trend|soonest|earliest|latest|newest|oldest|combined|altogether|in aggregate)\b", re.I)
+
+
+def needs_computation(question: str) -> bool:
+    return bool(COMPUTE.search(question or ""))
+
+
 def catalog_coverage(user, question: str) -> dict[str, Any]:
     """Omniq's own answerability check, independent of the engine: are the question's terms present in the tables
     this person may query (names, columns, column notes, categorical values)? The engine's coverage grade is an
     embedding-distance cut-off tuned for its default embedder and scored a question about advertising spend as fully
     covered on local embeddings, then invented SQL for it. Restricted tables are left out, so they grade like
     nonexistent ones."""
-    from . import answerability, iam
+    from . import answerability
 
-    allowed = iam.categories(user)
+    allowed = _categories(user)
     sources = []
     for t in catalog():
         if t.get("category") not in allowed:
@@ -127,7 +158,7 @@ def authorize(user, sql: str) -> dict[str, Any]:
     tables = sql_tables(sql)
     if tables is None:
         return {"ok": False, "tables": [], "denied": [], "reason": "the query could not be parsed"}
-    allowed = iam.categories(user)
+    allowed = _categories(user)
     denied, unknown = [], []
     for t in tables:
         q = _qualify(t)
@@ -304,17 +335,17 @@ def engine() -> Engine | None:
 def query(user, question: str, cfg: dict[str, Any], eng: Engine | None = None) -> dict[str, Any]:
     """One structured-data lookup for one question. Always returns a record; never raises into the answer path.
 
-    status: off | unavailable | denied | unanswerable | withheld | error | ok
+    status: off | skipped | unavailable | denied | unanswerable | withheld | error | ok
     """
-    from . import iam
-
     knobs = cfg.get("retrieval") or {}
     eng = eng or engine()
     rec: dict[str, Any] = {"status": "off", "engine": getattr(eng, "name", None)}
     if eng is None:
         return rec
-    if not iam.allowed(user, "data:query", "data:warehouse/halcyon"):
-        return {**rec, "status": "denied", "reason": "IAM: data:query not allowed"}
+    if knobs.get("structured_route", "compute") == "compute" and not needs_computation(question):
+        return {**rec, "status": "skipped"}  # a lookup, not a computation: documents and the ontology answer it
+    if not may_query(user):
+        return {**rec, "status": "denied", "reason": "data:query not allowed"}
     cat = catalog_coverage(user, question)
     rec.update(catalog_coverage=cat["coverage"], uncovered=cat["uncovered"])
     if cat["coverage"] < float(knobs.get("structured_min_catalog", 0.6)):

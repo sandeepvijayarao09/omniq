@@ -171,7 +171,7 @@ def _data_summary(rec: dict[str, Any] | None, vault: Vault | None = None) -> dic
 def _data_view(rec: dict[str, Any] | None) -> dict[str, Any] | None:
     """What the person is shown about a database lookup. Withheld and unanswerable look identical, so the response
     never reveals that restricted data (or a restricted table) exists; the full record stays on the audited episode."""
-    if not rec or rec["status"] in ("off",):
+    if not rec or rec["status"] in ("off", "skipped"):
         return None
     if rec["status"] == "ok":
         return {"status": "ok", "sql": rec.get("sql"), "tables": rec.get("tables"), "row_count": rec.get("row_count")}

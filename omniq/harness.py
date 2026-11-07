@@ -25,7 +25,7 @@ DEFAULT_HARNESS: dict[str, Any] = {
     "rules": [],
     "retrieval": {"top_k": 2, "num_candidates": 20, "rerank": False, "query_rewrite": False,
                   "graph_context": False, "use_lessons": False,
-                  "structured_min_coverage": 0.5, "structured_min_catalog": 0.6,
+                  "structured_min_coverage": 0.5, "structured_min_catalog": 0.6, "structured_route": "compute",
                   "answerability_min": 0.0},
     "context": {"max_chunk_chars": 900, "include_memories": True, "expand_documents": True},
     "tools": ["search_docs"],
@@ -169,6 +169,8 @@ def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
     """Return reasons the patch is unsafe or out of bounds (empty list = OK)."""
     problems: list[str] = []
     for key, val in patch.items():
+        if key == "retrieval" and isinstance(val, dict) and val.get("structured_route", "compute") not in ("compute", "always"):
+            problems.append("retrieval.structured_route must be 'compute' or 'always'")
         if key in KNOWN_KEYS and isinstance(val, dict):
             unknown = sorted(set(val) - KNOWN_KEYS[key])
             if unknown:

@@ -57,7 +57,8 @@ KNOB_TYPES = {("retrieval", "top_k"): int, ("retrieval", "num_candidates"): int,
               ("guardrails", "cite_sources"): bool, ("ontology", "entity_linking"): bool,
               ("ontology", "mention_boost"): bool, ("ontology", "hops"): int,
               ("context", "expand_documents"): bool, ("retrieval", "structured_min_coverage"): (int, float),
-              ("retrieval", "structured_min_catalog"): (int, float), ("retrieval", "answerability_min"): (int, float)}
+              ("retrieval", "structured_min_catalog"): (int, float), ("retrieval", "answerability_min"): (int, float),
+              ("retrieval", "structured_route"): str}
 
 
 def _now() -> dt.datetime:

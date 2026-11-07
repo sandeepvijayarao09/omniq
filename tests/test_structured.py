@@ -10,6 +10,7 @@ from omniq.policy import User
 
 DEV = User(id="emp-1001", name="Maya", role="pro", department="engineering", team="platform", title="Engineer")
 CTO = User(id="emp-1009", name="Marcus", role="executive", department="executive", title="Chief Technology Officer")
+FIN = User(id="emp-1091", name="Anjali", role="pro", department="finance", title="FP&A Analyst")  # not in the engineering org
 TABLES = frozenset({"crm.customers", "crm.deals", "itsm.incidents", "itsm.systems", "finance.vendors",
                     "finance.incident_service_credits", "board.strategic_projects", "directory.employees",
                     "planning.projects"})
@@ -77,7 +78,8 @@ class FakeEngine:
         return structured.Result("Globex Financial is at risk.", self._sql, self._rows, len(self._rows), ["sql"])
 
 
-CFG = {"retrieval": {"structured_min_coverage": 0.5}, "tools": ["search_docs", "structured_query"]}
+# "always" so these tests reach the later stages with lookup-style questions; routing has its own tests.
+CFG = {"retrieval": {"structured_min_coverage": 0.5, "structured_route": "always"}, "tools": ["search_docs", "structured_query"]}
 
 
 def test_query_ok_becomes_a_cited_source():
@@ -195,3 +197,21 @@ def test_question_outside_the_catalog_never_reaches_the_engine(monkeypatch):
     eng = FakeEngine()
     rec = structured.query(DEV, "What was our return on advertising spend last quarter?", CFG, eng)
     assert rec["status"] == "unanswerable" and eng.asked == 0
+
+
+def test_routing_sends_only_computations_to_the_database():
+    for q in ["What is the total ARR of at-risk customers?", "How many deals are in Commit?",
+              "Which customer renews soonest?", "Top 3 vendors by spend", "ARR by plan"]:
+        assert structured.needs_computation(q), q
+    for q in ["Who is the CSM for Globex Financial?", "What is Globex Financial's ARR?", "Which team owns Redis?"]:
+        assert not structured.needs_computation(q), q
+    eng = FakeEngine()
+    rec = structured.query(DEV, "Who is the CSM for Globex Financial?", {"retrieval": {}}, eng)
+    assert rec["status"] == "skipped" and eng.asked == 0
+
+
+def test_people_outside_the_engineering_org_use_their_document_access_for_tables():
+    # The O3 run denied a finance analyst the database entirely (IAM covers only the engineering org).
+    assert structured.may_query(FIN)
+    assert structured.authorize(FIN, "SELECT SUM(amount) FROM finance.incident_service_credits")["ok"]
+    assert not structured.authorize(FIN, "SELECT * FROM board.strategic_projects")["ok"]
