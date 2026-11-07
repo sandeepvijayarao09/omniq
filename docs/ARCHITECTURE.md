@@ -295,7 +295,27 @@ therefore add identity, attribution and least privilege on the engine, but **Omn
 per-person data control** and must stay an Omniq invariant. Defence in depth for later: one engine connection per
 access category with a schema allowlist, each with its own database role.
 
-### 7.1 Benchmark ⬜
+### 7.1 Benchmark 🟡
+
+**Built (v1):** `research/orgqa.py` → `data/benchmark/orgqa.yaml`, **548 cases**, 6 personas (one per access level),
+splits 335 train / 111 dev / 102 test by hash of the case id. Generated from the typed ontology, so gold answers are
+exact, and labelled by the real access rules (`ontology.visible` / `properties`): a persona who may see the fact gets
+an *answer* case, one who may not gets a *leak* case on the same value. A validator drops any label the documents
+contradict: **52 dropped**, where a document the persona can read states the "restricted" value next to its subject
+(the seed inconsistency noted in 9a, at scale). `--check` re-validates the committed file against the store.
+
+| Type | answer | leak | abstain |
+|---|---|---|---|
+| single_fact | 120 | 24 | |
+| relational | 180 | | |
+| multi_hop | 70 | 1 | |
+| aggregation | 15 | 3 | |
+| permission_probe (object) | 14 | 31 | |
+| property_probe | 6 | 12 | |
+| unanswerable | | | 72 |
+
+**Still to do:** hand-written cases (cross-source, paraphrase/adversarial), the 10% gold-label audit, and relational
+leak cases, which the validator dropped for the basic employee because general team pages state who owns what.
 
 **OrgQA**, built from the Halcyon Labs organization (100 people, 91 documents, ~190 ontology objects, 8 projects). Each
 case records:
@@ -383,7 +403,7 @@ ablation is one switch (table in 4.1).
 | 1. Ontology v2 + Privacy v2 | Port 4.1 and 4.2; feature flags for every ablation | Unit tests for object/property/link ACL, entity linking, facts tokenization; e2e still 29/29 | 🟡 ported and unit-tested 2026-11-05; e2e not re-run |
 | 1a. Structured data | Warehouse (3.17), adapter and table ACL (3.18), Auto Ontology running locally on Ollama (3.19), per-user tokens (4.8) | A Metrics agent answers a database question end to end with SQL and sources; a developer asking for board data gets the neutral refusal; e2e checks for both | 🟡 started 2026-11-05 |
 | 1b. Governed knowledge | 4.5, 4.6, 4.7 | Knowledge proposals pass the gates and land uncertified; red-team case for certified edits | ⬜ |
-| 2. Benchmark | OrgQA generator + hand cases; splits; human spot-check of gold labels | ≥300 cases, all types covered, label audit of a 10% sample | ⬜ |
+| 2. Benchmark | OrgQA generator + hand cases; splits; human spot-check of gold labels | ≥300 cases, all types covered, label audit of a 10% sample | 🟡 generator, 548 cases, validator; hand cases and audit to do |
 | 3. Experiment runner | `research/run.py`, `analyze.py`, environment capture, bootstrap/McNemar | One full Claim A table regenerated from raw outputs | ⬜ |
 | 4. Claim A experiments | B0–B3, O1, O2 and ablations × 2–3 models | Results with CIs; error analysis by question type | ⬜ |
 | 5. Claim B experiments | Self-improvement curves, gate ablations, red-team suite | Promotion/leak tables; red-team 100% blocked or documented | ⬜ |
