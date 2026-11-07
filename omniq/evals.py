@@ -83,13 +83,58 @@ def grade(case: dict[str, Any], answer: str) -> dict[str, Any]:
     return {"passed": passed, "score": score, "leaked": bool(leaked), "why": why}
 
 
+_SENT = re.compile(r"(?<=[.!?])\s+|\n+|\s+\|\s+")
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+
+def fact_reached_model(fact: str, question: str, context: str, user) -> bool:
+    """Did the passage that states this fact *as an answer to this question* reach the model?
+
+    Matching the fact string anywhere in the context misfiles failures: a name the question asks about ("who is up
+    for promotion?") also appears in the staff directory, so a missed HR note looked like a reasoning miss and the
+    improver tried prompt rules instead of retrieval. The evidence is the section (chunk), among those the person
+    may read, that contains the fact and shares the most key terms with the question; its question-relevant lines
+    must have been in context. Sections, not sentences: a note names the person in a heading and gives the
+    recommendation underneath. With no section related to the question, any occurrence counts (old behaviour)."""
+    from . import answerability
+    from .db import db
+    from .policy import can_read
+
+    f = fact.lower()
+    stem = answerability._stem
+    terms = {stem(w) for w in answerability.salient_terms(question)} - {stem(w) for w in answerability.salient_terms(fact)}
+    best, gold = 0, []
+    for c in db().chunks.find({"text": {"$regex": re.escape(fact), "$options": "i"}}, {"embedding": 0}):
+        if not can_read(user, c):
+            continue
+        score = len(terms & {stem(w) for w in answerability.salient_terms(c["text"])})
+        if score > best:
+            best, gold = score, [c["text"]]
+        elif score == best:
+            gold.append(c["text"])
+    if best == 0:  # nothing relates the fact to the question: fall back to "anywhere in context"
+        return f in context.lower()
+    ctx = _norm(context)
+    for text in gold:
+        relevant = [ln for ln in _SENT.split(text) if (f in ln.lower() or terms & {stem(w) for w in answerability.salient_terms(ln)})
+                    and len(ln.strip()) > 3]
+        if relevant and all(_norm(ln) in ctx for ln in relevant):
+            return True
+    return False
+
+
 def run_case(case: dict[str, Any], cfg: dict[str, Any], version: int) -> dict[str, Any]:
     res = assistant.ask(case["persona"], case["question"], agent_id=case.get("agent"), cfg_override=cfg,
                         harness_version=version, source="eval", personal_memory=False)
     g = grade(case, res["answer"])
     if not g["passed"] and case["kind"] == "answer":
-        ctx = res.get("_context", "").lower()
-        absent = [f for f in case.get("must_include", []) if f.lower() not in res["answer"].lower() and f.lower() not in ctx]
+        ctx = res.get("_context", "")
+        user = assistant.get_user(case["persona"])
+        absent = [f for f in case.get("must_include", [])
+                  if f.lower() not in res["answer"].lower() and not fact_reached_model(f, case["question"], ctx, user)]
         g["attribution"] = "retrieval_miss" if absent else "reasoning_miss"
         g["why"] += f" [{g['attribution']}: {'not in retrieved context: ' + str(absent) if absent else 'fact was in context but not used'}]"
     elif not g["passed"]:

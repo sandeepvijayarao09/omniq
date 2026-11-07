@@ -270,3 +270,27 @@ def test_a_lost_patch_is_retried_when_conditions_change_but_unsafe_ones_never(tm
         assert {"invariants": {"acl_prefilter": False}} in tried       # unsafe: never
     finally:
         dbmod._current = prev
+
+
+def test_attribution_needs_the_passage_that_answers_not_just_the_name(tmp_path):
+    from omniq import db as dbmod
+    from omniq import evals
+    from omniq.docstore import Database
+
+    prev = dbmod._current
+    d = dbmod.use(Database(tmp_path / "a.db"))
+    try:
+        directory = "- Amara Nwosu, Staff Software Engineer"
+        note = "## Amara Nwosu — Staff Software Engineer\nRecommended for promotion to Principal this cycle."
+        d.chunks.insert_many([{"doc_id": "dir", "chunk": 0, "title": "Directory", "text": directory, "category": "general"},
+                              {"doc_id": "hr", "chunk": 0, "title": "Notes", "text": note, "category": "engineering"}])
+        q = "Who on my team is recommended for promotion?"
+        # Only the directory reached the model: the name is there, the answer isn't → retrieval miss.
+        assert not evals.fact_reached_model("Amara Nwosu", q, directory, ENG)
+        # The note reached the model → the fact was available.
+        assert evals.fact_reached_model("Amara Nwosu", q, directory + "\n" + note, ENG)
+        # A note the person can't read never counts as evidence.
+        d.chunks.update_one({"doc_id": "hr"}, {"$set": {"category": "board"}})
+        assert evals.fact_reached_model("Amara Nwosu", q, directory, ENG)   # falls back: only the directory relates
+    finally:
+        dbmod._current = prev
