@@ -253,10 +253,10 @@ Both loops end in one function, `governance.decide()`.
 
 | Role (rank) | Agents |
 |---|---|
-| **Developer** (1) | Code Review Buddy, On-call Copilot, Deploy Guide, Architecture Explainer, API Spec Helper |
-| **Product Manager** (1) | PRD Writer, Roadmap Planner, Customer Voice, Launch Checklist, Metrics Analyst |
-| **Director** (2) | Team Pulse, Incident Review, Capacity Planner, OKR Tracker, Delivery Risk Radar |
-| **CTO** (3) | Tech Strategy Brief, Board Tech Brief, Reliability Scorecard, Build vs Buy Advisor, Security Posture |
+| **Developer** (1) | Build, Verifier, Debug, Release, Code Review |
+| **Product Manager** (1) | Spec, Prioritization, Research, Launch, Metrics |
+| **Director** (2) | Status Report, Risk, People, Capacity, Incident Review |
+| **CTO** (3) | Strategy, Board Brief, Architecture Review, Vendor, Security |
 
 Org roles come from the directory: engineers → Developer, the product team → Product Manager, engineering and product
 managers → Director, the CTO → CTO. An org role only decides which agents a person can use. What each agent can read
@@ -334,8 +334,8 @@ uv venv --python 3.12 .venv && uv pip install --python .venv -e '.[dev]'
 .venv/bin/oa evolve --role pro --generations 3
 .venv/bin/oa redteam --role pro   # an injected unsafe patch is blocked
 .venv/bin/oa agents                         # agents and their active harness versions
-.venv/bin/oa evolve --role agent:oncall_helper  # hard-metric loop for one agent
-.venv/bin/oa improve --agent deal_coach     # recommendation-driven loop for one agent
+.venv/bin/oa evolve --role agent:debug_agent    # hard-metric loop for one agent
+.venv/bin/oa improve --agent release_agent    # recommendation-driven loop for one agent
 .venv/bin/oa lineage --role pro
 .venv/bin/oa serve            # http://127.0.0.1:8000
 .venv/bin/python research/calibrate_thresholds.py   # re-measure similarity thresholds for your embedder

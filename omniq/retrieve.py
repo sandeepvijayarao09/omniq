@@ -4,7 +4,7 @@
 - Hybrid: reciprocal-rank fusion of dense search and BM25 over the same ACL-filtered pool.
 - Rerank: local fusion of dense and lexical scores (embed.rerank).
 - Mention boost (ontology.mention_boost): documents that mention an entity named in the question move up.
-- Ontology facts: ontology.py (object, property and link ACL); `graph_context` is kept as a thin wrapper."""
+- Ontology facts: ontology.py (object, property and link ACL)."""
 
 from __future__ import annotations
 
@@ -100,13 +100,6 @@ def link_entities(text: str) -> list[dict[str, Any]]:
         if any(len(n) > 3 and re.search(rf"\b{re.escape(n)}\b", low) for n in names):
             found.append(o)
     return found[:6]
-
-
-def graph_context(user: User, query: str) -> list[dict[str, Any]]:
-    """Ontology facts around the entities named in the query, with the default (strict) switches."""
-    from . import ontology
-
-    return ontology.sources(user, query, {})
 
 
 def recall_lessons(role: str, query: str, k: int = 4) -> list[str]:

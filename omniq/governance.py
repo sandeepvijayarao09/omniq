@@ -208,12 +208,7 @@ def check(user_id: str, action: str, scope: str) -> None:
         raise NotAllowed(f"{u.name} may not {action}")
 
 
-def _require_approver(user_role: str) -> None:
-    if user_role not in APPROVER_ROLES:
-        raise NotAllowed("only admins and executives can approve, roll back or freeze harnesses")
-
-
-def approve(scope: str, version: int, approver: str, approver_role: str) -> None:
+def approve(scope: str, version: int, approver: str) -> None:
     check(approver, "harness:approve", scope)
     doc = db().harness.find_one({"role": scope, "version": version, "status": "awaiting_approval"})
     if not doc:
@@ -223,7 +218,7 @@ def approve(scope: str, version: int, approver: str, approver_role: str) -> None
     audit.record("harness_approved", approver, role=scope, version=version)
 
 
-def reject(scope: str, version: int, approver: str, approver_role: str, reason: str = "") -> None:
+def reject(scope: str, version: int, approver: str, reason: str = "") -> None:
     check(approver, "harness:approve", scope)
     res = db().harness.update_one({"role": scope, "version": version, "status": "awaiting_approval"},
                                   {"$set": {"status": "rolled_back", "reject_reason": reason or f"rejected by {approver}"}})
@@ -232,7 +227,7 @@ def reject(scope: str, version: int, approver: str, approver_role: str, reason: 
     audit.record("harness_rejected", approver, role=scope, version=version, reason=reason)
 
 
-def rollback(scope: str, version: int, approver: str, approver_role: str) -> None:
+def rollback(scope: str, version: int, approver: str) -> None:
     """Make an earlier version active again (it must have been active or superseded before)."""
     check(approver, "harness:rollback", scope)
     target = db().harness.find_one({"role": scope, "version": version, "status": {"$in": ["superseded", "active"]}})
@@ -243,7 +238,7 @@ def rollback(scope: str, version: int, approver: str, approver_role: str) -> Non
     audit.record("harness_manual_rollback", approver, role=scope, version=version)
 
 
-def freeze(scope: str, frozen: bool, approver: str, approver_role: str) -> None:
+def freeze(scope: str, frozen: bool, approver: str) -> None:
     check(approver, "harness:freeze", scope)
     db().scope_policy.update_one({"_id": scope}, {"$set": {"frozen": frozen}}, upsert=True)
     audit.record("harness_frozen" if frozen else "harness_unfrozen", approver, role=scope)

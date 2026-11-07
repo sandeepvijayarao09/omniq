@@ -133,15 +133,6 @@ def allowed(user, action: str, resource: str) -> bool:
 
 # ---------------------------------------------------------------- compiled document access
 
-def doc_resource(doc: dict[str, Any]) -> str:
-    cat = doc.get("category", "general")
-    if cat == "hr":
-        return f"doc:hr/{doc.get('team', '')}"
-    if cat == "personal":
-        return f"doc:owner/{doc.get('owner', '')}"
-    return f"doc:category/{cat}"
-
-
 @lru_cache(maxsize=1)
 def hr_teams_known() -> tuple[str, ...]:
     """Every team that has HR notes, read from the seed documents' front matter (no database needed)."""
@@ -165,7 +156,6 @@ def hr_teams(user) -> tuple[str, ...]:
 
 def summary(user) -> dict[str, Any]:
     role = org_role(user)
-    from . import agents as ag
     from .db import db
 
     agent_rows = list(db().agents.find({}, {"_id": 0, "id": 1, "org_role": 1}))

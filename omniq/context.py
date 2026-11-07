@@ -9,7 +9,6 @@ the employee's own preferences → ACL-filtered sources. Role and persona files 
 from __future__ import annotations
 
 import re
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -51,19 +50,6 @@ def team() -> list[dict[str, Any]]:
     order = {"cto": 0, "director": 1, "product_manager": 2, "developer": 3}
     rows = [_read(p)[0] for p in sorted(PEOPLE_DIR.glob("*.md"))]
     return sorted(rows, key=lambda m: (order.get(m.get("org_role"), 9), m.get("name", "")))
-
-
-def layers(emp_id: str, org_role: str | None) -> list[tuple[str, str]]:
-    """(label, markdown) pairs for the system prompt."""
-    out = []
-    if org_role:
-        _, body = role(org_role)
-        if body:
-            out.append((f"data/roles/{org_role}.md", body))
-    _, body = person(emp_id)
-    if body:
-        out.append((f"data/people/{emp_id}.md", body))
-    return out
 
 
 def parse_mention(text: str, known: set[str]) -> tuple[str | None, str]:

@@ -51,7 +51,7 @@ def seed_all(reset: bool = True) -> dict[str, int]:
     if reset:
         for c in ("users", "chunks", "objects", "links"):
             d[c].delete_many({})
-    dbm.ensure_indexes(wait=False)
+    dbm.ensure_indexes()
 
     users, teams = load_users(seed)
     d.users.insert_many([dict(u) for u in users])
@@ -82,6 +82,6 @@ def seed_all(reset: bool = True) -> dict[str, int]:
     if mentions:
         d.links.insert_many(mentions)
     edits = ontology.replay()  # actions people ran, on top of the fresh source records
-    dbm.ensure_indexes(wait=True)
+    dbm.ensure_indexes()
     return {"users": len(users), "objects": len(objects), "links": len(links), "mentions": len(mentions),
             "edits_replayed": edits, "chunks": len(rows)}

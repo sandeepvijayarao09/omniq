@@ -95,10 +95,6 @@ def embed_one(text: str, kind: str = "query") -> list[float]:
     return list(_embed_one_cached(text, kind))
 
 
-def dim() -> int:
-    return len(embed_one("dimension probe", "document"))
-
-
 def rerank(query: str, docs: list[str], top_k: int) -> list[tuple[int, float]]:
     """(index, score) pairs, best first: reciprocal-rank fusion of dense cosine and BM25."""
     if not docs:

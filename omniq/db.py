@@ -52,7 +52,7 @@ def use(database: Database) -> Database:
     return database
 
 
-def ensure_indexes(wait: bool = True) -> None:
+def ensure_indexes() -> None:
     d = db()
     d.users.create_index("id", unique=True)
     d.objects.create_index("id", unique=True)

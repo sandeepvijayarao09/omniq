@@ -172,9 +172,6 @@ def _rewrite(question: str, cfg: dict[str, Any]) -> str:
 
 
 MAX_QUESTION_CHARS = 2000
-IMPROVE_RX = re.compile(r"^\s*(make it|can you make|please make|shorter|longer|more (detail|concise|specific)|less |"
-                        r"too (long|short|vague)|add (the|a|more)|include |rewrite|rephrase|improve|instead|be more|"
-                        r"you (missed|forgot)|that'?s (wrong|missing|not)|missing |use a table|bullet)", re.I)
 SELF_REF = re.compile(r"\b(i|my|me|mine|we|our|us)\b", re.I)
 
 

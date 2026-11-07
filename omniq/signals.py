@@ -32,12 +32,6 @@ NOT_FOUND = re.compile(r"(couldn'?t|could not|unable to) find|not (in|contain(ed
                        r"|don'?t contain", re.I)
 
 
-def _aware(t: Any) -> dt.datetime | None:
-    if isinstance(t, dt.datetime):
-        return t if t.tzinfo else t.replace(tzinfo=dt.timezone.utc)
-    return None
-
-
 def _kinds_by_event(event_ids: list[str]) -> dict[str, set[str]]:
     """Negative signal kinds per episode id, across every local signal collection."""
     out: dict[str, set[str]] = defaultdict(set)
@@ -126,5 +120,3 @@ def cycle_evidence(user_id: str, since: dt.datetime, until: dt.datetime) -> dict
     return {"status": "ok", "events": len(eps), "signals": dict(sig), "flagged": flagged}
 
 
-def event_total() -> int:
-    return db().episodes.count_documents({"source": "chat"})

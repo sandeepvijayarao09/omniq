@@ -158,10 +158,6 @@ def lineage(role: str) -> list[dict[str, Any]]:
     return list(db().harness.find({"role": role}, {"_id": 0}).sort("version", 1))
 
 
-class PatchRejected(ValueError):
-    pass
-
-
 def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
     """Return reasons the patch is unsafe or out of bounds (empty list = OK)."""
     problems: list[str] = []

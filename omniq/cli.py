@@ -41,11 +41,8 @@ def main() -> None:
     kn = sub.add_parser("knowledge", help="improve the structured-data engine's term definitions from pushback (governed)")
     kn.add_argument("--days", type=int, default=7)
     sub.add_parser("sync-agents", help="reload agent template files; carry tool changes into new playbook versions")
-    sub.add_parser("demo-reset", help="put the system into the exact demo state (judge-proof)")
     cy = sub.add_parser("cycle", help="run the 7-day improvement cycle for a person")
     cy.add_argument("--user", required=True)
-    sw = sub.add_parser("simulate-week", help="replay a realistic week of decisions for a person (backdated)")
-    sw.add_argument("--user", required=True)
     rs = sub.add_parser("reset-harness", help="put a role back on the default harness (keeps lessons)")
     rs.add_argument("--role", default="pro")
     lg = sub.add_parser("lineage")
@@ -110,23 +107,6 @@ def main() -> None:
 
         r = cycles.run(args.user)
         _print({k: r.get(k) for k in ("totals", "per_agent", "summary", "learned", "persona_change", "agent_recommendations", "analyst_error")})
-    elif args.cmd == "simulate-week":
-        from . import simulate_week
-
-        _print(simulate_week.run(args.user))
-    elif args.cmd == "demo-reset":
-        from . import governance
-
-        harness.reset_role("agent:security_agent")  # starts below 100%, so the live run has work to do
-        db().evolve_runs.delete_many({"role": "agent:security_agent"})
-        db().harness.update_many({"status": "candidate"}, {"$set": {"status": "abandoned"}})
-        db().scope_policy.delete_many({})
-        db().locks.delete_many({})
-        governance.recover(stale_minutes=0)
-        waiting = [f"{v['role']} v{v['version']}" for v in db().harness.find({"status": "awaiting_approval"})]
-        _print({"security_agent": [(v["version"], v["status"]) for v in harness.lineage("agent:security_agent")],
-                "awaiting_approval": waiting, "locks": 0,
-                "next": "start the API with: OA_AUTO_EVOLVE_MINUTES=0 OA_CYCLES=off .venv/bin/oa serve"})
     elif args.cmd == "agents":
         from . import agents as ag
 

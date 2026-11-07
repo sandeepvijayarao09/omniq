@@ -134,7 +134,7 @@ def context_chart():
     s.box(310, 30, 100, 40, "403", [], "red")
     s.box(470, 90, 200, 66, "🔎 Local retrieval", ["ACL pre-filtered vectors + BM25", "ontology graph · project docs"], "teal")
     # context stack
-    s.add(f'<rect x="700" y="34" width="296" height="180" rx="12" fill="#fbfcfd" stroke="#c9d4df" stroke-width="1.5" stroke-dasharray="6 5"/>')
+    s.add('<rect x="700" y="34" width="296" height="180" rx="12" fill="#fbfcfd" stroke="#c9d4df" stroke-width="1.5" stroke-dasharray="6 5"/>')
     s.text(848, 54, "CONTEXT LAYERS · context_layers", 10.5, 800, C["mute"])
     for i, (t, sub, col) in enumerate([("📄 Role", "what this role needs", "blue"), ("🧑 Persona", "projects · scope · learned", "green"),
                                         ("🤖 Agent", "procedure · template · rules", "violet"), ("🧠 Memory", "preferences · recent turns", "amber")]):

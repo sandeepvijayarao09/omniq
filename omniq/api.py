@@ -731,25 +731,25 @@ def governance_status(scope: str, authorization: str = Header(default="")) -> di
 
 @app.post("/api/governance/{scope}/approve/{version}")
 def approve(scope: str, version: int, uid: str = Depends(current_user)) -> dict[str, str]:
-    governance.approve(scope, version, uid, assistant.get_user(uid).role)
+    governance.approve(scope, version, uid)
     return {"ok": f"{scope} v{version} promoted"}
 
 
 @app.post("/api/governance/{scope}/reject/{version}")
 def reject(scope: str, version: int, body: RejectReq, uid: str = Depends(current_user)) -> dict[str, str]:
-    governance.reject(scope, version, uid, assistant.get_user(uid).role, body.reason)
+    governance.reject(scope, version, uid, body.reason)
     return {"ok": f"{scope} v{version} rejected"}
 
 
 @app.post("/api/governance/{scope}/rollback/{version}")
 def manual_rollback(scope: str, version: int, uid: str = Depends(current_user)) -> dict[str, str]:
-    governance.rollback(scope, version, uid, assistant.get_user(uid).role)
+    governance.rollback(scope, version, uid)
     return {"ok": f"{scope} is back on v{version}"}
 
 
 @app.post("/api/governance/{scope}/freeze")
 def freeze(scope: str, body: FreezeReq, uid: str = Depends(current_user)) -> dict[str, Any]:
-    governance.freeze(scope, body.frozen, uid, assistant.get_user(uid).role)
+    governance.freeze(scope, body.frozen, uid)
     return {"frozen": body.frozen}
 
 
