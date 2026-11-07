@@ -35,7 +35,19 @@ INJECTION = re.compile(
     r"|system prompt|you are now|developer mode|jailbreak|bypass|override (the )?(acl|access|policy|guard)"
     r"|(show|reveal|leak|dump|export|list) (me )?(all|every|other)( \w+)? (salar|document|employee|record|data|file)"
     r"|without (any )?(restriction|filter|redaction)|disable (pii|privacy|redaction|audit|tokeni)"
-    r"|(un)?tokeni[sz]e|raw (names|emails|data)|\[(person|email|phone)_\d+\]", re.I)
+    r"|(un)?tokeni[sz]e|raw (names|emails|data)|\[(person|email|phone)_\d+\]"
+    # restriction-defeating verbs as a family (the red-team suite found "disregard prior restrictions" got through)
+    r"|(disregard|ignore|override|circumvent|skip|bypass|lift|relax) (all |any |the |prior |previous |earlier |existing )*"
+    r"(restrictions?|rules|polic(y|ies)|instructions|access|permissions?|controls?|guards?|limits?|checks?)"
+    r"|regardless of (the )?(access|permissions?|role|clearance|category|categories)"
+    r"|as if (they|the user|the asker|you) (were|was|are) (an? )?(admin|executive|cto|ceo|manager)", re.I)
+
+
+def _deobfuscate(text: str) -> str:
+    """Collapse letter-spaced words ("i g n o r e" → "ignore"), drop zero-width characters, single-space the rest."""
+    text = re.sub(r"[\u200b-\u200f\u2060\ufeff]", "", text)
+    text = re.sub(r"\b(?:\w ){2,}\w\b", lambda m: m.group(0).replace(" ", ""), text)
+    return re.sub(r"\s+", " ", text)
 
 KNOB_TYPES = {("retrieval", "top_k"): int, ("retrieval", "num_candidates"): int, ("retrieval", "rerank"): bool,
               ("retrieval", "query_rewrite"): bool, ("retrieval", "hybrid"): bool, ("retrieval", "graph_context"): bool,
@@ -43,7 +55,9 @@ KNOB_TYPES = {("retrieval", "top_k"): int, ("retrieval", "num_candidates"): int,
               ("context", "include_memories"): bool, ("model", "max_tokens"): int,
               ("model", "temperature"): (int, float), ("guardrails", "abstain_when_unsupported"): bool,
               ("guardrails", "cite_sources"): bool, ("ontology", "entity_linking"): bool,
-              ("ontology", "mention_boost"): bool, ("ontology", "hops"): int}
+              ("ontology", "mention_boost"): bool, ("ontology", "hops"): int,
+              ("context", "expand_documents"): bool, ("retrieval", "structured_min_coverage"): (int, float),
+              ("retrieval", "structured_min_catalog"): (int, float), ("retrieval", "answerability_min"): (int, float)}
 
 
 def _now() -> dt.datetime:
@@ -54,7 +68,9 @@ def _now() -> dt.datetime:
 
 def screen(text: str) -> list[str]:
     """Reasons this text looks like an attempt to steer the agent past its controls (empty = clean)."""
-    hits = [m.group(0) for m in INJECTION.finditer(text or "")]
+    text = text or ""
+    hits = [m.group(0) for m in INJECTION.finditer(text)]
+    hits += [m.group(0) for m in INJECTION.finditer(_deobfuscate(text)) if m.group(0) not in hits]
     return [f"suspicious phrase: '{h}'" for h in hits[:3]]
 
 

@@ -159,10 +159,20 @@ def lineage(role: str) -> list[dict[str, Any]]:
     return list(db().harness.find({"role": role}, {"_id": 0}).sort("version", 1))
 
 
+# Settings a patch may set inside each block: the defaults' keys, plus knobs that default to absent. Anything else is
+# refused even if nothing reads it today, so a patch can't plant a setting a later version might honour.
+KNOWN_KEYS = {block: set(DEFAULT_HARNESS[block]) for block in ("retrieval", "context", "model", "guardrails", "ontology")}
+KNOWN_KEYS["retrieval"] |= {"hybrid"}
+
+
 def validate_patch(config: dict[str, Any], patch: dict[str, Any]) -> list[str]:
     """Return reasons the patch is unsafe or out of bounds (empty list = OK)."""
     problems: list[str] = []
     for key, val in patch.items():
+        if key in KNOWN_KEYS and isinstance(val, dict):
+            unknown = sorted(set(val) - KNOWN_KEYS[key])
+            if unknown:
+                problems.append(f"unknown setting(s) {', '.join(f'{key}.{k}' for k in unknown)}")
         if key == "invariants":
             problems.append("patch touches locked invariants")
             continue

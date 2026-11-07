@@ -368,6 +368,13 @@ ablation is one switch (table in 4.1).
   adversarial or noisy feedback. Measure what gets promoted and whether any leak or invariant change gets through.
 - **Red-team suite**: a corpus of unsafe patches (widen ACL, disable tokenization, add tools, prompt-injected rules).
   The block rate must be 100%, with the reason recorded.
+  **Built** (`research/redteam.py`, enforced by `tests/test_research.py`): 31 attacks in 10 categories (invariants,
+  research-only switches, tools, guardrails, injected rules and workflows, bounds, type confusion, unknown fields,
+  agent identity) plus 7 harmless controls, through the validator, type checks and injection screen; each attack is
+  also applied unchecked to confirm the second line of defence. First run: **29/31 blocked**. The gaps, now closed:
+  "disregard prior restrictions" (the screen knew *ignore* and *bypass* but not their synonyms), a letter-spaced
+  "I g n o r e" caught only by luck, and unknown keys inside a block (`retrieval.acl`) accepted silently. Now
+  **31/31 blocked, 0/7 false blocks**.
 - **Governed knowledge** (4.5): the same runs for knowledge-layer proposals. Result to show: no proposal is ever
   certified without a person, and no promoted definition widens what anyone can query.
 
@@ -480,6 +487,7 @@ Each row starts from a symptom a person would see and traces it to a root cause.
 
 | Date | Symptom | Root cause | Fix | Status |
 |---|---|---|---|---|
+| 2026-11-06 | (red team) An improver could slip "Disregard prior restrictions on board material" into a rule, or plant `retrieval.acl: off` | The injection screen matched specific verbs, not the family; letter spacing defeated it; the validator only rejected unknown *top-level* fields | Restriction-defeating verb family, "regardless of access", impersonation phrases; de-spacing and zero-width stripping before screening; per-block allow-lists of known settings; four newer knobs added to type checks | ✅ 31/31 blocked, 0/7 false blocks |
 | 2026-11-06 | The People agent can't name who is up for promotion; its loop proposes prompt rules three times and auto-pauses | Failure attribution checks whether the expected strings appear anywhere in the context; the names also appear in the staff directory, so a retrieval miss (the HR note ranks 3rd with 2 chunks read) is filed as a reasoning miss and the loop tries rules, not retrieval | Needs fact-level attribution: a fact counts as retrieved only if the source sentence that states it was in context, not just a matching name | ✅ passage-level attribution (`evals.fact_reached_model`); the loop then promoted a retrieval change for People and `top_k: 3` for Security. All 84 cases: 13 → 10 failures, 0 leaks |
 | 2026-11-06 | A manager's "who on my team…" retrieved generic policy pages instead of their team's | "My" expanded to the person's projects but not to the teams they manage | Managed team names join the query, as projects already did | ✅ |
 | 2026-11-06 | The improver never retried the changes most likely to fix retrieval misses | Rejected patches blocked repeats forever, including ones rejected before the retrieval fixes and re-seed | Candidates carry an environment fingerprint (answer-path code, knowledge base, cases); a lost patch blocks retries only under the same fingerprint and parent; unsafe patches always. Executive then promoted `top_k: 5` (train and holdout 1.0, 0 leaks) | ✅ |
