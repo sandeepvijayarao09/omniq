@@ -23,9 +23,10 @@ a about above after again against all also am an and any are as at be because be
 but by can could did do does doing done down during each few for from further had has have having he her here hers
 him his how i if in into is it its just me more most my no nor not now of off on once only or other our ours out over
 own same she should so some such than that the their them then there these they this those through to too under until
-up very was we were what when where which while who whom why will with would you your yours
+up very was we were what when where which while who whom whose why will with would you your yours
 tell show give list find explain describe summarize summarise please know need want let get make anything something
 much many long often total number amount currently current today latest recent last next first new old us company team
+soonest earliest highest lowest largest smallest biggest top bottom best worst most least average sum count per each every
 """.split())
 
 

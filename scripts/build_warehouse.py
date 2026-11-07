@@ -207,11 +207,27 @@ def postgres_sql(T: list[dict[str, Any]]) -> str:
     return "\n".join(out) + "\n"
 
 
+def _vocabulary(t: dict[str, Any]) -> dict[str, list[str]]:
+    """Short categorical values per text column (health, stage, tier…), which questions name directly.
+    Free text, names, ids and contact details are left out."""
+    out = {}
+    for i, (c, typ, key, _) in enumerate(t["columns"]):
+        if typ != "text" or key or c in ("name", "email", "phone", "summary", "description", "next_step", "key_terms"):
+            continue
+        vals = sorted({str(r[i]) for r in t["rows"] if r[i] is not None})
+        if 0 < len(vals) <= 8 and all(len(v) <= 24 for v in vals):
+            out[c] = vals
+    return out
+
+
 def catalog(T: list[dict[str, Any]]) -> dict[str, Any]:
+    """What Omniq knows about the warehouse without asking the engine: tables, columns, their descriptions and
+    categorical values, each table with its access category. Used for access checks and answerability."""
     acl = structured.load_acl()
     return {"database": "halcyon", "tables": [
         {"name": t["name"], "category": structured.table_category(t["name"], acl), "rows": len(t["rows"]),
-         "columns": [c for c, *_ in t["columns"]], "description": t["comment"]} for t in T]}
+         "columns": [c for c, *_ in t["columns"]], "description": t["comment"],
+         "column_notes": {c: note for c, _, _, note in t["columns"] if note}, "values": _vocabulary(t)} for t in T]}
 
 
 def main() -> None:

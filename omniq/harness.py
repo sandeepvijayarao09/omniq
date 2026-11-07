@@ -25,7 +25,8 @@ DEFAULT_HARNESS: dict[str, Any] = {
     "rules": [],
     "retrieval": {"top_k": 2, "num_candidates": 20, "rerank": False, "query_rewrite": False,
                   "graph_context": False, "use_lessons": False,
-                  "structured_min_coverage": 0.5, "answerability_min": 0.0},
+                  "structured_min_coverage": 0.5, "structured_min_catalog": 0.6,
+                  "answerability_min": 0.0},
     "context": {"max_chunk_chars": 900, "include_memories": True},
     "tools": ["search_docs"],
     "model": {"temperature": 0.0, "max_tokens": 500},
@@ -55,7 +56,7 @@ ONTOLOGY_RESEARCH_ONLY = {"property_acl", "link_acl", "tokenize_facts"}  # the i
 MAX_STEPS, MAX_TEMPLATE_CHARS = 8, 600
 ALLOWED_TOOLS = {"search_docs", "ontology_lookup", "memory_recall", "structured_query"}
 LIMITS = {"top_k": (1, 12), "num_candidates": (10, 200), "max_chunk_chars": (200, 2500),
-          "max_tokens": (100, 1500), "temperature": (0.0, 1.0), "structured_min_coverage": (0.2, 0.95),
+          "max_tokens": (100, 1500), "temperature": (0.0, 1.0), "structured_min_coverage": (0.2, 0.95), "structured_min_catalog": (0.3, 0.95),
           "answerability_min": (0.0, 0.9), "hops": (1, 2)}
 GUARDRAILS_ONE_WAY = {"abstain_when_unsupported", "cite_sources"}  # may be turned on, never off
 

@@ -52,13 +52,38 @@ def table_category(name: str, acl: dict[str, Any] | None = None) -> str:
 
 
 @lru_cache(maxsize=1)
-def known_tables() -> frozenset[str]:
-    """Qualified table names from the warehouse catalog, used to resolve unqualified names in SQL."""
+def catalog() -> list[dict[str, Any]]:
+    """The warehouse catalog written by scripts/build_warehouse.py (tables, columns, notes, values, category)."""
     f = Path(os.environ.get("OA_DATA_DIR", ROOT / "var")) / "warehouse" / "catalog.json"
     try:
-        return frozenset(t["name"].lower() for t in json.loads(f.read_text())["tables"])
+        return list(json.loads(f.read_text())["tables"])
     except (OSError, ValueError, KeyError):
-        return frozenset()
+        return []
+
+
+@lru_cache(maxsize=1)
+def known_tables() -> frozenset[str]:
+    """Qualified table names from the warehouse catalog, used to resolve unqualified names in SQL."""
+    return frozenset(t["name"].lower() for t in catalog())
+
+
+def catalog_coverage(user, question: str) -> dict[str, Any]:
+    """Omniq's own answerability check, independent of the engine: are the question's terms present in the tables
+    this person may query (names, columns, column notes, categorical values)? The engine's coverage grade is an
+    embedding-distance cut-off tuned for its default embedder and scored a question about advertising spend as fully
+    covered on local embeddings, then invented SQL for it. Restricted tables are left out, so they grade like
+    nonexistent ones."""
+    from . import answerability, iam
+
+    allowed = iam.categories(user)
+    sources = []
+    for t in catalog():
+        if t.get("category") not in allowed:
+            continue
+        words = [t["name"], *t.get("columns", []), t.get("description", ""), *t.get("column_notes", {}).values(),
+                 *(v for vals in t.get("values", {}).values() for v in vals)]
+        sources.append({"title": t["name"], "text": " ".join(str(w).replace("_", " ") for w in words)})
+    return answerability.grade(question, sources)
 
 
 def sql_tables(sql: str) -> list[str] | None:
@@ -240,6 +265,8 @@ def _shared_token() -> str:
 
 
 def _rows(raw: Any) -> list[dict[str, Any]]:
+    """Rows as dicts from any shape the engine uses. Auto Ontology v1.2.0 sends a list of JSON strings, each an
+    array of row objects: `["[{\"sum\": 730000.0}]"]`."""
     if isinstance(raw, str):
         try:
             raw = json.loads(raw)
@@ -249,7 +276,15 @@ def _rows(raw: Any) -> list[dict[str, Any]]:
         if isinstance(raw.get("rows"), list) and isinstance(raw.get("columns"), list):
             return [dict(zip(raw["columns"], r)) for r in raw["rows"]]
         raw = raw.get("data") or raw.get("rows") or []
-    return [r for r in raw if isinstance(r, dict)] if isinstance(raw, list) else []
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for r in raw:
+        if isinstance(r, dict):
+            out.append(r)
+        elif isinstance(r, (str, list)):  # a nested result set, possibly JSON-encoded
+            out += _rows(r)
+    return out
 
 
 _engine: Engine | None = None
@@ -280,6 +315,10 @@ def query(user, question: str, cfg: dict[str, Any], eng: Engine | None = None) -
         return rec
     if not iam.allowed(user, "data:query", "data:warehouse/halcyon"):
         return {**rec, "status": "denied", "reason": "IAM: data:query not allowed"}
+    cat = catalog_coverage(user, question)
+    rec.update(catalog_coverage=cat["coverage"], uncovered=cat["uncovered"])
+    if cat["coverage"] < float(knobs.get("structured_min_catalog", 0.6)):
+        return {**rec, "status": "unanswerable"}  # nothing in the data this person may query mentions these terms
     try:
         if not eng.available():
             return {**rec, "status": "unavailable"}

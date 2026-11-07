@@ -121,7 +121,8 @@ def _data_summary(rec: dict[str, Any] | None, vault: Vault | None = None) -> dic
     """What the episode keeps about a database lookup: never the rows, and the SQL tokenized like the question."""
     if not rec:
         return None
-    keep = ("status", "engine", "coverage", "uncovered", "sql", "tables", "row_count", "reason", "denied", "categories")
+    keep = ("status", "engine", "catalog_coverage", "coverage", "uncovered", "sql", "tables", "row_count", "reason",
+            "denied", "categories")
     out = {k: rec[k] for k in keep if k in rec}
     if vault and out.get("sql"):
         out["sql"] = vault.tokenize(out["sql"])

@@ -11,12 +11,15 @@ from omniq.policy import User
 DEV = User(id="emp-1001", name="Maya", role="pro", department="engineering", team="platform", title="Engineer")
 CTO = User(id="emp-1009", name="Marcus", role="executive", department="executive", title="Chief Technology Officer")
 TABLES = frozenset({"crm.customers", "crm.deals", "itsm.incidents", "itsm.systems", "finance.vendors",
-                    "finance.incident_service_credits", "board.strategic_projects", "directory.employees"})
+                    "finance.incident_service_credits", "board.strategic_projects", "directory.employees",
+                    "planning.projects"})
 
 
 @pytest.fixture(autouse=True)
 def _catalog(monkeypatch):
+    # Hermetic: never read var/warehouse/catalog.json.
     monkeypatch.setattr(structured, "known_tables", lambda: TABLES)
+    monkeypatch.setattr(structured, "catalog", lambda: CATALOG)
 
 
 def test_sql_tables_finds_base_tables_not_ctes():
@@ -93,7 +96,8 @@ def test_low_coverage_means_abstain_without_running_sql():
 
 def test_denied_tables_withhold_rows_and_reveal_nothing():
     eng = FakeEngine(sql="SELECT name, budget FROM board.strategic_projects", rows=({"name": "Project Bluefin", "budget": 18000000},))
-    rec = structured.query(DEV, "What's the budget of our strategic projects?", CFG, eng)
+    # The developer's own tables cover the question (planning.projects), but the engine's SQL reads a board table.
+    rec = structured.query(DEV, "What's the total budget of our projects?", CFG, eng)
     assert rec["status"] == "withheld" and "rows" not in rec and "answer" not in rec
     text = structured.as_source(rec)["text"]
     assert "18000000" not in text and "Bluefin" not in text
@@ -124,7 +128,8 @@ def _mock_ao(request: httpx.Request) -> httpx.Response:
         events = [{"type": "step", "label": "Resolved terms"},
                   {"type": "result", "answer": {"response": "Total ARR at risk is $730,000.",
                                                 "sql_code": "SELECT SUM(arr) AS arr FROM crm.customers WHERE health = 'At risk'",
-                                                "sql_response_from_db": [{"arr": 730000}]}}]
+                                                # the exact shape Auto Ontology v1.2.0 sends
+                                                "sql_response_from_db": ["[{\"arr\": 730000}]"]}}]
         body = "".join(f"data: {json.dumps(e)}\n\n" for e in events) + "data: [DONE]\n\n"
         return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
     return httpx.Response(404)
@@ -151,3 +156,42 @@ def test_what_the_person_sees_cannot_tell_withheld_from_unanswerable():
     ok = _data_view({"status": "ok", "sql": "SELECT 1 FROM crm.customers", "tables": ["crm.customers"], "row_count": 1,
                      "rows": [{"a": 1}], "answer": "x"})
     assert ok == {"status": "ok", "sql": "SELECT 1 FROM crm.customers", "tables": ["crm.customers"], "row_count": 1}
+
+
+def test_rows_parse_every_shape_the_engine_uses():
+    assert structured._rows(["[{\"sum\": 730000.0}]"]) == [{"sum": 730000.0}]
+    assert structured._rows([{"a": 1}, "[{\"a\": 2}]"]) == [{"a": 1}, {"a": 2}]
+    assert structured._rows({"columns": ["a"], "rows": [[1], [2]]}) == [{"a": 1}, {"a": 2}]
+    assert structured._rows("not json") == [] and structured._rows(None) == []
+
+
+CATALOG = [
+    {"name": "crm.customers", "category": "sales", "columns": ["customer_id", "arr", "health", "renewal_date"],
+     "description": "Customer accounts from the CRM", "column_notes": {"arr": "Annual recurring revenue in USD"},
+     "values": {"health": ["At risk", "Healthy", "Watch"]}},
+    {"name": "planning.projects", "category": "engineering", "columns": ["project_id", "name", "budget"],
+     "description": "Engineering and product projects", "column_notes": {"budget": "Budget in USD"}, "values": {}},
+    {"name": "board.strategic_projects", "category": "board", "columns": ["project_id", "budget"],
+     "description": "Board-only strategic projects", "column_notes": {}, "values": {}},
+]
+
+
+def test_catalog_answerability_rejects_what_the_data_never_mentions(monkeypatch):
+    monkeypatch.setattr(structured, "catalog", lambda: CATALOG)
+    assert structured.catalog_coverage(DEV, "What is the total revenue of at-risk customers?")["coverage"] == 1.0
+    g = structured.catalog_coverage(DEV, "What was our return on advertising spend last quarter?")
+    assert g["coverage"] < 0.6 and "advertising" in g["uncovered"]
+
+
+def test_catalog_answerability_only_sees_permitted_tables(monkeypatch):
+    monkeypatch.setattr(structured, "catalog", lambda: CATALOG)
+    q = "What is the budget of strategic projects?"
+    assert structured.catalog_coverage(CTO, q)["coverage"] == 1.0
+    assert structured.catalog_coverage(DEV, q)["coverage"] < 1.0   # graded as if the board table didn't exist
+
+
+def test_question_outside_the_catalog_never_reaches_the_engine(monkeypatch):
+    monkeypatch.setattr(structured, "catalog", lambda: CATALOG)
+    eng = FakeEngine()
+    rec = structured.query(DEV, "What was our return on advertising spend last quarter?", CFG, eng)
+    assert rec["status"] == "unanswerable" and eng.asked == 0
