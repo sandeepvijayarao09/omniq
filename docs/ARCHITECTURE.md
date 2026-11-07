@@ -403,6 +403,27 @@ post-filter) needs a retrieval mode that doesn't exist yet.
 
 ---
 
+### 7.6 Results so far
+
+**Claim A, OrgQA dev split (107 cases), local Gemma 4 e4b, seed 1** (`research/results/claim-a/`, regenerate with
+`research/analyze.py --split dev`):
+
+| Condition | Answer accuracy | Leak rate | Exposure | Abstain recall | Abstain precision |
+|---|---|---|---|---|---|
+| B3 hybrid retrieval | 57.3% | 0.0% | 0.0% | 100% | 48.0% |
+| O2 full ontology | **92.7%** | 0.0% | 0.0% | 100% | **96.0%** |
+
+O2 − B3: **+35.4 points, 95% CI [+25.6, +46.3], exact McNemar p ≈ 4×10⁻⁹** over 82 paired answer cases. The gain is
+where the claim predicts: relational 59.5% → 100%, single fact 31.2% → 87.5%, permission probes 0% → 100% (B3 can't
+answer object-scoped questions it may answer). Aggregation is 0% for both: totals need the database path (O3, running).
+
+**What the first run taught us:** it reported 8.3% leaks in *both* conditions. Both were benchmark label flaws, not
+system leaks: public plan names used as leak targets, and a "restricted" figure the persona can read in a document
+the validator missed (it matched only the subject's full name within one chunk). Fixed in `research/orgqa.py`
+(aliases via the ontology's linker, whole documents, no leak cases on public values); 548 → 533 cases.
+
+**Caveats:** one seed, one model, dev split only; the test split stays untouched until the conditions are final.
+
 ## 8. Roadmap
 
 | Phase | Scope | Exit criteria | Status |
