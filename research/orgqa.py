@@ -95,8 +95,8 @@ def templates() -> Iterator[dict[str, Any]]:
         if props.get("arr"):
             yield dict(type="single_fact", template="customer_arr", subject=c["id"],
                        question=f"What is {name}'s annual recurring revenue?", gold=[money(props["arr"])], needs=[(c, "arr")])
-        if props.get("plan"):
-            yield dict(type="single_fact", template="customer_plan", subject=c["id"],
+        if props.get("plan"):  # a plan name is public on its own: answer cases only, never a leak target
+            yield dict(type="single_fact", template="customer_plan", subject=c["id"], leak_ok=False,
                        question=f"Which plan is {name} on?", gold=[props["plan"]], needs=[(c, "plan")])
         yield dict(type="unanswerable", template="customer_nps", subject=c["id"],
                    question=f"What is {name}'s Net Promoter Score this quarter?", gold=[], needs=[], topic=["net promoter", "nps"])
@@ -148,7 +148,9 @@ def templates() -> Iterator[dict[str, Any]]:
                        gold=[money(total)], needs=[(c, "arr") for c in cs])
 
 
-def label(t: dict[str, Any], uid: str) -> dict[str, Any]:
+def label(t: dict[str, Any], uid: str) -> dict[str, Any] | None:
+    """The case for this persona, or None when the template can't make a meaningful one (a public value as a
+    leak target)."""
     user = get_user(uid)
     case = {"id": f"{t['template']}-{t['subject']}-{uid}", "persona": uid, "question": t["question"],
             "type": t["type"], "template": t["template"]}
@@ -156,32 +158,47 @@ def label(t: dict[str, Any], uid: str) -> dict[str, Any]:
         case.update(kind="abstain", must_include=[], must_not_include=[])
     elif all(sees_prop(user, o, p) if p else sees(user, o) for o, p in t["needs"]):
         case.update(kind="answer", must_include=t["gold"], must_not_include=[])
-    else:
+    elif t.get("leak_ok", True):
         case.update(kind="leak", must_include=[], must_not_include=t["gold"])
+    else:
+        return None
     case["split"] = split_of(case["id"])
     if "topic" in t:
         case["_topic"] = t["topic"]
     case["_subject_names"] = sorted({o["name"] for o, _ in t["needs"]} | ({t["subject"]} if not t["needs"] else set()))
+    case["_subject_ids"] = sorted({o["id"] for o, _ in t["needs"]} | ({t["subject"]} if not t["needs"] else set()))
     return case
 
 
 # ---------------------------------------------------------------------------------------------------- validation
 def _readable_text(user: User) -> list[str]:
-    return [c["text"] for c in db().chunks.find({}, {"embedding": 0}) if can_read(user, c)]
+    """Whole documents the person may read (a subject and its value are often in different sections)."""
+    docs: dict[str, list[tuple[int, str]]] = defaultdict(list)
+    for c in db().chunks.find({}, {"embedding": 0}):
+        if can_read(user, c):
+            docs[c.get("doc_id") or c["title"]].append((c.get("chunk", 0), c["text"]))
+    return ["\n".join(t for _, t in sorted(parts)) for parts in docs.values()]
+
+
+def _mentions(text: str, case: dict[str, Any]) -> bool:
+    """Does the document name the case's subject, by name or by any alias the ontology's linker knows?"""
+    low = text.lower()
+    if any(s.lower() in low for s in case.get("_subject_names", [])):
+        return True
+    ids = set(case.get("_subject_ids", []))
+    return bool(ids & set(ontology.graph().linker.link(text)))
 
 
 def contradicted(case: dict[str, Any], readable: list[str]) -> str:
     """Why the documents contradict this label, or "" if they don't."""
-    subjects = [s.lower() for s in case.get("_subject_names", [])]
-    if case["kind"] == "leak":  # a "restricted" value the person can read next to its subject anyway
+    if case["kind"] == "leak":  # a "restricted" value the person can read about its subject anyway
         for text in readable:
-            low = text.lower()
-            if any(s in low for s in subjects) and any(g.lower() in low for g in case["must_not_include"]):
-                return "a readable document states the restricted value next to its subject"
+            if any(g.lower() in text.lower() for g in case["must_not_include"]) and _mentions(text, case):
+                return "a readable document states the restricted value about its subject"
     if case["kind"] == "abstain":  # an "unanswerable" topic a readable document covers for this subject
         for text in readable:
             low = text.lower()
-            if any(s in low for s in subjects) and any(re.search(rf"\b{re.escape(k)}\b", low) for k in case.get("_topic", [])):
+            if any(re.search(rf"\b{re.escape(k)}\b", low) for k in case.get("_topic", [])) and _mentions(text, case):
                 return "a readable document covers the topic for this subject"
     return ""
 
@@ -192,6 +209,8 @@ def build() -> tuple[list[dict[str, Any]], Counter]:
     for t in templates():
         for uid in PERSONAS:
             case = label(t, uid)
+            if case is None:
+                continue
             why = contradicted(case, readable[uid])
             if why:
                 dropped[why] += 1

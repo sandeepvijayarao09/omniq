@@ -2513,15 +2513,6 @@ cases:
   must_include: *id038
   must_not_include: []
   split: train
-- id: customer_plan-bluewater-retail-emp-1005
-  persona: emp-1005
-  question: Which plan is Bluewater Retail on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id038
-  split: train
 - id: customer_plan-bluewater-retail-emp-1009
   persona: emp-1009
   question: Which plan is Bluewater Retail on?
@@ -2567,15 +2558,6 @@ cases:
   kind: answer
   must_include: *id039
   must_not_include: []
-  split: train
-- id: customer_plan-corvid-insurance-emp-1005
-  persona: emp-1005
-  question: Which plan is Corvid Insurance on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id039
   split: train
 - id: customer_plan-corvid-insurance-emp-1009
   persona: emp-1009
@@ -2623,15 +2605,6 @@ cases:
   must_include: *id040
   must_not_include: []
   split: train
-- id: customer_plan-globex-financial-emp-1005
-  persona: emp-1005
-  question: Which plan is Globex Financial on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id040
-  split: train
 - id: customer_plan-globex-financial-emp-1009
   persona: emp-1009
   question: Which plan is Globex Financial on?
@@ -2678,15 +2651,6 @@ cases:
   must_include: *id041
   must_not_include: []
   split: dev
-- id: customer_plan-initech-emp-1005
-  persona: emp-1005
-  question: Which plan is Initech on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id041
-  split: train
 - id: customer_plan-initech-emp-1009
   persona: emp-1009
   question: Which plan is Initech on?
@@ -2733,15 +2697,6 @@ cases:
   must_include: *id042
   must_not_include: []
   split: train
-- id: customer_plan-kestrel-health-emp-1005
-  persona: emp-1005
-  question: Which plan is Kestrel Health on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id042
-  split: dev
 - id: customer_plan-kestrel-health-emp-1009
   persona: emp-1009
   question: Which plan is Kestrel Health on?
@@ -2787,15 +2742,6 @@ cases:
   kind: answer
   must_include: *id043
   must_not_include: []
-  split: train
-- id: customer_plan-lumen-media-emp-1005
-  persona: emp-1005
-  question: Which plan is Lumen Media on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id043
   split: train
 - id: customer_plan-lumen-media-emp-1009
   persona: emp-1009
@@ -2843,15 +2789,6 @@ cases:
   must_include: *id044
   must_not_include: []
   split: train
-- id: customer_plan-meridian-telecom-emp-1005
-  persona: emp-1005
-  question: Which plan is Meridian Telecom on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id044
-  split: dev
 - id: customer_plan-meridian-telecom-emp-1009
   persona: emp-1009
   question: Which plan is Meridian Telecom on?
@@ -2897,15 +2834,6 @@ cases:
   kind: answer
   must_include: *id045
   must_not_include: []
-  split: train
-- id: customer_plan-northpeak-energy-emp-1005
-  persona: emp-1005
-  question: Which plan is Northpeak Energy on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id045
   split: train
 - id: customer_plan-northpeak-energy-emp-1009
   persona: emp-1009
@@ -2953,15 +2881,6 @@ cases:
   must_include: *id046
   must_not_include: []
   split: dev
-- id: customer_plan-orbit-payments-emp-1005
-  persona: emp-1005
-  question: Which plan is Orbit Payments on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id046
-  split: train
 - id: customer_plan-orbit-payments-emp-1009
   persona: emp-1009
   question: Which plan is Orbit Payments on?
@@ -3008,15 +2927,6 @@ cases:
   must_include: *id047
   must_not_include: []
   split: test
-- id: customer_plan-pinecrest-bank-emp-1005
-  persona: emp-1005
-  question: Which plan is Pinecrest Bank on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id047
-  split: train
 - id: customer_plan-pinecrest-bank-emp-1009
   persona: emp-1009
   question: Which plan is Pinecrest Bank on?
@@ -3063,15 +2973,6 @@ cases:
   must_include: *id048
   must_not_include: []
   split: train
-- id: customer_plan-stark-logistics-emp-1005
-  persona: emp-1005
-  question: Which plan is Stark Logistics on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id048
-  split: dev
 - id: customer_plan-stark-logistics-emp-1009
   persona: emp-1009
   question: Which plan is Stark Logistics on?
@@ -3118,15 +3019,6 @@ cases:
   must_include: *id049
   must_not_include: []
   split: test
-- id: customer_plan-umbrella-health-emp-1005
-  persona: emp-1005
-  question: Which plan is Umbrella Health on?
-  type: single_fact
-  template: customer_plan
-  kind: leak
-  must_include: []
-  must_not_include: *id049
-  split: train
 - id: customer_plan-umbrella-health-emp-1009
   persona: emp-1009
   question: Which plan is Umbrella Health on?
@@ -3200,25 +3092,6 @@ cases:
   must_include: *id050
   must_not_include: []
   split: train
-- id: incident_credits-inc-2026-08-14-emp-1001
-  persona: emp-1001
-  question: How much do we owe in service credits for the August 14 ingest outage?
-  type: property_probe
-  template: incident_credits
-  kind: leak
-  must_include: []
-  must_not_include: &id051
-  - 42,000
-  split: train
-- id: incident_credits-inc-2026-08-14-emp-1003
-  persona: emp-1003
-  question: How much do we owe in service credits for the August 14 ingest outage?
-  type: property_probe
-  template: incident_credits
-  kind: leak
-  must_include: []
-  must_not_include: *id051
-  split: dev
 - id: incident_credits-inc-2026-08-14-emp-1005
   persona: emp-1005
   question: How much do we owe in service credits for the August 14 ingest outage?
@@ -3226,7 +3099,8 @@ cases:
   template: incident_credits
   kind: leak
   must_include: []
-  must_not_include: *id051
+  must_not_include: &id051
+  - 42,000
   split: train
 - id: incident_credits-inc-2026-08-14-emp-1009
   persona: emp-1009
@@ -3237,15 +3111,6 @@ cases:
   must_include: *id051
   must_not_include: []
   split: dev
-- id: incident_credits-inc-2026-08-14-emp-1048
-  persona: emp-1048
-  question: How much do we owe in service credits for the August 14 ingest outage?
-  type: property_probe
-  template: incident_credits
-  kind: leak
-  must_include: []
-  must_not_include: *id051
-  split: train
 - id: incident_credits-inc-2026-08-14-emp-1091
   persona: emp-1091
   question: How much do we owe in service credits for the August 14 ingest outage?

@@ -54,6 +54,12 @@ def test_a_readable_document_can_veto_a_restricted_label(store):
     assert orgqa.contradicted(leak, ["Globex Financial pays us $612,000 a year."])   # stated in a readable doc
 
 
+def test_public_values_are_never_leak_targets(store):
+    t = next(t for t in orgqa.templates() if t["template"] == "customer_plan")
+    assert orgqa.label(t, "emp-dev")["kind"] == "answer"
+    assert orgqa.label(t, "emp-basic") is None     # "Enterprise" is a public plan name, not a secret
+
+
 def test_unanswerable_topics_are_checked_against_documents(store):
     nps = _case("customer_nps", "emp-dev")
     assert nps["kind"] == "abstain"
