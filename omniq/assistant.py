@@ -215,6 +215,23 @@ MAX_QUESTION_CHARS = 2000
 SELF_REF = re.compile(r"\b(i|my|me|mine|we|our|us)\b", re.I)
 
 
+@lru_cache(maxsize=1)
+def _team_names() -> dict[str, str]:
+    import yaml
+
+    from .config import settings
+
+    return dict(yaml.safe_load((settings.seed_dir / "org.yaml").read_text()).get("teams", {}))
+
+
+class _TeamNames:  # lazy, so importing this module never reads the seed
+    def get(self, key: str, default: str) -> str:
+        return _team_names().get(key, default)
+
+
+TEAM_NAMES = _TeamNames()
+
+
 class Forbidden(PermissionError):
     pass
 
@@ -279,6 +296,9 @@ def ask(user_id: str, question: str, *, agent_id: str | None = None, cfg_overrid
     my_projects = iam.user_projects(user.id) if personal_memory else []
     if my_projects and SELF_REF.search(question):  # "what should I…", "my projects": search with their projects
         query = f"{query} {' '.join(p['name'] for p in my_projects)}"
+    if user.manages and personal_memory and re.search(r"\b(my|our) (team|teams|reports|people|org)\b", question, re.I):
+        # "my team": a manager means the teams they run, whose notes rank below generic policy text otherwise
+        query = f"{query} {' '.join(TEAM_NAMES.get(t, t) for t in user.manages)} team"
     hits = retrieve.search_docs(user, query, cfg)
     if personal_memory:  # favour documents from the asker's own projects (still access-controlled)
         hits += retrieve.project_context(user, query, {(h.get("doc_id"), h.get("chunk")) for h in hits})
