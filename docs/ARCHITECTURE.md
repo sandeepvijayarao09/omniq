@@ -383,7 +383,15 @@ ablation is one switch (table in 4.1).
 - **Statistics**: paired bootstrap 95% confidence intervals; McNemar for paired accuracy; seeds fixed; three model
   families (a local small, a local medium, an external frontier model where available).
 
-### 7.5 Runner and results ⬜
+### 7.5 Runner and results 🟡
+
+**Built:** `research/run.py` (conditions B0, B2, B3, O1, O2, O3 over an OrgQA split; one JSONL row per case with the
+answer, grade, leak and *exposure* (a forbidden value in what the model was shown), sources, latency, tokens, and an
+environment block: git SHA, model, embedder, config hash, `harness.environment()`, benchmark hash) and
+`research/analyze.py` (accuracy overall and by type, leak and exposure rates, abstention recall and precision,
+paired-bootstrap 95% CIs and exact McNemar against a baseline; writes `summary-<split>.md`). Every condition uses the
+same retrieval budget (top_k 4) so only the named change differs; tests check that. **Not yet run.** B1 (ACL as a
+post-filter) needs a retrieval mode that doesn't exist yet.
 
 - `research/run.py --condition O2 --model local-gemma --split test --seed 1` writes one JSONL row per case, with:
   - inputs and the outbound payload (tokenized)
@@ -404,7 +412,7 @@ ablation is one switch (table in 4.1).
 | 1a. Structured data | Warehouse (3.17), adapter and table ACL (3.18), Auto Ontology running locally on Ollama (3.19), per-user tokens (4.8) | A Metrics agent answers a database question end to end with SQL and sources; a developer asking for board data gets the neutral refusal; e2e checks for both | 🟡 started 2026-11-05 |
 | 1b. Governed knowledge | 4.5, 4.6, 4.7 | Knowledge proposals pass the gates and land uncertified; red-team case for certified edits | ⬜ |
 | 2. Benchmark | OrgQA generator + hand cases; splits; human spot-check of gold labels | ≥300 cases, all types covered, label audit of a 10% sample | 🟡 generator, 548 cases, validator; hand cases and audit to do |
-| 3. Experiment runner | `research/run.py`, `analyze.py`, environment capture, bootstrap/McNemar | One full Claim A table regenerated from raw outputs | ⬜ |
+| 3. Experiment runner | `research/run.py`, `analyze.py`, environment capture, bootstrap/McNemar | One full Claim A table regenerated from raw outputs | 🟡 built and unit-tested; first run pending |
 | 4. Claim A experiments | B0–B3, O1, O2 and ablations × 2–3 models | Results with CIs; error analysis by question type | ⬜ |
 | 5. Claim B experiments | Self-improvement curves, gate ablations, red-team suite | Promotion/leak tables; red-team 100% blocked or documented | ⬜ |
 | 6. Agentic workflows + multimodal (port) | 4.3 | e2e for workflows and attachments | ⬜ |
