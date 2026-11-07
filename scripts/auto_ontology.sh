@@ -18,16 +18,20 @@ DIR="$ROOT/var/vendor/auto-ontology"
 SECRETS="$ROOT/var/auto-ontology.env"
 WAREHOUSE_SQL="$ROOT/var/warehouse/halcyon.postgres.sql"
 
-OLLAMA="${OA_AO_OLLAMA_URL:-http://host.docker.internal:11434/v1}"
+# Chat and embeddings go through scripts/ollama_proxy.py: it turns Gemma 4's hidden reasoning off (otherwise
+# structured-output calls return empty content and time out) and serves 2048-d embeddings.
+OLLAMA="${OA_AO_OLLAMA_URL:-http://host.docker.internal:11435/v1}"
 # One model for both roles keeps memory in budget on a 24 GB laptop; set OA_AO_REASONING_MODEL=gemma4:12b with more RAM.
 REASONING_MODEL="${OA_AO_REASONING_MODEL:-gemma4-e4b-16k}"
 FAST_MODEL="${OA_AO_FAST_MODEL:-gemma4-e4b-16k}"
-# Auto Ontology's vector column is 2048-d; Qwen3-Embedding truncates cleanly, served at 2048 by scripts/embed_proxy.py.
-EMBED_MODEL="${OA_AO_EMBED_MODEL:-qwen3-embedding:4b}"
-EMBED_PROXY="${OA_AO_EMBED_URL:-http://host.docker.internal:11435/v1}"
+# The same 68 MB embedder Omniq uses; the proxy zero-pads it to Auto Ontology's fixed 2048-d column (cosine unchanged).
+# A 4 GB embedding model here pushed a 24 GB laptop into heavy swap.
+EMBED_MODEL="${OA_AO_EMBED_MODEL:-hf.co/CompendiumLabs/bge-base-en-v1.5-gguf:latest}"
 PG_PORT="${OA_AO_POSTGRES_PORT:-5433}"
 
 compose() { (cd "$DIR" && docker compose "$@"); }
+# Everything except pgAdmin, which is a database admin UI nobody here needs (and ~350 MB).
+SERVICES="postgres auto-ontology-migrate frontend-migrate ingestion-service auto-ontology auto-ontology-frontend"
 
 secret() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "${1:-32}"; }
 
@@ -75,7 +79,7 @@ NON_REASONING_API_KEY=ollama
 NON_REASONING_ENDPOINT=$OLLAMA
 NON_REASONING_MODEL=$FAST_MODEL
 EMBED_API_KEY=ollama
-EMBED_ENDPOINT=$EMBED_PROXY
+EMBED_ENDPOINT=$OLLAMA
 EMBED_MODEL=$EMBED_MODEL
 # No local reranker: Auto Ontology only reranks bridge-table candidates at compile time and tolerates failure.
 RERANK_ENDPOINT=http://127.0.0.1:9/v1/ranking
@@ -95,12 +99,13 @@ EOF
 ensure_models() {
   # Ollama's OpenAI endpoint uses the model's default 4k context, too small for schema-heavy prompts.
   ollama show gemma4-e4b-16k >/dev/null 2>&1 || ollama create gemma4-e4b-16k -f "$ROOT/config/ollama/gemma4-e4b-16k.Modelfile"
-  ollama show qwen3-embedding:4b >/dev/null 2>&1 || ollama pull qwen3-embedding:4b
+  ollama show "$EMBED_MODEL" >/dev/null 2>&1 || ollama pull "$EMBED_MODEL"
 }
 
-ensure_embed_proxy() {
-  if ! curl -sf -m 2 http://localhost:11435/ >/dev/null; then
-    nohup "$ROOT/.venv/bin/python" "$ROOT/scripts/embed_proxy.py" >"$ROOT/var/embed-proxy.log" 2>&1 &
+ensure_proxy() {
+  if ! curl -sf -m 2 http://localhost:11435/ | grep -q reasoning_effort; then
+    pkill -f "scripts/(embed|ollama)_proxy.py" 2>/dev/null || true
+    nohup "$ROOT/.venv/bin/python" "$ROOT/scripts/ollama_proxy.py" >"$ROOT/var/ollama-proxy.log" 2>&1 &
     sleep 1
   fi
 }
@@ -116,9 +121,9 @@ load_warehouse() {
 
 case "${1:-up}" in
   up)
-    ensure_source; ensure_secrets; write_env; ensure_models; ensure_embed_proxy
+    ensure_source; ensure_secrets; write_env; ensure_models; ensure_proxy
     load_warehouse
-    compose up -d --build
+    compose up -d --build $SERVICES
     echo "Auto Ontology: http://localhost:3000 (admin login in $SECRETS and $DIR/.env)"
     ;;
   load) ensure_secrets; load_warehouse ;;

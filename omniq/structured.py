@@ -91,10 +91,11 @@ def _qualify(name: str) -> str | None:
     return matches[0] if len(matches) == 1 else None
 
 
-def authorize(user, sql: str, focus: list[str] | None = None) -> dict[str, Any]:
+def authorize(user, sql: str) -> dict[str, Any]:
     """May this person see the result of this SQL? Fail closed on anything we can't attribute.
 
-    `focus` is the agent's focus categories: like document retrieval, it can narrow access, never widen it.
+    Only the person's own access decides. An agent's focus categories rank documents first but don't restrict
+    them, and tables follow the same rule, so an agent never withholds a figure the person could read elsewhere.
     """
     from . import iam
 
@@ -102,8 +103,6 @@ def authorize(user, sql: str, focus: list[str] | None = None) -> dict[str, Any]:
     if tables is None:
         return {"ok": False, "tables": [], "denied": [], "reason": "the query could not be parsed"}
     allowed = iam.categories(user)
-    if focus:
-        allowed = allowed & frozenset(focus)
     denied, unknown = [], []
     for t in tables:
         q = _qualify(t)
@@ -291,8 +290,7 @@ def query(user, question: str, cfg: dict[str, Any], eng: Engine | None = None) -
         res = eng.ask(question, user.id)
     except (EngineError, httpx.HTTPError) as e:
         return {**rec, "status": "error", "reason": str(e)[:200]}
-    focus = (cfg.get("agent") or {}).get("focus_categories") or None
-    gate = authorize(user, res.sql, focus) if res.sql else {"ok": False, "tables": [], "denied": [], "reason": "no SQL returned"}
+    gate = authorize(user, res.sql) if res.sql else {"ok": False, "tables": [], "denied": [], "reason": "no SQL returned"}
     rec.update(sql=res.sql, tables=gate["tables"], steps=res.steps[:20], row_count=res.row_count)
     if not gate["ok"]:
         return {**rec, "status": "withheld", "reason": gate["reason"], "denied": gate["denied"]}

@@ -49,10 +49,10 @@ def test_authorize_needs_every_table_and_fails_closed():
     assert structured.authorize(CTO, "SELECT * FROM board.strategic_projects")["ok"]
 
 
-def test_agent_focus_narrows_table_access_never_widens():
-    sql = "SELECT SUM(arr) FROM crm.customers"
-    assert not structured.authorize(CTO, sql, focus=["engineering", "general"])["ok"]
-    assert not structured.authorize(DEV, "SELECT * FROM board.strategic_projects", focus=["board"])["ok"]
+def test_only_the_persons_access_decides_not_the_agents_focus():
+    # Focus ranks documents but doesn't restrict them; tables follow the same rule.
+    assert structured.authorize(CTO, "SELECT SUM(amount) FROM finance.incident_service_credits")["ok"]
+    assert not structured.authorize(DEV, "SELECT * FROM board.strategic_projects")["ok"]
 
 
 class FakeEngine:

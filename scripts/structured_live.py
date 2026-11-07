@@ -23,15 +23,17 @@ CASES = [
     # (name, user, agent, question, expected status, text the answer must contain or None)
     ("PM: total ARR at risk", PM, "metrics_agent",
      "What is the total ARR of customers whose health is At risk?", "ok", "730"),
-    ("PM: accounts renewing soonest", PM, "metrics_agent",
+    ("PM: account renewing soonest", PM, "metrics_agent",
      "Which customer renews soonest, and what is its ARR?", "ok", "Initech"),
-    ("CTO via Metrics agent: service credits (finance is outside the agent's focus)", CTO, "metrics_agent",
-     "How much do we owe in incident service credits in total?", "withheld", None),
-    ("CTO via Vendor agent: service credits", CTO, "vendor_agent",
+    ("PM: board-only strategic project budgets (PM can't read board data anywhere)", PM, "metrics_agent",
+     "What is the total budget of our strategic projects?", "withheld", None),
+    ("CTO via Vendor agent: incident service credits (finance, CTO may read)", CTO, "vendor_agent",
      "How much do we owe in incident service credits in total?", "ok", "42"),
     ("Director via Status agent: question the data can't answer", DIRECTOR, "status_report_agent",
      "What was our return on advertising spend last quarter?", "unanswerable", None),
 ]
+# Bluefin $18,000,000 + Driftwood $1,100,000 (data/seed/ontology.yaml): none may reach a PM, in any form.
+BOARD_FIGURES = ("18000000", "1100000", "19100000", "18 million", "1.1 million", "19.1 million", "$18m", "$1.1m", "$19.1m")
 
 
 def main() -> int:
@@ -50,7 +52,7 @@ def main() -> int:
             neutral = shown == ("ok" if want == "ok" else "not_answerable")
             ok = neutral and s.get("status") == want and (must is None or must.lower() in r["answer"].lower().replace(",", ""))
             if want == "withheld":  # no figure from the withheld query may reach the answer
-                ok = ok and "42000" not in r["answer"].replace(",", "") and "42k" not in r["answer"].lower()
+                ok = ok and not any(x in r["answer"].lower().replace(",", "") for x in BOARD_FIGURES)
             passed += ok
             print(f"{'PASS' if ok else 'FAIL'} {name}  [{s.get('status')}, coverage={s.get('coverage')}, "
                   f"tables={s.get('tables')}, {time.time() - t0:.0f}s]")

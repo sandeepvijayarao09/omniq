@@ -425,6 +425,17 @@ ablation is one switch (table in 4.1).
 
 ---
 
+## 9b. Failure log (working backwards from what users experience)
+
+Each row starts from a symptom a person would see and traces it to a root cause. Newest first.
+
+| Date | Symptom | Root cause | Fix | Status |
+|---|---|---|---|---|
+| 2026-11-06 | Everything slow; Docker stopped mid-run | The laptop was swapping 17 GB: a 4 GB embedding model added for Auto Ontology, plus an unused pgAdmin container, on top of the models and Docker VM | Auto Ontology now uses Omniq's 68 MB BGE embedder, zero-padded to its fixed 2048-d column (cosine similarities verified identical); pgAdmin no longer started | ✅ fixed; engine recompiling |
+| 2026-11-06 | Database questions take 10–30 minutes or never answer | Gemma 4 is a thinking model; on Ollama's OpenAI endpoint (which Auto Ontology uses) it spent its whole output budget on hidden reasoning and returned empty content, so every structured-output call failed, retried and hit the 600 s timeout | `scripts/ollama_proxy.py` adds `reasoning_effort: "none"` to chat calls (`think: false` is ignored on that endpoint); a test prompt now returns valid JSON | ✅ fixed |
+| 2026-11-05 | Correct SQL but "no value found" | Rows didn't reach Omniq; unconfirmed whether the parser or the engine | Capture one raw result event once the engine answers | open |
+| 2026-11-05 | An agent withheld a figure the person could read in a document | Agent focus was a hard filter for tables but only a ranking for documents | One rule: the person's own access decides; focus only ranks | ✅ fixed |
+
 ## 9a. Paused state (2026-11-05)
 
 Work paused at a safe point; everything is committed and pushed on `research`.
