@@ -161,10 +161,14 @@ if eng is not None and eng.available():
     check("Database answer: PM's Metrics agent answers from company data with SQL",
           code == 200 and s1.get("status") == "ok" and "730" in d1.get("answer", "").replace(",", ""),
           f"{s1.get('tables')} · {d1.get('answer', '')[:80]!r}")
-    code, d2 = ask(H[MARCUS], "@metrics_agent How much do we owe in incident service credits in total?")
+    code, d2 = ask(H[BEN], "@metrics_agent What is the total budget of our strategic projects?")
     s2 = d2.get("structured") or {}
-    check("Database answer outside the agent's focus is withheld, neutrally (no SQL or tables shown)",
-          code == 200 and s2 == {"status": "not_answerable"} and "42000" not in d2.get("answer", "").replace(",", ""), s2)
+    leaked = [x for x in ("18000000", "1100000", "19100000", "18 million", "19.1 million") if x in d2.get("answer", "").lower().replace(",", "")]
+    check("Board-only data is withheld from a PM, neutrally (no SQL, tables or figures shown)",
+          code == 200 and s2 == {"status": "not_answerable"} and not leaked, {"shown": s2, "leaked": leaked})
+    code, d4 = ask(H[MARCUS], "@vendor_agent How much do we owe in incident service credits in total?")
+    check("The CTO gets finance data they may read", code == 200 and (d4.get("structured") or {}).get("status") == "ok"
+          and "42" in d4.get("answer", ""), (d4.get("structured") or {}).get("tables"))
     code, d3 = ask(H[MAYA], "@release_agent What is the total ARR of at-risk customers?")
     check("Agents without the database tool never call it", code == 200 and d3.get("structured") is None,
           d3.get("structured"))
