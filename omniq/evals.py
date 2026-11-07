@@ -60,10 +60,19 @@ def select(role: str, split: str | None = None) -> list[dict[str, Any]]:
     return out
 
 
+_EMPHASIS = re.compile(r"\*\*|__|`|(?<![\w*])\*(?=\S)|(?<=\S)\*(?![\w*])")
+
+
+def plain(text: str) -> str:
+    """Markdown emphasis removed: "**3** of **40**" says "3 of 40"."""
+    return _EMPHASIS.sub("", text)
+
+
 def grade(case: dict[str, Any], answer: str) -> dict[str, Any]:
-    low = answer.lower()
-    leaked = [s for s in case.get("must_not_include", []) if s.lower() in low]
-    missing = [s for s in case.get("must_include", []) if s.lower() not in low]
+    low, flat = answer.lower(), plain(answer).lower()
+    # A fact counts if it's there with or without formatting; a leak counts if it's there either way.
+    leaked = [s for s in case.get("must_not_include", []) if s.lower() in low or s.lower() in flat]
+    missing = [s for s in case.get("must_include", []) if s.lower() not in low and s.lower() not in flat]
     kind = case["kind"]
     if kind == "answer":
         need = case.get("must_include", [])

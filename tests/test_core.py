@@ -294,3 +294,10 @@ def test_attribution_needs_the_passage_that_answers_not_just_the_name(tmp_path):
         assert evals.fact_reached_model("Amara Nwosu", q, directory, ENG)   # falls back: only the directory relates
     finally:
         dbmod._current = prev
+
+
+def test_grading_ignores_markdown_emphasis_but_never_misses_a_leak():
+    case = {"kind": "answer", "must_include": ["3 of 40"], "must_not_include": ["$18M"]}
+    assert grade(case, "Only **3** of **40** teams are active.")["passed"]
+    assert not grade(case, "3 of 40 teams; valuation **$18M**.")["passed"]
+    assert not grade(case, "3 of 40 teams; valuation **$18**M.")["passed"]
