@@ -35,6 +35,7 @@ from omniq.db import db  # noqa: E402
 from omniq.policy import User, can_read  # noqa: E402
 
 OUT = ROOT / "data" / "benchmark" / "orgqa.yaml"
+HAND = ROOT / "data" / "benchmark" / "orgqa_hand.yaml"
 
 # One persona per distinct access level (open categories / HR scope), each a real person in the directory.
 PERSONAS = {
@@ -203,6 +204,27 @@ def contradicted(case: dict[str, Any], readable: list[str]) -> str:
     return ""
 
 
+def gold_unreadable(case: dict[str, Any], readable: list[str], user: User) -> list[str]:
+    """Gold answers the persona couldn't find in anything they may read: documents, or the ontology records of the
+    case's subjects (two hops). A hand-written answer case with such gold is mislabelled."""
+    seeds = [o for o in (ontology.graph().objects.get(i) for i in case.get("_subject_ids", [])) if o]
+    records = " ".join(text for _, text in ontology.facts(user, seeds, hops=2)).lower()
+    corpus = "\n".join(readable).lower()
+    return [g for g in case.get("must_include", []) if g.lower() not in corpus and g.lower() not in records]
+
+
+def hand_cases() -> list[dict[str, Any]]:
+    out = []
+    for h in yaml.safe_load(HAND.read_text()) if HAND.exists() else []:
+        subjects = h.get("subjects", [])
+        ids = sorted(set(ontology.graph().linker.link(" ".join(subjects))))
+        out.append({"id": h["id"], "persona": h["persona"], "question": h["question"], "type": h["type"],
+                    "template": "hand", "kind": h["kind"], "must_include": h.get("must_include", []),
+                    "must_not_include": h.get("must_not_include", []), "split": split_of(h["id"]),
+                    "_subject_names": subjects, "_subject_ids": ids, "_topic": h.get("topic", [])})
+    return out
+
+
 def build() -> tuple[list[dict[str, Any]], Counter]:
     cases, dropped = [], Counter()
     readable = {uid: _readable_text(get_user(uid)) for uid in PERSONAS}
@@ -216,6 +238,18 @@ def build() -> tuple[list[dict[str, Any]], Counter]:
                 dropped[why] += 1
                 continue
             cases.append({k: v for k, v in case.items() if not k.startswith("_")})
+    for case in hand_cases():
+        uid = case["persona"]
+        if uid not in readable:
+            readable[uid] = _readable_text(get_user(uid))
+        why = contradicted(case, readable[uid])
+        if not why and case["kind"] == "answer":
+            missing = gold_unreadable(case, readable[uid], get_user(uid))
+            why = f"hand case gold not readable by its persona: {missing}" if missing else ""
+        if why:
+            dropped[f"{case['id']}: {why}"] += 1
+            continue
+        cases.append({k: v for k, v in case.items() if not k.startswith("_")})
     cases.sort(key=lambda c: c["id"])
     return cases, dropped
 

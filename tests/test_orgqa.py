@@ -72,3 +72,14 @@ def test_splits_are_stable_and_roughly_60_20_20():
     assert splits == [orgqa.split_of(i) for i in ids]
     share = {s: splits.count(s) / len(ids) for s in ("train", "dev", "test")}
     assert 0.55 < share["train"] < 0.65 and 0.15 < share["dev"] < 0.25 and 0.15 < share["test"] < 0.25
+
+
+def test_hand_answer_case_with_unreadable_gold_is_caught(store):
+    from omniq.assistant import get_user
+
+    case = {"kind": "answer", "must_include": ["Lauren Fitzgerald", "$9,999,999"], "_subject_ids": ["globex"]}
+    user = get_user("emp-dev")
+    # Lauren is the CSM in Globex's ontology record (visible to a developer); the made-up figure is nowhere.
+    assert orgqa.gold_unreadable(case, ["Unrelated document."], user) == ["$9,999,999"]
+    # A basic employee can't see Globex at all, so both are unreadable for them.
+    assert orgqa.gold_unreadable(case, [], get_user("emp-basic")) == ["Lauren Fitzgerald", "$9,999,999"]
