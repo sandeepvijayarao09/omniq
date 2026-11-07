@@ -266,12 +266,6 @@ def engine() -> Engine | None:
     return _engine
 
 
-def set_engine(e: Engine | None) -> None:
-    """Tests and experiments plug in their own engine."""
-    global _engine
-    _engine = e
-
-
 # ------------------------------------------------------------------------------------------------------ the tool
 def query(user, question: str, cfg: dict[str, Any], eng: Engine | None = None) -> dict[str, Any]:
     """One structured-data lookup for one question. Always returns a record; never raises into the answer path.
