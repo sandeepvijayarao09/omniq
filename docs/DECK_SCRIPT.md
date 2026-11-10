@@ -70,6 +70,9 @@ gate."
 rules, 1 waiting for a manager. Kept changes gained 38 points on average, there were zero leaks, and 78% of answers were right
 the first time. The end-to-end suite passes 29 out of 29 on the public URL."
 
+> Note: the 29/29 result was recorded by the author against the hackathon deployment; no run log is committed.
+> The public URL is offline (the demo ran during the hackathon); see [Run it](../README.md#run-it) to run locally.
+
 ## 12 · Business value (3:40–3:52)
 "For a business, that means each person does the work of a team, knowledge compounds every week instead of getting lost
 in chat, mistakes stop repeating, and it's safe to deploy: access enforced by MongoDB, full audit, no model lock-in."

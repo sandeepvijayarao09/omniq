@@ -1,7 +1,7 @@
 # Submission: Omniq Atlas
 
 **Repo:** https://github.com/sandeepvijayarao09/omniq-atlas
-**Live demo:** https://omniq-mv4a4zfo47x-prod.cloud.modelence.app
+**Demo:** `https://omniq-mv4a4zfo47x-prod.cloud.modelence.app`, offline (the demo ran during the hackathon). To run it locally, see [Run it](README.md#run-it).
 **Problem statements:** Recursive Harnessing (primary), Long Horizon Engineering (7-day cycles, versioned memory)
 
 ## One-liner
